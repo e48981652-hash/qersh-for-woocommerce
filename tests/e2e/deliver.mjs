@@ -10,7 +10,8 @@
 //             --reasons a,b   --auto-ok true|false   --risk low|medium|high   --channel sms|notification
 // Events:     --event transfer.received|transfer.updated|webhook.test|device.heartbeat   --forgery (sends a
 //             transfer.updated with suspected_forgery after the transfer.received)   --grace <iso> (subscription.grace_until)
-// Output:     one JSON line per response: {label, status, ms, body}. Exit 0 always; the caller asserts.
+// Output:     one JSON line per response: {label, status, ms, head_ms, retry_after, body}: ms until the whole body
+//             arrived, head_ms until the status line and headers did. Exit 0 always; the caller asserts.
 import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -123,6 +124,7 @@ async function post(label, env, body, t, redelivery) {
 	const started = Date.now();
 	try {
 		const res = await fetch(url, { method: 'POST', redirect: 'manual', headers: headers(env, body, t, redelivery), body, signal: AbortSignal.timeout(30_000) });
+		const headMs = Date.now() - started;
 		const text = await res.text();
 		let parsed = text;
 		try {
@@ -130,7 +132,7 @@ async function post(label, env, body, t, redelivery) {
 		} catch {
 			// not JSON: keep the text, the caller asserts on it
 		}
-		console.log(JSON.stringify({ label, status: res.status, ms: Date.now() - started, retry_after: res.headers.get('retry-after'), body: parsed }));
+		console.log(JSON.stringify({ label, status: res.status, ms: Date.now() - started, head_ms: headMs, retry_after: res.headers.get('retry-after'), body: parsed }));
 		return res.status;
 	} catch (e) {
 		console.log(JSON.stringify({ label, status: null, ms: Date.now() - started, error: e.message }));

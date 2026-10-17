@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:qersh:woocommerce-config:1",
+  "title": "Qersh for WooCommerce configuration",
+  "description": "The JSON of the qersh_wc_config option, of the settings export and import, and of the QERSH_WC_CONFIG constant in wp-config.php (docs/17 §4.2 in the Qersh repository). tolerance_sec, matching and dedup are taken from the core's receiver schema (urn:qersh:receiver-config:1, vendored as fixtures/qersh.config.schema.json) by JSON pointer, so load both schemas into your validator. Connection keys never belong here: they are stored per wallet, or given as QERSH_WC_KEY_<WALLET ID> constants. Omitted parts take the defaults shown. The plugin ignores unknown fields; this schema refuses them to catch typos.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "receiver": {
+      "description": "The names of the core's QershReceiverConfig, without keys.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "endpoint": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path"],
+          "properties": {
+            "path": {
+              "description": "Fixed: the REST route is registered at this path, relative to the REST root, and the wallet id is appended (qersh/v1/webhook/<id>).",
+              "const": "qersh/v1/webhook"
+            }
+          },
+          "default": { "path": "qersh/v1/webhook" }
+        },
+        "tolerance_sec": {
+          "$ref": "urn:qersh:receiver-config:1#/properties/tolerance_sec"
+        },
+        "events": {
+          "description": "The events the plugin handles; any other event with a valid signature is answered 2xx ignored. transfer.received is required.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": ["transfer.received", "transfer.updated", "webhook.test"]
+          },
+          "contains": { "const": "transfer.received" },
+          "default": ["transfer.received", "transfer.updated", "webhook.test"]
+        },
+        "matching": {
+          "description": "The core's matching windows. The plugin's default skew_min is 0 (the owner's decision: an order created after the money arrived is never matched automatically); the core's is 10.",
+          "$ref": "urn:qersh:receiver-config:1#/properties/matching",
+          "default": { "late_window_min": 120, "skew_min": 0 }
+        },
+        "dedup": {
+          "$ref": "urn:qersh:receiver-config:1#/properties/dedup"
+        }
+      }
+    },
+    "wallets": {
+      "description": "The store's receiving wallets. Ids are unique, and the id of a deleted wallet cannot be reused (restore the wallet instead).",
+      "type": "array",
+      "items": { "$ref": "#/$defs/wallet" },
+      "default": []
+    },
+    "store": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "order_ttl_min": {
+          "description": "Minutes the customer has to transfer; the order is cancelled at this deadline plus receiver.matching.late_window_min.",
+          "type": "integer",
+          "minimum": 15,
+          "maximum": 1440,
+          "default": 120
+        },
+        "min_total_minor": {
+          "description": "Smallest order total, in piasters, for which the method is offered; null for no limit. Not more than max_total_minor.",
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "default": null
+        },
+        "max_total_minor": {
+          "description": "Largest order total, in piasters, for which the method is offered; null for no limit.",
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "default": null
+        },
+        "round_up_to_pound": {
+          "description": "Accept a whole-pound transfer for a total with piasters (*9# transfers carry no piasters).",
+          "type": "boolean",
+          "default": true
+        },
+        "allow_key_link": {
+          "description": "Offer \"your developer's link with the connection key\" on the wallet card.",
+          "type": "boolean",
+          "default": true
+        },
+        "txn_entry": {
+          "description": "Show the transaction id box on the order page of Orange Cash orders.",
+          "type": "boolean",
+          "default": true
+        },
+        "admin_cancel_email_on_expiry": {
+          "description": "The switch for WooCommerce's \"Cancelled order\" email to the administrator when the deadline alone cancels an order (docs/17 §4.2 and §4.7); every other cancellation keeps the email.",
+          "type": "boolean",
+          "default": true
+        },
+        "unmatched_retention_days": {
+          "description": "Days after which transfers that matched no order are deleted.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3650,
+          "default": 90
+        },
+        "remove_data_on_uninstall": {
+          "description": "Delete the plugin's tables, settings and connection keys when the plugin is deleted. QERSH_WC_REMOVE_ALL_DATA overrides it.",
+          "type": "boolean",
+          "default": false
+        }
+      }
+    }
+  },
+  "$defs": {
+    "wallet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "provider", "receive_address"],
+      "properties": {
+        "id": {
+          "description": "Generated by the store when the wallet is added; part of the webhook URL.",
+          "type": "string",
+          "pattern": "^[a-z0-9]{12}$"
+        },
+        "label": {
+          "type": "string",
+          "default": ""
+        },
+        "provider": {
+          "type": "string",
+          "enum": ["vodafone_cash", "etisalat_cash", "orange_cash", "instapay_app", "bank_nbe", "bank_cib", "bank_egbank"]
+        },
+        "receive_address": {
+          "description": "Where customers transfer to: an 11-digit wallet number, or name@instapay for instapay_app. The plugin also accepts other spellings (+20…, spaces, Arabic digits) and stores them normalised; this schema asks for the normalised form.",
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "if": {
+        "required": ["provider"],
+        "properties": { "provider": { "const": "instapay_app" } }
+      },
+      "then": {
+        "properties": { "receive_address": { "pattern": "^[a-z0-9._-]{2,64}@instapay$" } }
+      },
+      "else": {
+        "properties": { "receive_address": { "pattern": "^01[0-9]{9}$" } }
+      }
+    }
+  }
+}

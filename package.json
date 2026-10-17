@@ -1,0 +1,29 @@
+{
+	"name": "qersh-for-woocommerce-dev",
+	"version": "0.1.0",
+	"private": true,
+	"description": "Development and test tools of Qersh for WooCommerce. The plugin itself has no JavaScript build and no runtime dependency.",
+	"license": "GPL-2.0-or-later",
+	"engines": {
+		"node": ">=24.15.0"
+	},
+	"scripts": {
+		"env:start": "wp-env start",
+		"env:stop": "wp-env stop",
+		"env:destroy": "wp-env destroy",
+		"env:test:start": "wp-env --config=.wp-env.test.json start",
+		"env:test:stop": "wp-env --config=.wp-env.test.json stop",
+		"test:e2e": "playwright test -c tests/e2e/playwright.config.mjs",
+		"test:js": "node --test tests/js/txn-normalize.test.mjs tests/js/checkout-blocks.test.mjs",
+		"test:parity": "node tests/parity/run.mjs",
+		"test:local": "node tests/local/e2e.mjs"
+	},
+	"devDependencies": {
+		"@playwright/test": "1.63.0",
+		"@woocommerce/e2e-utils-playwright": "0.5.1",
+		"@wordpress/env": "11.16.0"
+	},
+	"overrides": {
+		"@wp-playground/cli": "3.1.56"
+	}
+}

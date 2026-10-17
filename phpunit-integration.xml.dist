@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<!--
+	Integration tests: WordPress test library + WooCommerce + this plugin on MySQL or MariaDB (CI only; see
+	tests/php/integration/bootstrap.php). Run: vendor/bin/phpunit -c phpunit-integration.xml.dist
+	Deprecations are not turned into failures here: WordPress and WooCommerce raise their own on new PHP versions.
+-->
+<phpunit
+	bootstrap="tests/php/integration/bootstrap.php"
+	colors="true"
+	backupGlobals="false"
+	beStrictAboutTestsThatDoNotTestAnything="true"
+	convertDeprecationsToExceptions="false"
+	failOnRisky="true"
+>
+	<testsuites>
+		<testsuite name="integration">
+			<directory suffix="Test.php">tests/php/integration</directory>
+		</testsuite>
+	</testsuites>
+</phpunit>

@@ -1,13 +1,14 @@
 <?php
 /**
- * Runs `php -l` on every PHP file of the plugin and its tests (not vendor). Exit code 1 on any syntax error.
+ * Runs `php -l` on every PHP file of the plugin (with the compiled languages/*.l10n.php), its tests and the
+ * development scripts (not vendor). Exit code 1 on any syntax error.
  * Usage: php scripts/lint-php.php
  *
  * @package QershPay\WooCommerce\Scripts
  */
 
 $root  = dirname( __DIR__ );
-$dirs  = array( 'qersh-for-woocommerce.php', 'uninstall.php', 'src', 'templates', 'tests/php', 'tests/parity' );
+$dirs  = array( 'qersh-for-woocommerce.php', 'uninstall.php', 'src', 'templates', 'languages', 'scripts', 'tests/php', 'tests/parity', 'tests/local', 'tests/e2e' );
 $files = array();
 foreach ( $dirs as $dir ) {
 	$path = $root . '/' . $dir;

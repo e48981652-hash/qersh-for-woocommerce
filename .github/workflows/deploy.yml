@@ -1,0 +1,83 @@
+# Deploy a released version to the wordpress.org plugin directory (SVN), by hand only (docs/17 §11, §14.2 item 7 in
+# the Qersh repository): it stays manual until the plugin is accepted and the owner has put SVN_USERNAME and
+# SVN_PASSWORD in the repository secrets. It ships exactly the reviewed package: the zip built from the allow-list
+# (scripts/build-zip.mjs --release), unpacked as BUILD_DIR, so .distignore is a second guard only. The assets of
+# .wordpress-org (banners, icons, screenshots) go to SVN assets. After a deploy, the owner confirms the release in
+# the wordpress.org email ("release confirmation"); the version then waits for the cool-down before it goes out.
+name: Deploy to wordpress.org
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'The released tag to deploy (a bare version such as 0.1.0)'
+        required: true
+        type: string
+      dry_run:
+        description: 'Dry run: prepare the SVN commit without sending it (untick to publish)'
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-wordpress-org
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.version }}${{ inputs.dry_run && ' (dry run)' || '' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: wordpress-org
+    steps:
+      - name: The version is a bare tag
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::$VERSION is not a bare version"; exit 1; }
+
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ inputs.version }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: The tag is on main and the version fields agree
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor HEAD origin/main || { echo "::error::$VERSION is not on main"; exit 1; }
+          header=$(sed -n 's/^[ *]*Version:[[:space:]]*\([^[:space:]]*\).*/\1/p' qersh-for-woocommerce.php | head -n 1)
+          stable=$(sed -n 's/^Stable tag:[[:space:]]*\([^[:space:]]*\).*/\1/p' readme.txt | head -n 1)
+          [ "$header" = "$VERSION" ] && [ "$stable" = "$VERSION" ] || { echo "::error::header $header, Stable tag $stable, tag $VERSION"; exit 1; }
+
+      - name: The package, unpacked
+        run: |
+          node scripts/build-zip.mjs --release
+          rm -rf build/svn
+          mkdir -p build/svn
+          unzip -q dist/qersh-for-woocommerce.zip -d build/svn
+          find build/svn -type f | sort
+
+      - name: Subversion (not on every runner image)
+        run: command -v svn || { sudo apt-get update -q && sudo apt-get install -y -q subversion; }
+
+      - name: Deploy (10up/action-wordpress-plugin-deploy 2.3.0)
+        uses: 10up/action-wordpress-plugin-deploy@2.3.0
+        with:
+          dry-run: ${{ inputs.dry_run }}
+        env:
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+          SLUG: qersh-for-woocommerce
+          VERSION: ${{ inputs.version }}
+          BUILD_DIR: build/svn/qersh-for-woocommerce
+          ASSETS_DIR: .wordpress-org

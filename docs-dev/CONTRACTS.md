@@ -264,9 +264,9 @@ Value sets:
 
 ## 11. Tests
 - **Unit:** `tests/php/unit/**Test.php`, PHPUnit 9.6 with yoast/phpunit-polyfills 2. No WordPress; the bootstrap defines `ABSPATH` and loads the autoloader. Run `composer test:unit`, or `vendor/bin/phpunit -c phpunit.xml.dist --testsuite unit`.
-- **Integration:** `tests/php/integration/**Test.php`, WP_UnitTestCase via the WordPress test library. Runs in CI (wp-env); locally only when a test library is available.
+- **Integration:** `tests/php/integration/**Test.php`, WP_UnitTestCase via the WordPress test library. Runs in CI on MySQL 8.0 through `tests/php/integration/install-wp-tests.sh` and setup-php (`e2e.yml`, six rows), and nightly on MariaDB through `wp-env --config=.wp-env.test.json` (`nightly.yml`, HPOS on and off). The bootstrap stops when HPOS is not in the state `DISABLE_HPOS` asked for. Locally only when a test library and a MySQL or MariaDB server are available.
 - **Parity:** `node tests/parity/run.mjs` runs the compiled core and the PHP port (through `php tests/parity/php-runner.php`) on generated inputs and compares.
-- **E2E:** `tests/e2e/` (Playwright + `deliver.mjs`), CI only, except smoke scripts against a local site.
+- **E2E:** `tests/e2e/` (Playwright + `deliver.mjs`, the kit's `fixtures/sink/send.mjs`, the setup scripts in `tests/e2e/setup/` and the test must-use plugins in `tests/e2e/mu/`), in CI on wp-env (`e2e.yml`, four jobs). `tests/e2e/concurrency.mjs` runs nightly on wp-env's MariaDB. `tests/local/` is the local harness (PHP's built-in server and SQLite, no Docker): its own scenarios, and the Playwright tests against a copy of the local store.
 
 ## 12. Interfaces between C, D1, D2 and E (second wave)
 Package D is split in two: **D1** owns `src/Webhook/{Module,Fallback,Controller}.php` and `src/Completion.php`; **D2** owns `src/MatchPolicy.php`, `src/Orders.php`, `src/Claims.php` and `src/Expiry.php`.

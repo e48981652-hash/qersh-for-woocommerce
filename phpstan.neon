@@ -1,0 +1,78 @@
+# PHPStan 2 for the plugin code (docs/17 §11): level 6 on src/, PHP 7.4 semantics, with the WordPress stubs (through
+# szepeviktor/phpstan-wordpress) and the WooCommerce stubs. Run: composer analyse
+includes:
+    - vendor/szepeviktor/phpstan-wordpress/extension.neon
+
+parameters:
+    level: 6
+    phpVersion: 70400
+    paths:
+        - src
+    bootstrapFiles:
+        - tests/phpstan/bootstrap.php
+    scanFiles:
+        - vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
+        - vendor/php-stubs/woocommerce-stubs/woocommerce-packages-stubs.php
+    # Defined by the site, or not at all: no branch on them is dead code.
+    dynamicConstantNames:
+        - QERSH_WC_CONFIG
+        - QERSH_WC_REMOVE_ALL_DATA
+        - LOGGED_IN_KEY
+        - LOGGED_IN_SALT
+        - WC_VERSION
+        - WP_SECRET_PREFIX
+        - WC_USE_TRANSACTIONS
+        - WC_REMOVE_ALL_DATA
+        - DISABLE_WP_CRON
+        - WP_CLI
+    treatPhpDocTypesAsCertain: false
+    reportUnmatchedIgnoredErrors: true
+    # Each entry is a policy or a case PHPStan cannot see, with its reason; never a finding left for later. With
+    # reportUnmatchedIgnoredErrors an entry whose code went away fails the run until it is removed here.
+    ignoreErrors:
+        # Arrays are WordPress-style hashes whose keys the docblocks describe in prose, as WordPress and WooCommerce
+        # document theirs (`@return array` and a description). Level 6 would want a value type on every one.
+        -
+            identifier: missingType.iterableValue
+        # wpdb::$dbh is protected in the stubs, but wpdb::__get() and __isset() keep it readable for this use.
+        -
+            identifier: property.protected
+            message: '#^Access to protected property wpdb::\$dbh\.$#'
+            path: src/Store/Db.php
+        # 32-bit PHP (WordPress Playground, the nightly SQLite row): the seconds can overflow into a float there,
+        # which PHPStan's 64-bit integer ranges cannot show.
+        -
+            identifier: function.impossibleType
+            message: '#^Call to function is_float\(\) with int<#'
+            path: src/Core/Time.php
+            count: 1
+        -
+            identifier: smallerOrEqual.invalid
+            path: src/Core/Time.php
+            count: 1
+        -
+            identifier: greaterOrEqual.invalid
+            path: src/Core/Time.php
+            count: 1
+        -
+            identifier: function.alreadyNarrowedType
+            message: '#^Call to function is_int\(\) with int<#'
+            path: src/Core/Time.php
+            count: 1
+        # WooCommerce's own gateway idiom: process_admin_options() returns bool and is hooked as an action.
+        -
+            identifier: return.void
+            message: '#^Action callback returns bool but should not return anything\.$#'
+            path: src/Gateway.php
+            count: 1
+        # wp_send_json() can return: a wp_doing_ajax filter sends it through wp_die(), whose handler may not exit.
+        -
+            identifier: deadCode.unreachable
+            path: src/Webhook/Fallback.php
+            count: 1
+        # A PHP whose time zone database lacks Africa/Cairo throws here (the Status tab reports it); PHPStan assumes
+        # a complete database.
+        -
+            identifier: catch.neverThrown
+            path: src/Format.php
+            count: 1

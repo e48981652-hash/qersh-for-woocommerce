@@ -1,0 +1,226 @@
+# Nightly (docs/17 §11 in the Qersh repository): the PHP versions between the pull-request matrix's rows, the next
+# WordPress and WooCommerce releases (allowed to fail), the integration suite and the concurrency run
+# (tests/e2e/concurrency.mjs: the transaction id and the delivery together, two transfers of one payer, crossing
+# attaches) on MariaDB through wp-env, PHP-WASM (32-bit, PHP_INT_SIZE = 4, as on the owner's Playground) with SQLite,
+# and PHP-FPM + nginx (allowed to fail at first).
+name: Nightly
+
+on:
+  schedule:
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    name: PHP ${{ matrix.php }}, WP ${{ matrix.wp }}, WC ${{ matrix.wc }}${{ matrix.experimental && ' (allowed to fail)' || '' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { php: '8.0', wp: 'latest', wc: 'latest', experimental: false }
+          - { php: '8.1', wp: 'latest', wc: 'latest', experimental: false }
+          - { php: '8.4', wp: 'latest', wc: 'latest', experimental: false }
+          # The next WordPress (trunk, the release candidate during an RC period) and WooCommerce's newest beta or RC.
+          - { php: '8.3', wp: 'nightly', wc: 'latest', experimental: true }
+          - { php: '8.3', wp: 'latest', wc: 'rc', experimental: true }
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      WP_CORE_DIR: /tmp/wordpress
+      WP_TESTS_DIR: /tmp/wordpress-tests-lib
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: composer:v2
+          extensions: mysqli, mbstring, intl, sodium
+          ini-values: memory_limit=1G, error_reporting=-1, display_errors=On
+
+      - name: Composer (development tools only)
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: php -l and unit tests
+        run: |
+          php scripts/lint-php.php
+          vendor/bin/phpunit -c phpunit.xml.dist --testsuite unit
+
+      - name: WordPress, its test library and WooCommerce
+        run: bash tests/php/integration/install-wp-tests.sh wordpress_test root root 127.0.0.1:3306 '${{ matrix.wp }}' '${{ matrix.wc }}'
+
+      - name: PHPUnit integration
+        run: vendor/bin/phpunit -c phpunit-integration.xml.dist
+
+  mariadb:
+    name: Integration and concurrency on MariaDB (wp-env, .wp-env.test.json)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    # Allowed to fail until its first green run: the suite's first run on wp-env's MariaDB container.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Composer and npm
+        run: |
+          composer install --no-interaction --no-progress --prefer-dist
+          npm ci --no-audit --no-fund
+
+      - name: Start wp-env (.wp-env.test.json)
+        uses: nick-fields/retry@v4
+        with:
+          timeout_minutes: 10
+          max_attempts: 3
+          command: npx wp-env start --config=.wp-env.test.json
+
+      - name: PHPUnit integration, HPOS on and off
+        run: |
+          npx wp-env run cli --config=.wp-env.test.json --env-cwd=wp-content/plugins/qersh-for-woocommerce php -d memory_limit=1G vendor/bin/phpunit -c phpunit-integration.xml.dist
+          npx wp-env run cli --config=.wp-env.test.json --env-cwd=wp-content/plugins/qersh-for-woocommerce bash -c 'DISABLE_HPOS=1 php -d memory_limit=1G vendor/bin/phpunit -c phpunit-integration.xml.dist'
+
+      # docs/17 §11: "the concurrency test on MariaDB too". On the site itself (WordPress on Apache with several
+      # workers), not in PHPUnit's single process: real parallel requests and parallel WP-CLI processes.
+      - name: Concurrency on MariaDB (transaction id and delivery together, one payer's two transfers, crossing attaches)
+        env:
+          QERSH_E2E_BASE: http://localhost:8890
+          QERSH_E2E_WP_ENV_CONFIG: .wp-env.test.json
+        run: |
+          npx wp-env run cli --config=.wp-env.test.json wp plugin activate qersh-for-woocommerce
+          npx wp-env run cli --config=.wp-env.test.json bash -c 'rm -f wp-content/debug.log'
+          node tests/e2e/concurrency.mjs
+
+      - name: debug.log of the concurrency run (a deadlock or a notice of the plugin fails)
+        if: always()
+        run: |
+          npx wp-env run cli --config=.wp-env.test.json bash -c 'cat wp-content/debug.log 2>/dev/null || true' > "$RUNNER_TEMP/debug.log"
+          echo "debug.log: $(wc -l < "$RUNNER_TEMP/debug.log") line(s)"
+          # A lock wait that ends in 429 qersh_busy is allowed under this load; a deadlock never is (docs/17 §14.1).
+          if grep -i 'deadlock' "$RUNNER_TEMP/debug.log"; then
+            echo '::error::debug.log has a database deadlock (listed above)'
+            exit 1
+          fi
+          if grep -i 'qersh' "$RUNNER_TEMP/debug.log" | grep -i -E 'PHP (Fatal|Warning|Notice|Deprecated)'; then
+            echo '::error::debug.log has errors of Qersh for WooCommerce (listed above)'
+            exit 1
+          fi
+
+  playground:
+    name: PHP-WASM 32-bit and SQLite (Playground CLI 3.1.56)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    # Allowed to fail until its first green run (the first run of the pinned PHP-WASM CLI on this suite).
+    continue-on-error: true
+    env:
+      PLAYGROUND: '@wp-playground/cli@3.1.56'
+      PHP_WASM: '@php-wasm/cli@3.1.56'
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Composer (PHPUnit for the unit tests)
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: A 32-bit PHP on the PATH of this job
+        run: |
+          mkdir -p "$RUNNER_TEMP/php32"
+          printf '#!/usr/bin/env bash\nexec npx --yes %s "$@"\n' "$PHP_WASM" > "$RUNNER_TEMP/php32/php32"
+          chmod +x "$RUNNER_TEMP/php32/php32"
+          echo "$RUNNER_TEMP/php32" >> "$GITHUB_PATH"
+
+      - name: PHP_INT_SIZE is 4
+        run: |
+          php32 -r 'echo PHP_VERSION, " ", PHP_INT_SIZE, "\n"; exit( 4 === PHP_INT_SIZE ? 0 : 1 );'
+
+      - name: Unit tests on 32-bit PHP
+        run: php32 vendor/bin/phpunit -c phpunit.xml.dist --testsuite unit
+
+      - name: Parity with the core on 32-bit PHP
+        run: node tests/parity/run.mjs --php="$(command -v php32)"
+
+      - name: Playground on SQLite (WordPress 7.1.3, WooCommerce 11.2.1, this plugin)
+        run: |
+          npx --yes "$PLAYGROUND" server --port=9400 --php=8.3 --wp=7.1.3 \
+            --mount=".:/wordpress/wp-content/plugins/qersh-for-woocommerce" \
+            --blueprint=tests/e2e/playground/blueprint.json > "$RUNNER_TEMP/playground.log" 2>&1 &
+          for i in $(seq 1 120); do
+            if curl -fsS -o /dev/null http://127.0.0.1:9400/; then break; fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/playground.log"
+          curl -fsS -o /dev/null http://127.0.0.1:9400/
+
+      - name: Webhook on Playground (unknown wallet, test delivery, a personal transfer)
+        run: |
+          code=$(curl -s -o "$RUNNER_TEMP/unknown.json" -w '%{http_code}' -X POST -H 'content-type: application/json' -d '{}' 'http://127.0.0.1:9400/?rest_route=/qersh/v1/webhook/aaaaaaaaaaaa')
+          cat "$RUNNER_TEMP/unknown.json"; echo
+          test "$code" = 404
+          grep -q qersh_unknown_wallet "$RUNNER_TEMP/unknown.json"
+          SECRET=$(node -e "process.stdout.write(require('./fixtures/test-vectors.json').secret)")
+          URL='http://127.0.0.1:9400/?rest_route=/qersh/v1/webhook/nightly0001a'
+          node tests/e2e/deliver.mjs "$URL" --secret "$SECRET" --wallet nightly0001a --provider vodafone_cash --event webhook.test | tee "$RUNNER_TEMP/test.jsonl"
+          grep -q '"status":200' "$RUNNER_TEMP/test.jsonl"
+          node tests/e2e/deliver.mjs "$URL" --secret "$SECRET" --wallet nightly0001a --provider vodafone_cash --payer 01155566677 --amount 77 | tee "$RUNNER_TEMP/personal.jsonl"
+          grep -q '"status":"unmatched"' "$RUNNER_TEMP/personal.jsonl"
+
+  fpm:
+    name: PHP-FPM + nginx (after-reply path, reply time with slow mail; allowed to fail)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: WordPress on the official php8.3-fpm image, nginx and MySQL 8.0
+        run: bash tests/e2e/fpm/start.sh
+
+      - name: Store, plugin and a wallet
+        run: bash tests/e2e/fpm/setup.sh
+
+      - name: A delivery answers within 3 seconds with a 5-second mail, and the order completes after the reply
+        run: node tests/e2e/fpm/check.mjs
+
+      - name: Logs
+        if: always()
+        run: docker compose -f tests/e2e/fpm/compose.yml logs --no-color --tail=200 || true

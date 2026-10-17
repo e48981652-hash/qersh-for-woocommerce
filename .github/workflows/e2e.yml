@@ -1,0 +1,186 @@
+# Integration and end-to-end tests (docs/17 §11 and §14.1 in the Qersh repository).
+#
+# integration: PHPUnit with the WordPress test library, WooCommerce and this plugin on MySQL 8.0, in the six valid
+#   combinations of docs/17 §11 (WooCommerce 11.0 runs on WordPress 6.9 to 7.1; 11.1 and later on 7.0 to 7.1).
+#   tests/php/integration/install-wp-tests.sh installs WordPress, its test library and WooCommerce; the same suite
+#   runs on wp-env's MariaDB with .wp-env.test.json in nightly.yml.
+# playwright: four jobs on wp-env (.wp-env.json: WordPress 7.1, WooCommerce 11.2.1 from wordpress.org, PHP 8.3,
+#   WP_DEBUG): {Checkout Blocks, classic} × {HPOS on, off}. One runs with the site language ar (the core language pack
+#   only: the plugin's own Arabic must load with no pack of its own), one with the "Disable REST API" plugin (the
+#   phone and the order page then use the ?wc-api=qersh fallback), and one with tests/e2e/mu defining
+#   fastcgi_finish_request() (the after-reply path, which Apache mod_php does not have). Every job has
+#   tests/e2e/mu/qersh-test-mail.php (a mail log, and a 5-second mail that deliveries.spec.mjs switches on) and runs
+#   every spec, deliveries.spec.mjs included: the delivery scenarios of docs/17 §1 criterion 2 (the kit's send.mjs
+#   with --probe, --late 72, --held 15 and --forgery on a store reset before each; deliver.mjs with one delivery id
+#   six times at once, two transfers of one payer at once, an Orange Cash id typed after its delivery) and criterion 3
+#   (the reply within 3 seconds while each email takes 5, then "Processing order" and "New order" after one Action
+#   Scheduler run).
+name: E2E
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration:
+    name: PHPUnit integration (PHP ${{ matrix.php }}, WP ${{ matrix.wp }}, WC ${{ matrix.wc }}, HPOS ${{ matrix.hpos }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { php: '7.4', wp: '6.9', wc: '11.0', hpos: 'on' }
+          - { php: '7.4', wp: '6.9', wc: '11.0', hpos: 'off' }
+          - { php: '8.2', wp: '7.0', wc: '11.1', hpos: 'on' }
+          - { php: '8.3', wp: 'latest', wc: 'latest', hpos: 'on' }
+          - { php: '8.3', wp: 'latest', wc: 'latest', hpos: 'off' }
+          - { php: '8.5', wp: 'latest', wc: 'latest', hpos: 'on' }
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      WP_CORE_DIR: /tmp/wordpress
+      WP_TESTS_DIR: /tmp/wordpress-tests-lib
+      DISABLE_HPOS: ${{ matrix.hpos == 'off' && '1' || '0' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: composer:v2
+          extensions: mysqli, mbstring, intl, sodium
+          ini-values: memory_limit=1G, error_reporting=-1, display_errors=On
+
+      - name: Composer (development tools only)
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: WordPress, its test library and WooCommerce
+        run: bash tests/php/integration/install-wp-tests.sh wordpress_test root root 127.0.0.1:3306 '${{ matrix.wp }}' '${{ matrix.wc }}'
+
+      - name: PHPUnit integration
+        run: vendor/bin/phpunit -c phpunit-integration.xml.dist
+
+  playwright:
+    name: Playwright (${{ matrix.checkout }}, HPOS ${{ matrix.hpos }}${{ matrix.extra }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { checkout: blocks, hpos: 'on', locale: ar, rest: 'on', finish: 'off', extra: ', site in Arabic' }
+          - { checkout: blocks, hpos: 'off', locale: en_US, rest: 'on', finish: 'on', extra: ', fastcgi_finish_request' }
+          - { checkout: classic, hpos: 'on', locale: en_US, rest: 'off', finish: 'off', extra: ', Disable REST API' }
+          - { checkout: classic, hpos: 'off', locale: en_US, rest: 'on', finish: 'off', extra: '' }
+    env:
+      CI: 'true'
+      QERSH_E2E_BASE: http://localhost:8888
+      QERSH_E2E_CHECKOUT: ${{ matrix.checkout }}
+      QERSH_E2E_LOCALE: ${{ matrix.locale }}
+      QERSH_E2E_REST: ${{ matrix.rest }}
+      QERSH_E2E_FINISH: ${{ matrix.finish }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: npm ci
+        run: npm ci --no-audit --no-fund
+
+      - name: wp-env override of this job
+        run: node tests/e2e/wp-env-override.mjs --mu-mail ${{ matrix.finish == 'on' && '--mu-finish' || '' }} ${{ matrix.rest == 'off' && '--disable-rest' || '' }}
+
+      - name: Start wp-env
+        uses: nick-fields/retry@v4
+        with:
+          timeout_minutes: 10
+          max_attempts: 3
+          command: npx wp-env start
+
+      - name: Activate the plugin
+        run: |
+          npx wp-env run cli wp plugin activate qersh-for-woocommerce
+          npx wp-env run cli wp plugin list --fields=name,status,version
+
+      - name: HPOS ${{ matrix.hpos }}
+        run: |
+          if [ '${{ matrix.hpos }}' = 'on' ]; then
+            # No --ignore-plugin-compatibility: this fails when the plugin's HPOS declaration is missing.
+            npx wp-env run cli wp wc hpos enable
+            npx wp-env run cli wp wc hpos compatibility-info --display-filenames | tee "$RUNNER_TEMP/hpos-compat.txt"
+            awk '/compatible plugin/ { on = 1 } /incompatible plugin|uncertain plugin/ { on = 0 } on' "$RUNNER_TEMP/hpos-compat.txt" | grep -q 'qersh-for-woocommerce/qersh-for-woocommerce.php' || { echo '::error::the plugin is not listed as HPOS compatible'; exit 1; }
+          else
+            npx wp-env run cli wp wc hpos disable
+          fi
+          npx wp-env run cli wp option get woocommerce_custom_orders_table_enabled
+
+      - name: Site language ${{ matrix.locale }}
+        if: matrix.locale != 'en_US'
+        run: |
+          npx wp-env run cli wp language core install '${{ matrix.locale }}' --activate
+          npx wp-env run cli wp option get WPLANG
+
+      - name: Must-use plugins (the mail log in every job; fastcgi_finish_request in one)
+        run: |
+          npx wp-env run cli wp plugin list --status=must-use --fields=name | tee "$RUNNER_TEMP/mu.txt"
+          grep -q 'qersh-test-mail' "$RUNNER_TEMP/mu.txt"
+          if [ '${{ matrix.finish }}' = 'on' ]; then grep -q 'qersh-test-finish-request' "$RUNNER_TEMP/mu.txt"; fi
+
+      - name: Empty debug.log before the tests
+        run: npx wp-env run cli bash -c 'rm -f wp-content/debug.log'
+
+      - name: Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Playwright
+        run: npx playwright test -c tests/e2e/playwright.config.mjs
+
+      - name: debug.log (the plugin's notices fail the job)
+        if: always()
+        run: |
+          npx wp-env run cli bash -c 'cat wp-content/debug.log 2>/dev/null || true' > "$RUNNER_TEMP/debug.log"
+          grep -v '^\(ℹ\|✔\)' "$RUNNER_TEMP/debug.log" > "$RUNNER_TEMP/debug-clean.log" || true
+          echo "debug.log: $(wc -l < "$RUNNER_TEMP/debug-clean.log") line(s)"
+          if grep -i 'triggered too early' "$RUNNER_TEMP/debug-clean.log" | grep -v -i 'qersh' ; then
+            echo '::warning::debug.log has "triggered too early" notices of other plugins (listed above)'
+          fi
+          if grep -i -E 'qersh-for-woocommerce|qersh' "$RUNNER_TEMP/debug-clean.log" | grep -i -E 'triggered too early|PHP (Fatal|Warning|Notice|Deprecated)|doing_it_wrong|incorrectly'; then
+            echo '::error::debug.log has notices of Qersh for WooCommerce (listed above)'
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-${{ matrix.checkout }}-hpos-${{ matrix.hpos }}
+          path: |
+            tests/e2e/playwright-report
+            tests/e2e/test-results
+            ${{ runner.temp }}/debug.log
+          retention-days: 14
+          if-no-files-found: ignore

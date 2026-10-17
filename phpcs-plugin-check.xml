@@ -1,0 +1,162 @@
+<?xml version="1.0"?>
+<ruleset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" name="QershPluginCheck" xsi:noNamespaceSchemaLocation="vendor/squizlabs/php_codesniffer/phpcs.xsd">
+	<description>The PHPCS part of Plugin Check's plugin_repo category (Plugin Check 2.1.0: phpcs-rulesets/plugin-review.xml and the PHPCS-based checks of that category), reproduced with the sniffs in vendor/, on the files the package ships, with the severities wordpress.org uses (docs/17 §9: --error-severity=7 --warning-severity=6 --include-low-severity-errors --exclude-checks=prefixing). Run: composer lint:plugin-check (add --warning-severity=1 to see every warning).</description>
+
+	<!--
+	Plugin Check checks of the plugin_repo category that run PHPCS, and how this file covers each:
+	  plugin_review_phpcs (plugin-review.xml) ..... below, rule by rule; its four PluginCheck.* sniffs as noted there
+	  i18n_usage (WordPress.WP.I18n) .............. below, with text_domain = the slug
+	  enqueued_resources (WordPress.WP.EnqueuedResources) below
+	  direct_db_queries (WordPress.DB.DirectDatabaseQuery) below
+	  late_escaping (WordPress.Security.EscapeOutput) below
+	  safe_redirect (WordPress.Security.SafeRedirect) below
+	  prefixing (WordPress.NamingConventions.PrefixAllGlobals): excluded by wordpress.org; phpcs.xml.dist runs it
+	  localhost (PluginCheck.CodeAnalysis.Localhost) and the ShortURL sniff: no vendor sniff; scripts/build-zip.mjs
+	      refuses the same patterns in the files it packs
+	  offloading_files, setting_sanitization, write_file, direct_db, nonce_verification (PluginCheck.* sniffs),
+	  minified_files (Internal.Tokenizer.Exception): only in Plugin Check itself, which CI runs on the built
+	      package (wordpress/plugin-check-action, category plugin_repo, errors fail)
+	-->
+
+	<file>qersh-for-woocommerce.php</file>
+	<file>uninstall.php</file>
+	<file>src</file>
+	<file>templates</file>
+	<!-- The compiled translations (*.l10n.php) are PHP files of the package too. -->
+	<file>languages</file>
+
+	<!-- As plugin-review.xml. -->
+	<ini name="error_reporting" value="E_ALL &#38; ~E_DEPRECATED"/>
+	<config name="testVersion" value="5.2-"/>
+	<exclude-pattern>*/vendor/*</exclude-pattern>
+	<exclude-pattern>*/vendors/*</exclude-pattern>
+	<exclude-pattern>*/node_modules/*</exclude-pattern>
+
+	<arg name="extensions" value="php"/>
+	<arg name="basepath" value="."/>
+	<arg value="sp"/>
+	<!-- wordpress.org: every error, whatever its severity; warnings of severity 6 and above. -->
+	<arg name="error-severity" value="1"/>
+	<arg name="warning-severity" value="6"/>
+
+	<!-- plugin-review.xml ================================================================================ -->
+	<rule ref="WordPress.DB.PreparedSQL"/>
+	<rule ref="WordPress.DB.PreparedSQL.InterpolatedNotPrepared">
+		<type>warning</type>
+	</rule>
+	<rule ref="WordPress.DB.PreparedSQLPlaceholders"/>
+	<rule ref="WordPress.Security.NonceVerification">
+		<type>warning</type>
+	</rule>
+	<rule ref="WordPress.Security.ValidatedSanitizedInput">
+		<type>warning</type>
+	</rule>
+	<rule ref="Generic.PHP.BacktickOperator">
+		<severity>7</severity>
+	</rule>
+	<!-- PluginCheck.CodeAnalysis.Heredoc (T_START_HEREDOC) is not in vendor/: Squiz's sniff flags heredoc, and nowdoc
+	     too, which docs-dev/CONTRACTS.md forbids as well. -->
+	<rule ref="Squiz.PHP.Heredoc">
+		<severity>7</severity>
+	</rule>
+	<rule ref="Generic.PHP.DiscourageGoto.Found">
+		<type>error</type>
+		<severity>7</severity>
+		<message>The "goto" language construct should not be used.</message>
+	</rule>
+	<rule ref="WordPress.PHP.DevelopmentFunctions">
+		<type>warning</type>
+	</rule>
+	<rule ref="Generic.PHP.DisallowShortOpenTag"/>
+	<rule ref="Generic.PHP.DisallowShortOpenTag.Found">
+		<severity>7</severity>
+	</rule>
+	<rule ref="Generic.PHP.DisallowShortOpenTag.EchoFound">
+		<severity>7</severity>
+	</rule>
+	<rule ref="Generic.PHP.DisallowAlternativePHPTags">
+		<severity>7</severity>
+	</rule>
+	<rule ref="WordPress.Security.PluginMenuSlug">
+		<severity>6</severity>
+	</rule>
+	<rule ref="WordPress.DB.RestrictedClasses">
+		<severity>7</severity>
+	</rule>
+	<rule ref="WordPress.DB.RestrictedFunctions">
+		<severity>7</severity>
+	</rule>
+	<rule ref="WordPress.WP.AlternativeFunctions">
+		<type>error</type>
+		<exclude name="WordPress.WP.AlternativeFunctions.json_encode_json_encode"/>
+		<exclude name="WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents"/>
+		<exclude name="WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents"/>
+	</rule>
+	<rule ref="Generic.PHP.ForbiddenFunctions">
+		<properties>
+			<property name="forbiddenFunctions" type="array">
+				<element key="move_uploaded_file" value="null"/>
+				<element key="passthru" value="null"/>
+				<element key="proc_open" value="null"/>
+				<element key="create_function" value="null"/>
+				<element key="eval" value="null"/>
+				<element key="str_rot13" value="null"/>
+				<element key="_cleanup_header_comment" value="null"/>
+				<element key="_get_plugin_data_markup_translate" value="null"/>
+				<element key="_transition_post_status" value="null"/>
+				<element key="_wp_post_revision_fields" value="null"/>
+				<element key="do_shortcode_tag" value="null"/>
+				<element key="get_post_type_labels" value="null"/>
+				<element key="wp_get_sidebars_widgets" value="null"/>
+				<element key="wp_get_widget_defaults" value="null"/>
+			</property>
+		</properties>
+		<type>error</type>
+		<severity>7</severity>
+	</rule>
+	<!-- plugin-review.xml's list, plus load_plugin_textdomain: PluginCheck.CodeAnalysis.DiscouragedFunctions (not in
+	     vendor/) discourages it for plugins that require WordPress 4.6 or later. -->
+	<rule ref="Squiz.PHP.DiscouragedFunctions">
+		<properties>
+			<property name="forbiddenFunctions" type="array">
+				<element key="set_time_limit" value="null"/>
+				<element key="ini_set" value="null"/>
+				<element key="ini_alter" value="null"/>
+				<element key="dl" value="null"/>
+				<element key="load_plugin_textdomain" value="null"/>
+			</property>
+		</properties>
+	</rule>
+	<rule ref="WordPress.WP.DeprecatedClasses"/>
+	<rule ref="WordPress.WP.DeprecatedFunctions"/>
+	<rule ref="WordPress.WP.DeprecatedParameters"/>
+	<rule ref="WordPress.DateTime.RestrictedFunctions"/>
+	<rule ref="WordPress.WP.DiscouragedConstants">
+		<type>error</type>
+		<severity>7</severity>
+	</rule>
+	<rule ref="WordPress.WP.DiscouragedFunctions">
+		<severity>6</severity>
+	</rule>
+	<rule ref="WordPress.WP.DeprecatedParameterValues">
+		<severity>7</severity>
+	</rule>
+	<rule ref="Generic.Files.ByteOrderMark">
+		<severity>7</severity>
+	</rule>
+	<!-- PluginCheck.CodeAnalysis.RequiredFunctionParameters (parse_str without its result argument) has no vendor
+	     equivalent; the plugin does not call parse_str. -->
+
+	<!-- The other PHPCS-based checks of the plugin_repo category ======================================== -->
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="qersh-for-woocommerce"/>
+			</property>
+		</properties>
+	</rule>
+	<rule ref="WordPress.WP.EnqueuedResources"/>
+	<rule ref="WordPress.DB.DirectDatabaseQuery"/>
+	<rule ref="WordPress.Security.EscapeOutput"/>
+	<rule ref="WordPress.Security.SafeRedirect"/>
+</ruleset>

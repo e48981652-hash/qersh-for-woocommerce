@@ -7,7 +7,14 @@
 		"php": ">=7.4"
 	},
 	"require-dev": {
+		"dealerdirect/phpcodesniffer-composer-installer": "^1.0",
+		"php-stubs/woocommerce-stubs": "^11.2",
+		"phpcompatibility/phpcompatibility-wp": "^2.1.7",
+		"phpstan/phpstan": "^2.1",
 		"phpunit/phpunit": "^9.6",
+		"szepeviktor/phpstan-wordpress": "^2.0",
+		"woocommerce/woocommerce-sniffs": "^2.0",
+		"wp-coding-standards/wpcs": "^3.4.1",
 		"yoast/phpunit-polyfills": "^2.0"
 	},
 	"config": {
@@ -15,12 +22,25 @@
 			"php": "7.4.33"
 		},
 		"sort-packages": true,
+		"process-timeout": 900,
 		"allow-plugins": {
 			"dealerdirect/phpcodesniffer-composer-installer": true
 		}
 	},
 	"scripts": {
 		"test:unit": "phpunit -c phpunit.xml.dist --testsuite unit",
-		"lint:php": "php scripts/lint-php.php"
+		"lint:php": "php scripts/lint-php.php",
+		"lint:phpcs": "phpcs --standard=phpcs.xml.dist",
+		"lint:phpcbf": "phpcbf --standard=phpcs.xml.dist",
+		"lint:plugin-check": "phpcs --standard=phpcs-plugin-check.xml",
+		"analyse": "phpstan analyse -c phpstan.neon --memory-limit=2G --no-progress"
+	},
+	"scripts-descriptions": {
+		"test:unit": "PHPUnit unit tests, no WordPress.",
+		"lint:php": "php -l on every PHP file.",
+		"lint:phpcs": "PHPCS: WordPress-Extra, WooCommerce-Core, PHPCompatibilityWP 7.4-.",
+		"lint:phpcbf": "Fix what PHPCS can fix by itself.",
+		"lint:plugin-check": "The PHPCS part of Plugin Check's plugin_repo category, with the sniffs in vendor/.",
+		"analyse": "PHPStan level 6 on src/ with the WordPress and WooCommerce stubs."
 	}
 }

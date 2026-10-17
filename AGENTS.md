@@ -15,4 +15,6 @@
   - `node scripts/check-wording.mjs` is the wording guard.
   - `php scripts/lint-php.php` runs `php -l` on every file.
 - **Releases:** bare version tags (`0.1.0`, never `v0.1.0`) from a clean `main`. The zip is built from an allow-list by `scripts/build-zip.mjs` and never contains dotfiles, `*.dist`, `*.sh`, tests, fixtures, scripts or vendor.
-- **Owner's machine:** Windows, no Docker, WSL broken. Install nothing system-wide. Integration and end-to-end tests run in CI on Linux (wp-env). Local runs use the installed PHP 8.3 with the SQLite plugin, or WordPress Playground through npx.
+- **Owner's machine:** Windows, no Docker, WSL broken. Install nothing system-wide.
+  - **In CI on Linux:** the integration tests on MySQL 8.0 through `tests/php/integration/install-wp-tests.sh` (`e2e.yml`), and on MariaDB through `wp-env --config=.wp-env.test.json` (`nightly.yml`); the end-to-end tests on wp-env (`e2e.yml`).
+  - **Locally:** `tests/local/` is the harness: the installed PHP 8.3 with the SQLite plugin and PHP's built-in server (see `tests/local/README.md`), or WordPress Playground through npx.

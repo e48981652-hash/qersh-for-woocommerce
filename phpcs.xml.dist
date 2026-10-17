@@ -1,0 +1,140 @@
+<?xml version="1.0"?>
+<ruleset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" name="QershForWooCommerce" xsi:noNamespaceSchemaLocation="vendor/squizlabs/php_codesniffer/phpcs.xsd">
+	<description>Qersh for WooCommerce: WordPress-Extra, WooCommerce-Core where it applies to a plugin, PHPCompatibilityWP for PHP 7.4 and later (docs/17 §11, docs-dev/CONTRACTS.md §1). Tests get a lighter set. Run: composer lint:phpcs</description>
+
+	<file>qersh-for-woocommerce.php</file>
+	<file>uninstall.php</file>
+	<file>src</file>
+	<file>templates</file>
+	<file>tests/php</file>
+	<file>tests/phpstan</file>
+	<file>tests/parity/php-runner.php</file>
+
+	<exclude-pattern>*/vendor/*</exclude-pattern>
+	<exclude-pattern>*/node_modules/*</exclude-pattern>
+	<!-- Vendored copies from the Qersh repository (fixtures.lock.json): checked by hash, never edited here. -->
+	<exclude-pattern>*/fixtures/*</exclude-pattern>
+
+	<arg name="extensions" value="php"/>
+	<arg name="basepath" value="."/>
+	<arg name="parallel" value="8"/>
+	<arg value="sp"/>
+
+	<config name="testVersion" value="7.4-"/>
+	<config name="minimum_wp_version" value="6.9"/>
+	<!-- Warnings fail the run on purpose: WPCS reports several rules of docs-dev/CONTRACTS.md §1 only as warnings
+	     (WordPress.WP.AlternativeFunctions for parse_url, strip_tags, rand, curl_* and file_put_contents;
+	     WordPress.DB.DirectDatabaseQuery without its justified phpcs:ignore; WordPress.Security.NonceVerification
+	     .Recommended; WordPress.PHP.DevelopmentFunctions), and ignoring warnings on exit would let them through CI.
+	     A warning that does not apply gets a phpcs:ignore with its reason on its line, or an exclusion below with the
+	     reason. -->
+	<config name="ignore_warnings_on_exit" value="0"/>
+
+	<!-- The plugin code ================================================================================== -->
+	<rule ref="WordPress-Extra"/>
+	<rule ref="WordPress-Docs"/>
+
+	<!-- WooCommerce-Core: its own sniffs (hook comments, comment tags, internal injection), PHPCompatibilityWP, the
+	     full WordPress standard and Squiz.Commenting. What does not apply to a plugin is left out below. -->
+	<rule ref="WooCommerce-Core">
+		<!-- Already given by WordPress-Docs, in WordPress's own form. Squiz's file comment asks for @author and
+		     @copyright and its own tag order, which WordPress plugins do not use. -->
+		<exclude name="Squiz.Commenting.FileComment.MissingAuthorTag"/>
+		<exclude name="Squiz.Commenting.FileComment.MissingCopyrightTag"/>
+		<exclude name="Squiz.Commenting.FileComment.MissingSubpackageTag"/>
+		<exclude name="Squiz.Commenting.FileComment.SpacingAfterComment"/>
+		<exclude name="Squiz.Commenting.LongConditionClosingComment"/>
+		<exclude name="Squiz.Commenting.PostStatementComment"/>
+	</rule>
+
+	<!-- WooCommerce-Core drops these for WooCommerce's own tables; a plugin keeps them and justifies each custom-table
+	     query with a phpcs:ignore comment (docs-dev/CONTRACTS.md §1). -->
+	<rule ref="WordPress.DB.DirectDatabaseQuery.DirectQuery">
+		<severity>5</severity>
+	</rule>
+	<rule ref="WordPress.DB.DirectDatabaseQuery.NoCaching">
+		<severity>5</severity>
+	</rule>
+	<rule ref="WordPress.DB.DirectDatabaseQuery.SchemaChange">
+		<severity>5</severity>
+	</rule>
+
+	<rule ref="PHPCompatibilityWP"/>
+
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="qersh-for-woocommerce"/>
+			</property>
+		</properties>
+	</rule>
+
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="qersh_wc"/>
+				<element value="QershPay"/>
+				<element value="QERSH_WC"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!-- QershPay\WooCommerce\Foo\Bar lives in src/Foo/Bar.php (docs-dev/CONTRACTS.md §1), not class-bar.php. -->
+	<rule ref="WordPress.Files.FileName">
+		<exclude-pattern>src/*</exclude-pattern>
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+
+	<!-- The lighter set for tests: they read fixture files, use PHPUnit's naming, print nothing to a browser and
+	     touch no real database. Syntax, PHP 7.4 compatibility and the formatting rules still apply. -->
+	<rule ref="Squiz.Commenting">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="Generic.Commenting">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="WooCommerce.Commenting">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.WP.AlternativeFunctions">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.Security">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.DB">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.PHP.DevelopmentFunctions">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.PHP.DiscouragedPHPFunctions">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.NamingConventions">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.WP.GlobalVariablesOverride">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.WP.I18n">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.DateTime.RestrictedFunctions">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="Generic.CodeAnalysis.EmptyStatement">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="Universal.Files.SeparateFunctionsFromOO">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<!-- Test methods' `$case` and the fakes' `$default` (FakeWpSecrets' get_option() keeps WordPress's own name) are
+	     never called with named arguments, and comments in tests quote sample inputs and the strings they become. -->
+	<rule ref="Universal.NamingConventions.NoReservedKeywordParameterNames">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="Squiz.PHP.CommentedOutCode">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+</ruleset>

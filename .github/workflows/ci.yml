@@ -1,0 +1,139 @@
+# Every push and pull request (docs/17 §11 in the Qersh repository): php -l on the lowest and highest PHP, the unit
+# tests, the guards (fixtures, wording, translations, readme.txt against the current WordPress release, the
+# configuration schema, the llms section), the JavaScript normaliser vectors, the parity run against the compiled
+# core, PHPCS, the PHPCS part of Plugin Check (phpcs-plugin-check.xml) and PHPStan; then the release package from the
+# allow-list (--release: the compiled translations must be in it) and Plugin Check on it (errors fail). Every check
+# script runs unconditionally: a renamed or missing script fails the job instead of being skipped.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  php:
+    name: PHP ${{ matrix.php }} (lint, unit tests)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['7.4', '8.5']
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: composer:v2
+          ini-values: memory_limit=1G, error_reporting=-1, display_errors=On, zend.assertions=1
+
+      - name: php -l on every PHP file
+        run: php scripts/lint-php.php
+
+      - name: Composer (development tools only)
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Unit tests (no WordPress)
+        run: vendor/bin/phpunit -c phpunit.xml.dist --testsuite unit
+
+  checks:
+    name: Guards, JavaScript, parity, PHPCS, PHPStan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+          ini-values: memory_limit=2G
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Composer (development tools only)
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Vendored copies and patterns (fixtures.lock.json)
+        run: node scripts/check-fixtures.mjs
+
+      - name: Wording guard (with the Arabic .po)
+        run: node scripts/check-wording.mjs --require-po
+
+      - name: Translations
+        run: node scripts/check-translations.mjs
+
+      - name: readme.txt ("Tested up to" against the current WordPress release), the configuration schema, the llms section
+        run: |
+          set -euo pipefail
+          wp_version=$(curl -fsS --retry 3 --retry-all-errors https://api.wordpress.org/core/version-check/1.7/ | jq -r '.offers[0].version')
+          echo "current WordPress release: $wp_version"
+          node scripts/check-readme.mjs --wp "$wp_version"
+          node scripts/check-config-schema.mjs
+          node scripts/build-llms-section.mjs --check
+
+      - name: Transaction-id normaliser and Blocks field (Node)
+        run: node --test tests/js/txn-normalize.test.mjs tests/js/checkout-blocks.test.mjs
+
+      - name: Parity with the compiled Qersh core
+        run: node tests/parity/run.mjs
+
+      - name: PHPCS (WordPress, WooCommerce, PHPCompatibilityWP 7.4-)
+        run: composer lint:phpcs
+
+      - name: The PHPCS part of Plugin Check (plugin_repo sniffs, phpcs-plugin-check.xml)
+        run: composer lint:plugin-check
+
+      - name: PHPStan
+        run: composer analyse
+
+  package:
+    name: Package and Plugin Check
+    needs: [php, checks]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # build-zip.mjs dates the entries from the last commit
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Build the release zip from the allow-list (fails without the compiled translations)
+        run: node scripts/build-zip.mjs --release
+
+      - name: Unpack it into a folder named like the slug
+        run: |
+          rm -rf build/plugin-check
+          mkdir -p build/plugin-check
+          unzip -q dist/qersh-for-woocommerce.zip -d build/plugin-check
+          test -f build/plugin-check/qersh-for-woocommerce/qersh-for-woocommerce.php
+          find build/plugin-check -type f | sort
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: qersh-for-woocommerce-zip
+          path: dist/qersh-for-woocommerce.zip
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Plugin Check (plugin_repo; errors fail)
+        uses: wordpress/plugin-check-action@v1
+        with:
+          build-dir: build/plugin-check/qersh-for-woocommerce
+          categories: plugin_repo

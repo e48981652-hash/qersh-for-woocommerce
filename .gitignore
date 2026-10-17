@@ -8,3 +8,8 @@
 /tests/e2e/test-results/
 /tests/e2e/playwright-report/
 .env
+# wp-env overrides written per CI job by tests/e2e/wp-env-override.mjs
+/.wp-env.override.json
+/.wp-env.test.override.json
+# Test wallets with their test keys (tests/local writes them outside the repository; this is a second guard)
+*.local.json

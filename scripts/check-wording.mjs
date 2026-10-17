@@ -8,7 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const ROOTS = ['qersh-for-woocommerce.php', 'uninstall.php', 'readme.txt', 'README.md', 'CHANGELOG.md', 'languages', 'src', 'templates', 'assets/js'];
+const ROOTS = ['qersh-for-woocommerce.php', 'uninstall.php', 'readme.txt', 'README.md', 'CHANGELOG.md', 'llms-section.md', 'languages', 'src', 'templates', 'assets/js'];
 const TEXT = /\.(php|po|pot|txt|md|js|json)$/i;
 const SKIP = new Set(['node_modules', 'vendor', '.git', 'vendor-js']);
 
