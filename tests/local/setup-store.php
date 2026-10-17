@@ -9,6 +9,8 @@
  * @package QershPay\WooCommerce\Tests
  */
 
+// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- a command-line script: its report goes to a terminal, not a page.
+
 require __DIR__ . '/lib/bootstrap.php';
 
 use Automattic\WooCommerce\Internal\DataStores\Orders\DataSynchronizer;

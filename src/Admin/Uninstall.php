@@ -45,7 +45,7 @@ final class Uninstall {
 	/**
 	 * Uninstalls on this site, or on every site of the network.
 	 */
-	public static function run() {
+	public static function run(): void {
 		if ( function_exists( 'is_multisite' ) && is_multisite() && function_exists( 'get_sites' ) ) {
 			$sites = get_sites(
 				array(
@@ -81,7 +81,7 @@ final class Uninstall {
 	/**
 	 * One site.
 	 */
-	private static function site() {
+	private static function site(): void {
 		self::unschedule();
 		if ( ! self::should_remove( self::config(), defined( 'QERSH_WC_REMOVE_ALL_DATA' ), defined( 'QERSH_WC_REMOVE_ALL_DATA' ) ? constant( 'QERSH_WC_REMOVE_ALL_DATA' ) : null ) ) {
 			return;
@@ -164,8 +164,8 @@ final class Uninstall {
 	/**
 	 * Option names that start with a prefix.
 	 *
-	 * @param Db    $db     Database helper.
-	 * @param \wpdb $wpdb   WordPress database.
+	 * @param Db     $db     Database helper.
+	 * @param \wpdb  $wpdb   WordPress database.
 	 * @param string $prefix Prefix.
 	 * @return string[]
 	 */
@@ -191,7 +191,7 @@ final class Uninstall {
 	 * matches the arguments exactly, so array() would cancel only the actions scheduled without arguments (the
 	 * sweep and the daily cleanup) and leave every per-order action ( order_id ) pending.
 	 */
-	private static function unschedule() {
+	private static function unschedule(): void {
 		if ( ! function_exists( 'as_unschedule_all_actions' ) || ! did_action( 'action_scheduler_init' ) ) {
 			return;
 		}

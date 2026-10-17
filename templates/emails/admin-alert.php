@@ -16,6 +16,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
+/** This action is documented in woocommerce/includes/class-wc-emails.php (WC_Emails::email_header() prints it). */
 do_action( 'woocommerce_email_header', $email_heading, $email ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WooCommerce's email hook.
 
 // wp_kses_post() alone drops the <bdi> that wc_price() puts around each amount, and the amounts rely on it to keep
@@ -35,4 +36,5 @@ if ( $additional_content ) {
 	echo wp_kses_post( wpautop( wptexturize( $additional_content ) ) );
 }
 
+/** This action is documented in woocommerce/includes/class-wc-emails.php (WC_Emails::email_footer() prints it). */
 do_action( 'woocommerce_email_footer', $email ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WooCommerce's email hook.

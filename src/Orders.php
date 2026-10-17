@@ -8,6 +8,7 @@
 
 namespace QershPay\WooCommerce;
 
+use QershPay\WooCommerce\Admin\Reasons;
 use QershPay\WooCommerce\Core\Matcher;
 use QershPay\WooCommerce\Core\Money;
 use QershPay\WooCommerce\Core\Payer;
@@ -83,7 +84,7 @@ final class Orders {
 	 *
 	 * @param Plugin $plugin The plugin.
 	 */
-	public static function register_hooks( Plugin $plugin ) {
+	public static function register_hooks( Plugin $plugin ): void {
 		unset( $plugin );
 		add_action( 'woocommerce_order_status_changed', array( __CLASS__, 'on_status_changed' ), 10, 4 );
 		add_action( 'woocommerce_trash_order', array( __CLASS__, 'on_trash' ), 10, 1 );
@@ -105,7 +106,7 @@ final class Orders {
 	 * @param string         $to       New status.
 	 * @param \WC_Order|null $order    Order.
 	 */
-	public static function on_status_changed( $order_id, $from = '', $to = '', $order = null ) {
+	public static function on_status_changed( $order_id, $from = '', $to = '', $order = null ): void {
 		$self = self::ready();
 		if ( null === $self ) {
 			return;
@@ -140,11 +141,11 @@ final class Orders {
 	}
 
 	/**
-	 * woocommerce_trash_order: HPOS fires no status change when an order goes to the trash.
+	 * On woocommerce_trash_order: HPOS fires no status change when an order goes to the trash.
 	 *
 	 * @param int $order_id Order id.
 	 */
-	public static function on_trash( $order_id ) {
+	public static function on_trash( $order_id ): void {
 		$self = self::ready();
 		if ( null === $self ) {
 			return;
@@ -161,23 +162,23 @@ final class Orders {
 	}
 
 	/**
-	 * wp_trash_post: the same for the posts storage.
+	 * On wp_trash_post: the same for the posts storage.
 	 *
 	 * @param int $post_id Post id.
 	 */
-	public static function on_trash_post( $post_id ) {
+	public static function on_trash_post( $post_id ): void {
 		if ( function_exists( 'get_post_type' ) && in_array( get_post_type( (int) $post_id ), array( 'shop_order', 'shop_order_placehold' ), true ) ) {
 			self::on_trash( (int) $post_id );
 		}
 	}
 
 	/**
-	 * woocommerce_untrash_order: read the order again; pending with our method opens the row again.
+	 * On woocommerce_untrash_order: read the order again; pending with our method opens the row again.
 	 *
 	 * @param int    $order_id Order id.
 	 * @param string $previous Previous status.
 	 */
-	public static function on_untrash( $order_id, $previous = '' ) {
+	public static function on_untrash( $order_id, $previous = '' ): void {
 		unset( $previous );
 		$self = self::ready();
 		if ( null === $self ) {
@@ -198,23 +199,23 @@ final class Orders {
 	}
 
 	/**
-	 * untrashed_post: the same for the posts storage.
+	 * On untrashed_post: the same for the posts storage.
 	 *
 	 * @param int    $post_id  Post id.
 	 * @param string $previous Previous status.
 	 */
-	public static function on_untrash_post( $post_id, $previous = '' ) {
+	public static function on_untrash_post( $post_id, $previous = '' ): void {
 		if ( function_exists( 'get_post_type' ) && in_array( get_post_type( (int) $post_id ), array( 'shop_order', 'shop_order_placehold' ), true ) ) {
 			self::on_untrash( (int) $post_id, $previous );
 		}
 	}
 
 	/**
-	 * woocommerce_delete_order: the row goes, and the order's transfers lose the payer number and name.
+	 * On woocommerce_delete_order: the row goes, and the order's transfers lose the payer number and name.
 	 *
 	 * @param int $order_id Order id.
 	 */
-	public static function on_delete( $order_id ) {
+	public static function on_delete( $order_id ): void {
 		$self = self::ready();
 		if ( null === $self ) {
 			return;
@@ -228,12 +229,12 @@ final class Orders {
 	}
 
 	/**
-	 * woocommerce_before_order_object_save: the payment method leaves `qersh` ("Pay for order" saves the new method
-	 * before its gateway runs): the row is closed.
+	 * On woocommerce_before_order_object_save: the payment method leaves `qersh` ("Pay for order" saves the new
+	 * method before its gateway runs): the row is closed.
 	 *
 	 * @param \WC_Order $order Order.
 	 */
-	public static function on_before_save( $order ) {
+	public static function on_before_save( $order ): void {
 		if ( ! $order instanceof \WC_Order || ! $order->get_id() ) {
 			return;
 		}
@@ -261,12 +262,12 @@ final class Orders {
 	}
 
 	/**
-	 * woocommerce_order_after_calculate_totals: the price follows the order while it waits.
+	 * On woocommerce_order_after_calculate_totals: the price follows the order while it waits.
 	 *
 	 * @param bool      $and_taxes Whether taxes were calculated.
 	 * @param \WC_Order $order     Order.
 	 */
-	public static function on_totals( $and_taxes, $order = null ) {
+	public static function on_totals( $and_taxes, $order = null ): void {
 		unset( $and_taxes );
 		if ( ! $order instanceof \WC_Order || ! $order->get_id() || self::METHOD !== $order->get_payment_method() ) {
 			return;
@@ -307,8 +308,9 @@ final class Orders {
 	 * @param string    $wallet    Wallet id the customer chose.
 	 * @param int       $now       UTC seconds.
 	 * @throws \RuntimeException When the row could not be written (the gateway shows an error).
+	 * @throws \Throwable        Any other error of the transaction, after its rollback.
 	 */
-	public function on_process_payment( \WC_Order $order, string $payer_key, string $wallet, int $now ) {
+	public function on_process_payment( \WC_Order $order, string $payer_key, string $wallet, int $now ): void {
 		$id    = (int) $order->get_id();
 		$opts  = MatchPolicy::options( $this->plugin->config() );
 		$index = $this->plugin->orders_index();
@@ -359,15 +361,25 @@ final class Orders {
 			throw new \RuntimeException( 'qersh: the order row could not be written' );
 		}
 
+		// Order meta holds strings; WooCommerce stores these times as their decimal text either way.
 		$order->update_meta_data( '_qersh_payer_key', $payer_key );
 		$order->update_meta_data( '_qersh_wallet', $wallet );
 		if ( '' === (string) $order->get_meta( '_qersh_placed_at', true ) ) {
-			$order->update_meta_data( '_qersh_placed_at', $now );
+			$order->update_meta_data( '_qersh_placed_at', (string) $now );
 		}
-		$order->update_meta_data( '_qersh_deadline', $deadline );
+		$order->update_meta_data( '_qersh_deadline', (string) $deadline );
 		$order->save();
 
 		$this->schedule_expiry( $id, $deadline + $opts['late_window_min'] * 60 );
+
+		/**
+		 * Asks for the customer's payment instructions email of an order that now waits for a transfer (the
+		 * `qersh_instructions` email listens, docs/17 §4.7).
+		 *
+		 * @since 0.1.0
+		 *
+		 * @param int $id Order id.
+		 */
 		do_action( 'qersh_wc_send_instructions', $id );
 	}
 
@@ -396,7 +408,7 @@ final class Orders {
 	 * @param int $order_id Order id.
 	 * @param int $at       UTC seconds.
 	 */
-	public function schedule_expiry( int $order_id, int $at ) {
+	public function schedule_expiry( int $order_id, int $at ): void {
 		if ( ! function_exists( 'as_schedule_single_action' ) ) {
 			return;
 		}
@@ -413,7 +425,7 @@ final class Orders {
 	 *
 	 * @param int $order_id Order id.
 	 */
-	public static function unschedule_expiry( int $order_id ) {
+	public static function unschedule_expiry( int $order_id ): void {
 		if ( function_exists( 'as_unschedule_action' ) ) {
 			as_unschedule_action( self::EXPIRE_ACTION, self::action_args( $order_id ), self::GROUP );
 		}
@@ -444,6 +456,8 @@ final class Orders {
 	 * @param string $token       Our claim token.
 	 * @param int    $now         UTC seconds.
 	 * @return array `[ 'http' => int, 'reply' => array, 'retry_after' => int|null ]`
+	 * @throws \Throwable Any error of the transaction other than a busy lock, after its rollback (the controller
+	 *                    releases the claim and answers 500).
 	 */
 	public function handle_received( array $envelope, array $wallet_cfg, string $delivery_id, string $token, int $now ): array {
 		$data     = isset( $envelope['data'] ) && is_array( $envelope['data'] ) ? $envelope['data'] : array();
@@ -485,6 +499,8 @@ final class Orders {
 	 * @param string $token       Our claim token.
 	 * @param int    $now         UTC seconds.
 	 * @return array `[ 'http' => int, 'reply' => array, 'retry_after' => int|null ]`
+	 * @throws \Throwable Any error of the transaction other than a busy lock, after its rollback (the controller
+	 *                    releases the claim and answers 500).
 	 */
 	public function handle_updated( array $envelope, array $wallet_cfg, string $delivery_id, string $token, int $now ): array {
 		unset( $wallet_cfg );
@@ -564,7 +580,7 @@ final class Orders {
 	 */
 	public function reply_for_row( array $row ): array {
 		$outcome  = (string) $row['outcome'];
-		$order_id = isset( $row['order_id'] ) && null !== $row['order_id'] ? (int) $row['order_id'] : 0;
+		$order_id = isset( $row['order_id'] ) ? (int) $row['order_id'] : 0;
 		$reason   = isset( $row['reason'] ) ? (string) $row['reason'] : '';
 		$status   = $outcome;
 		$note     = null;
@@ -890,9 +906,10 @@ final class Orders {
 	 *
 	 * @param array $transfer_row Typed qersh_transfers row.
 	 * @return array[] Each MatchPolicy::advice() item plus `order_number` (string), `text` (plain text: the ready
-	 *                 line «Its customer entered this transaction id · Attach it to order #N», the owner's reason,
-	 *                 or what remains of the order) and `warnings` (string[]: check the sender in the wallet app
-	 *                 for a transfer not confirmed on its own; the order was created after the money).
+	 *                 line «Its customer entered this transaction id · Attach to order #N», the owner's reason, or
+	 *                 what remains of the order) and `warnings` (string[]: check the payer in the wallet app for a
+	 *                 transfer not confirmed on its own; the order was created after the money), in the words of
+	 *                 the admin screens (Admin\Reasons, Admin\Transfers).
 	 */
 	public function suggestions( array $transfer_row ): array {
 		$now  = time();
@@ -905,7 +922,7 @@ final class Orders {
 			$item['order_number'] = (string) $this->reference( $id );
 			if ( $item['ready'] ) {
 				/* translators: %s: order number. */
-				$item['text'] = sprintf( __( 'Its customer entered this transaction id · Attach it to order #%s', 'qersh-for-woocommerce' ), MatchPolicy::order_ref( $id ) );
+				$item['text'] = sprintf( __( 'Its customer entered this transaction id · Attach to order %s', 'qersh-for-woocommerce' ), MatchPolicy::order_tag( $id ) );
 			} elseif ( null !== $item['reason'] ) {
 				$item['text'] = MatchPolicy::reason_text( (string) $item['reason'], $item['args'] );
 			} else {
@@ -913,14 +930,14 @@ final class Orders {
 				$left         = null === $row ? 0 : max( 0, (int) $row['price_minor'] - (int) $row['paid_minor'] );
 				$item['text'] = sprintf(
 					/* translators: 1: order number, 2: amount that remains. */
-					__( 'Order #%1$s: %2$s remains.', 'qersh-for-woocommerce' ),
-					MatchPolicy::order_ref( $id ),
+					__( 'Order %1$s: %2$s remains.', 'qersh-for-woocommerce' ),
+					MatchPolicy::order_tag( $id ),
 					MatchPolicy::plain_price( $opts['round_up_to_pound'] ? Money::round_up_pound( $left ) : $left )
 				);
 			}
 			$item['warnings'] = array();
 			if ( empty( $t['auto_confirm_ok'] ) ) {
-				$item['warnings'][] = __( 'Check the sender’s name and the amount in the wallet app before you attach it.', 'qersh-for-woocommerce' );
+				$item['warnings'][] = __( 'Check the payer\'s name and the amount in the wallet app before you attach it.', 'qersh-for-woocommerce' );
 			}
 			if ( $item['after'] ) {
 				$item['warnings'][] = self::created_after_text( $id );
@@ -948,8 +965,8 @@ final class Orders {
 				}
 				$out[] = sprintf(
 					/* translators: %s: order number. */
-					__( 'A transfer with this transaction id already paid order #%s. Attach this one only if you are sure it is another payment.', 'qersh-for-woocommerce' ),
-					MatchPolicy::order_ref( (int) $other['order_id'] )
+					__( 'This transaction id already paid order %s. Attach it only if you are sure this is a different transfer.', 'qersh-for-woocommerce' ),
+					MatchPolicy::order_tag( (int) $other['order_id'] )
 				);
 				break;
 			}
@@ -978,7 +995,7 @@ final class Orders {
 		}
 		$note     = isset( $transfer_row['note'] ) ? trim( (string) $transfer_row['note'] ) : '';
 		$reason   = isset( $transfer_row['reason'] ) ? (string) $transfer_row['reason'] : '';
-		$order_id = isset( $transfer_row['order_id'] ) && null !== $transfer_row['order_id'] ? (int) $transfer_row['order_id'] : 0;
+		$order_id = isset( $transfer_row['order_id'] ) ? (int) $transfer_row['order_id'] : 0;
 		if ( '' !== $note && ! self::reason_of_order( $reason, $order_id ) ) {
 			return $note;
 		}
@@ -1200,7 +1217,7 @@ final class Orders {
 	 * @param array $effects From write_decision().
 	 * @param int   $now     UTC seconds.
 	 */
-	public function after_commit( array $effects, int $now ) {
+	public function after_commit( array $effects, int $now ): void {
 		$t = $effects['t'];
 		$d = $effects['d'];
 		try {
@@ -1287,7 +1304,7 @@ final class Orders {
 	 * @param int       $price  Order total.
 	 * @param int       $now    UTC seconds.
 	 */
-	public function paid_notes( \WC_Order $order, array $t, array $d, int $paid, int $price, int $now ) {
+	public function paid_notes( \WC_Order $order, array $t, array $d, int $paid, int $price, int $now ): void {
 		$amount = $this->money( (int) $t['amount_minor'], $order );
 		$txn    = null !== $t['txn_stored'] && '' !== $t['txn_stored'] ? self::ltr( (string) $t['txn_stored'] ) : '—';
 		$time   = self::ltr( self::time_text( (int) $t['money_at'], $now ) );
@@ -1343,7 +1360,7 @@ final class Orders {
 	 * @param int       $price    Order total.
 	 * @param int       $now      UTC seconds.
 	 */
-	public function customer_partial_note( \WC_Order $order, string $provider, int $paid, int $price, int $now ) {
+	public function customer_partial_note( \WC_Order $order, string $provider, int $paid, int $price, int $now ): void {
 		$opts     = MatchPolicy::options( $this->plugin->config() );
 		$left     = max( 0, $price - $paid );
 		$left     = $opts['round_up_to_pound'] ? Money::round_up_pound( $left ) : $left;
@@ -1367,7 +1384,7 @@ final class Orders {
 	 *
 	 * @param int $order_id Order id.
 	 */
-	public function request_completion( int $order_id ) {
+	public function request_completion( int $order_id ): void {
 		if ( ! class_exists( Completion::class ) ) {
 			return; // Without the completion module the sweep has nothing to run; the decision stays due.
 		}
@@ -1400,8 +1417,17 @@ final class Orders {
 	 * @param string $kind `forgery`, `claim_overdue` or `partial_overdue`.
 	 * @param array  $args `order_id`, `transfer_id`, `wallet`.
 	 */
-	public function alert( string $kind, array $args ) {
+	public function alert( string $kind, array $args ): void {
 		try {
+			/**
+			 * Asks for the administrator's alert email about a transfer that needs a decision (the
+			 * `qersh_admin_alert` email listens).
+			 *
+			 * @since 0.1.0
+			 *
+			 * @param string $kind `forgery`, `claim_overdue` or `partial_overdue`.
+			 * @param array  $args `order_id`, `transfer_id`, `wallet`.
+			 */
 			do_action( 'qersh_wc_admin_alert', $kind, $args );
 		} catch ( \Throwable $e ) {
 			$this->log( 'admin alert', $e );
@@ -1511,7 +1537,7 @@ final class Orders {
 		if ( 'review' === $outcome || 'partial_overdue' === $reason ) {
 			return 'own';
 		}
-		$flagged = isset( $tr['flag'] ) && null !== $tr['flag'] && '' !== $tr['flag'];
+		$flagged = isset( $tr['flag'] ) && '' !== $tr['flag'];
 		return 'overpaid' === $outcome && ! $flagged ? 'confirm' : 'linked';
 	}
 
@@ -1582,7 +1608,7 @@ final class Orders {
 	 * @return int
 	 */
 	public static function linked_order( array $tr ): int {
-		return isset( $tr['order_id'] ) && null !== $tr['order_id'] ? (int) $tr['order_id'] : 0;
+		return isset( $tr['order_id'] ) ? (int) $tr['order_id'] : 0;
 	}
 
 	/**
@@ -1635,13 +1661,8 @@ final class Orders {
 	 * @return string
 	 */
 	public static function provider_name( string $provider ): string {
-		if ( class_exists( Checkout::class ) && method_exists( Checkout::class, 'provider_name' ) ) {
-			$name = Checkout::provider_name( $provider );
-			if ( '' !== $name ) {
-				return $name;
-			}
-		}
-		return $provider;
+		$name = Checkout::provider_name( $provider );
+		return '' !== $name ? $name : $provider;
 	}
 
 	/**
@@ -1740,6 +1761,7 @@ final class Orders {
 			'status' => 'review',
 			'note'   => MatchPolicy::cut( __( 'This transfer could not be read: check it in the wallet app.', 'qersh-for-woocommerce' ), 200 ),
 		);
+
 		$db = $this->plugin->db();
 		$db->begin();
 		if ( ! $this->plugin->deliveries()->fence( $delivery_id, $token, 200, $reply, $now ) ) {
@@ -1831,7 +1853,7 @@ final class Orders {
 	 * @param int $order_id Order id.
 	 * @param int $now      UTC seconds.
 	 */
-	private function stop_order( int $order_id, int $now ) {
+	private function stop_order( int $order_id, int $now ): void {
 		$index  = $this->plugin->orders_index();
 		$row    = $index->get( $order_id );
 		$fields = array( 'state' => 'review' );
@@ -1846,7 +1868,7 @@ final class Orders {
 		if ( ! $order instanceof \WC_Order ) {
 			return;
 		}
-		$text = __( 'This transfer’s message is suspected to be forged. Do not deliver the order until you have checked that the money arrived in the wallet app.', 'qersh-for-woocommerce' );
+		$text = Reasons::forgery_warning(); // The sentence of the order box and the admin alert too.
 		$order->update_meta_data( '_qersh_flag', 'forgery' );
 		if ( in_array( $order->get_status(), array( 'processing', 'completed' ), true ) ) {
 			$order->update_status( 'on-hold', $text );
@@ -1961,11 +1983,11 @@ final class Orders {
 	 */
 	private function attach_note( \WC_Order $order, array $tr, int $user_id ): string {
 		$user  = get_userdata( $user_id );
-		$payer = isset( $tr['payer_key'] ) && null !== $tr['payer_key'] ? (string) $tr['payer_key'] : '';
+		$payer = isset( $tr['payer_key'] ) ? (string) $tr['payer_key'] : '';
 		if ( '' !== $payer ) {
 			$who = self::ltr( class_exists( Format::class ) ? Format::masked( $payer ) : substr( $payer, 0, 4 ) . '•••' . substr( $payer, -3 ) );
 		} else {
-			$who = isset( $tr['payer_name'] ) && null !== $tr['payer_name'] && '' !== $tr['payer_name'] ? esc_html( (string) $tr['payer_name'] ) : '—';
+			$who = isset( $tr['payer_name'] ) && '' !== $tr['payer_name'] ? esc_html( (string) $tr['payer_name'] ) : '—';
 		}
 		return sprintf(
 			/* translators: 1: name of the admin, 2: amount, 3: the payer, masked, 4: transaction id. */
@@ -1973,7 +1995,7 @@ final class Orders {
 			esc_html( $user ? $user->display_name : '#' . $user_id ),
 			$this->money( (int) $tr['amount_minor'], $order ),
 			$who,
-			isset( $tr['provider_txn_id'] ) && null !== $tr['provider_txn_id'] ? self::ltr( (string) $tr['provider_txn_id'] ) : '—'
+			isset( $tr['provider_txn_id'] ) ? self::ltr( (string) $tr['provider_txn_id'] ) : '—'
 		);
 	}
 
@@ -1988,11 +2010,11 @@ final class Orders {
 	 */
 	private function confirm_note( \WC_Order $order, array $tr, int $user_id ): string {
 		$user  = get_userdata( $user_id );
-		$payer = isset( $tr['payer_key'] ) && null !== $tr['payer_key'] ? (string) $tr['payer_key'] : '';
+		$payer = isset( $tr['payer_key'] ) ? (string) $tr['payer_key'] : '';
 		if ( '' !== $payer ) {
 			$who = self::ltr( class_exists( Format::class ) ? Format::masked( $payer ) : substr( $payer, 0, 4 ) . '•••' . substr( $payer, -3 ) );
 		} else {
-			$who = isset( $tr['payer_name'] ) && null !== $tr['payer_name'] && '' !== $tr['payer_name'] ? esc_html( (string) $tr['payer_name'] ) : '—';
+			$who = isset( $tr['payer_name'] ) && '' !== $tr['payer_name'] ? esc_html( (string) $tr['payer_name'] ) : '—';
 		}
 		return sprintf(
 			/* translators: 1: name of the admin, 2: amount, 3: the payer, masked, 4: transaction id. */
@@ -2000,7 +2022,7 @@ final class Orders {
 			esc_html( $user ? $user->display_name : '#' . $user_id ),
 			$this->money( (int) $tr['amount_minor'], $order ),
 			$who,
-			isset( $tr['provider_txn_id'] ) && null !== $tr['provider_txn_id'] ? self::ltr( (string) $tr['provider_txn_id'] ) : '—'
+			isset( $tr['provider_txn_id'] ) ? self::ltr( (string) $tr['provider_txn_id'] ) : '—'
 		);
 	}
 
@@ -2035,7 +2057,7 @@ final class Orders {
 			return new \WP_Error( 'qersh_order_method', __( 'This order is not paid by wallet transfer.', 'qersh-for-woocommerce' ) );
 		}
 		if ( '' !== (string) $order->get_meta( '_qersh_flag', true ) ) {
-			return new \WP_Error( 'qersh_order_flagged', __( 'This order is flagged as a suspected forgery. Check that the money arrived in the wallet app, then change the order’s status yourself.', 'qersh-for-woocommerce' ) );
+			return new \WP_Error( 'qersh_order_flagged', __( 'This order is flagged as a suspected forgery. Check that the money arrived in the wallet app, then change the order\'s status yourself.', 'qersh-for-woocommerce' ) );
 		}
 		$index = $this->plugin->orders_index();
 		if ( 'confirm' === $mode ) {
@@ -2194,9 +2216,9 @@ final class Orders {
 				$order->update_meta_data( '_qersh_wallet', (string) $tr['wallet'] );
 			}
 			if ( '' === (string) $order->get_meta( '_qersh_placed_at', true ) ) {
-				$order->update_meta_data( '_qersh_placed_at', $now );
+				$order->update_meta_data( '_qersh_placed_at', (string) $now );
 			}
-			$order->update_meta_data( '_qersh_deadline', $effects['deadline'] );
+			$order->update_meta_data( '_qersh_deadline', (string) $effects['deadline'] );
 			$save = true;
 		}
 		if ( $save ) {
@@ -2233,7 +2255,7 @@ final class Orders {
 	 * @param array $effects  From attach_locked().
 	 * @param int   $now      UTC seconds.
 	 */
-	private function after_attach( int $order_id, array $effects, int $now ) {
+	private function after_attach( int $order_id, array $effects, int $now ): void {
 		if ( $effects['paid'] ) {
 			try {
 				self::unschedule_expiry( $order_id );
@@ -2351,7 +2373,7 @@ final class Orders {
 	 * @param bool      $cancel True for a cancellation, a refund or a change of method.
 	 * @param string    $to     The new WooCommerce status ('' for a change of method).
 	 */
-	private function close( \WC_Order $order, array $row, bool $cancel, string $to = '' ) {
+	private function close( \WC_Order $order, array $row, bool $cancel, string $to = '' ): void {
 		$id   = (int) $order->get_id();
 		$paid = (int) $row['paid_minor'];
 		if ( $paid > 0 ) {
@@ -2399,7 +2421,7 @@ final class Orders {
 	 * @param \WC_Order $order Order.
 	 * @param array     $row   Row.
 	 */
-	private function reopen( \WC_Order $order, array $row ) {
+	private function reopen( \WC_Order $order, array $row ): void {
 		if ( ! in_array( $row['state'], array( 'closed', 'expired' ), true ) ) {
 			return;
 		}
@@ -2411,7 +2433,7 @@ final class Orders {
 		if ( $deadline + $opts['late_window_min'] * 60 <= $now ) {
 			$deadline             = $now + $opts['order_ttl_min'] * 60;
 			$fields['expires_at'] = $deadline;
-			$order->update_meta_data( '_qersh_deadline', $deadline );
+			$order->update_meta_data( '_qersh_deadline', (string) $deadline );
 			$order->save_meta_data();
 		}
 		$this->plugin->orders_index()->update( $id, $fields );
@@ -2427,8 +2449,8 @@ final class Orders {
 	private static function created_after_text( int $order_id ): string {
 		return sprintf(
 			/* translators: %s: order number. */
-			__( 'This transfer arrived before order #%s was created, so attach it only if you are sure it is for this order.', 'qersh-for-woocommerce' ),
-			MatchPolicy::order_ref( $order_id )
+			__( 'This transfer arrived before order %s was created, so attach it only if you are sure it is for that order.', 'qersh-for-woocommerce' ),
+			MatchPolicy::order_tag( $order_id )
 		);
 	}
 
@@ -2478,7 +2500,7 @@ final class Orders {
 	 * @param string     $what Where.
 	 * @param \Throwable $e    Error.
 	 */
-	private function log( string $what, \Throwable $e ) {
+	private function log( string $what, \Throwable $e ): void {
 		$this->plugin->logger()->error(
 			'qersh: ' . $what . ' failed',
 			array(

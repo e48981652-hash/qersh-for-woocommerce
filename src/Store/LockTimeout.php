@@ -17,11 +17,9 @@ defined( 'ABSPATH' ) || exit;
 final class LockTimeout extends \RuntimeException {
 
 	/**
-	 * Builds the exception with a fixed message.
+	 * The fixed message, used when the exception is built without one (never SQL or data).
 	 *
-	 * @param string $message Optional fixed text (never SQL or data).
+	 * @var string
 	 */
-	public function __construct( string $message = 'qersh: lock wait timeout or deadlock' ) {
-		parent::__construct( $message );
-	}
+	protected $message = 'qersh: lock wait timeout or deadlock';
 }

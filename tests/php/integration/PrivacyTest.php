@@ -50,7 +50,7 @@ class PrivacyTest extends TestCase {
 	/**
 	 * Our exporter and eraser are registered with WordPress.
 	 */
-	public function test_exporter_and_eraser_are_registered() {
+	public function test_exporter_and_eraser_are_registered(): void {
 		$this->assertArrayHasKey( 'qersh-for-woocommerce', apply_filters( 'wp_privacy_personal_data_exporters', array() ) );
 		$this->assertArrayHasKey( 'qersh-for-woocommerce', apply_filters( 'wp_privacy_personal_data_erasers', array() ) );
 	}
@@ -58,7 +58,7 @@ class PrivacyTest extends TestCase {
 	/**
 	 * The export: the loose transfer under our group, the payer number in the order export.
 	 */
-	public function test_export_lists_loose_transfers_and_the_order_data() {
+	public function test_export_lists_loose_transfers_and_the_order_data(): void {
 		$setup = $this->customer_with_a_loose_transfer( '01155566677' );
 
 		$export = Privacy::export( self::EMAIL, 1 );
@@ -84,7 +84,7 @@ class PrivacyTest extends TestCase {
 	/**
 	 * The erase: the loose transfer loses its payer fields; the order eraser removes our meta and index row.
 	 */
-	public function test_erase_removes_the_payer_data() {
+	public function test_erase_removes_the_payer_data(): void {
 		$setup = $this->customer_with_a_loose_transfer( '01155566688' );
 
 		$erased = Privacy::erase( self::EMAIL, 1 );

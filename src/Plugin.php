@@ -59,7 +59,7 @@ final class Plugin {
 	/**
 	 * Runs on plugins_loaded: checks the schema, then lets each module register its hooks.
 	 */
-	public static function boot() {
+	public static function boot(): void {
 		$plugin   = self::instance();
 		$wc_ready = $plugin->wc_ready();
 
@@ -78,16 +78,36 @@ final class Plugin {
 	/**
 	 * Activation: create or upgrade the tables. WooCommerce may not be active yet; the tables do not need it.
 	 */
-	public static function activate() {
+	public static function activate(): void {
 		if ( class_exists( Store\Schema::class ) ) {
 			Store\Schema::install();
 		}
 	}
 
 	/**
+	 * Deactivation: cancels the two recurring actions (qersh_wc_sweep and qersh_wc_daily). With the plugin inactive
+	 * nothing handles them, and Action Scheduler marks every run failed ("no callbacks are registered") until it stops
+	 * rescheduling them. Webhook\Module::schedule_recurring() schedules them again on the first admin, cron or
+	 * webhook request after reactivation. The per-order actions stay (the sweep picks up what fell due meanwhile),
+	 * and no data is deleted (docs/17 §9).
+	 */
+	public static function deactivate(): void {
+		if ( ! class_exists( Webhook\Module::class ) || ! function_exists( 'as_unschedule_all_actions' ) || ! did_action( 'action_scheduler_init' ) ) {
+			return;
+		}
+		foreach ( array_keys( Webhook\Module::RECURRING ) as $hook ) {
+			try {
+				as_unschedule_all_actions( $hook );
+			} catch ( \Throwable $e ) {
+				unset( $e ); // Deactivation never fails on this: the runs would only be marked failed.
+			}
+		}
+	}
+
+	/**
 	 * Declares HPOS and Checkout Blocks compatibility, with the main plugin file (never a file inside src/).
 	 */
-	public static function declare_compatibility() {
+	public static function declare_compatibility(): void {
 		if ( class_exists( '\Automattic\WooCommerce\Utilities\FeaturesUtil' ) ) {
 			\Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'custom_order_tables', QERSH_WC_FILE, true );
 			\Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'cart_checkout_blocks', QERSH_WC_FILE, true );
@@ -185,7 +205,7 @@ final class Plugin {
 	/**
 	 * Forgets the cached configuration (after a save).
 	 */
-	public function forget_config() {
+	public function forget_config(): void {
 		$this->config = null;
 	}
 
@@ -218,72 +238,128 @@ final class Plugin {
 		return $this->services[ $class_name ];
 	}
 
-	/** @return ConfigStore */
+	/**
+	 * The configuration store (option qersh_wc_config or the QERSH_WC_CONFIG constant).
+	 *
+	 * @return ConfigStore
+	 */
 	public function config_store() {
 		return $this->service( ConfigStore::class );
 	}
 
-	/** @return Store\Db */
+	/**
+	 * The database helper of the plugin's tables.
+	 *
+	 * @return Store\Db
+	 */
 	public function db() {
 		return $this->service( Store\Db::class );
 	}
 
-	/** @return Store\Deliveries */
+	/**
+	 * The delivery claims (qersh_deliveries).
+	 *
+	 * @return Store\Deliveries
+	 */
 	public function deliveries() {
 		return $this->service( Store\Deliveries::class );
 	}
 
-	/** @return Store\Transfers */
+	/**
+	 * The received transfers (qersh_transfers).
+	 *
+	 * @return Store\Transfers
+	 */
 	public function transfers() {
 		return $this->service( Store\Transfers::class );
 	}
 
-	/** @return Store\OrdersIndex */
+	/**
+	 * The index of orders waiting for a transfer (qersh_orders).
+	 *
+	 * @return Store\OrdersIndex
+	 */
 	public function orders_index() {
 		return $this->service( Store\OrdersIndex::class );
 	}
 
-	/** @return Store\Wallets */
+	/**
+	 * The runtime state of each wallet (qersh_wallets).
+	 *
+	 * @return Store\Wallets
+	 */
 	public function wallets() {
 		return $this->service( Store\Wallets::class );
 	}
 
-	/** @return Secrets */
+	/**
+	 * The connection keys of the wallets.
+	 *
+	 * @return Secrets
+	 */
 	public function secrets() {
 		return $this->service( Secrets::class );
 	}
 
-	/** @return Logger */
+	/**
+	 * The redacting log.
+	 *
+	 * @return Logger
+	 */
 	public function logger() {
 		return $this->service( Logger::class );
 	}
 
-	/** @return MatchPolicy */
+	/**
+	 * The store's rules around the core matcher (docs/17 §4.6).
+	 *
+	 * @return MatchPolicy
+	 */
 	public function policy() {
 		return $this->service( MatchPolicy::class );
 	}
 
-	/** @return Orders */
+	/**
+	 * The orders of the plugin: their qersh_orders rows, the matching transaction of a delivery, attach and dismiss.
+	 *
+	 * @return Orders
+	 */
 	public function orders() {
 		return $this->service( Orders::class );
 	}
 
-	/** @return Claims */
+	/**
+	 * The Orange Cash transaction ids customers type on the order page (docs/17 §4.10).
+	 *
+	 * @return Claims
+	 */
 	public function claims() {
 		return $this->service( Claims::class );
 	}
 
-	/** @return Completion */
+	/**
+	 * Completing orders once the store decided they are paid (docs/17 §4.7).
+	 *
+	 * @return Completion
+	 */
 	public function completion() {
 		return $this->service( Completion::class );
 	}
 
-	/** @return Expiry */
+	/**
+	 * The deadline of orders waiting for a transfer (docs/17 §4.7).
+	 *
+	 * @return Expiry
+	 */
 	public function expiry() {
 		return $this->service( Expiry::class );
 	}
 
-	/** @return Diagnostics */
+	/**
+	 * Wallet state, alerts and the self-test (docs/17 §4.9).
+	 *
+	 * @return Diagnostics
+	 */
 	public function diagnostics() {
 		return $this->service( Diagnostics::class );
 	}

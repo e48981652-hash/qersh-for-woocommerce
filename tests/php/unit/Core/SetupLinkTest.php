@@ -113,36 +113,95 @@ final class SetupLinkTest extends TestCase {
 			)
 		);
 		$emoji_cut = str_repeat( 'y', 59 ) . "\u{1F600}"; // the 60th unit is a high surrogate: not kept half
-		$this->assertStringEndsWith( '&label=' . str_repeat( 'y', 59 ), SetupLink::build( array( 'url' => 'https://a.b/c', 'label' => $emoji_cut ) ) );
-		$this->assertStringEndsWith( '&label=' . str_repeat( 'y', 58 ) . '%F0%9F%98%80', SetupLink::build( array( 'url' => 'https://a.b/c', 'label' => str_repeat( 'y', 58 ) . "\u{1F600}" ) ) );
+		$this->assertStringEndsWith(
+			'&label=' . str_repeat( 'y', 59 ),
+			SetupLink::build(
+				array(
+					'url'   => 'https://a.b/c',
+					'label' => $emoji_cut,
+				)
+			)
+		);
+		$this->assertStringEndsWith(
+			'&label=' . str_repeat( 'y', 58 ) . '%F0%9F%98%80',
+			SetupLink::build(
+				array(
+					'url'   => 'https://a.b/c',
+					'label' => str_repeat( 'y', 58 ) . "\u{1F600}",
+				)
+			)
+		);
 		// Bytes that are not UTF-8 (PHP's lone surrogate) never throw and become U+FFFD.
-		$this->assertStringEndsWith( '&label=%EF%BF%BD', SetupLink::build( array( 'url' => 'https://a.b/c', 'label' => "\xF0\x9F" ) ) );
+		$this->assertStringEndsWith(
+			'&label=%EF%BF%BD',
+			SetupLink::build(
+				array(
+					'url'   => 'https://a.b/c',
+					'label' => "\xF0\x9F",
+				)
+			)
+		);
 	}
 
 	public function test_characters_the_reader_would_eat_are_percent_encoded(): void {
-		$built = SetupLink::build( array( 'url' => 'https://a.b/c', 'label' => 'Shop (Cairo)' ) );
+		$built = SetupLink::build(
+			array(
+				'url'   => 'https://a.b/c',
+				'label' => 'Shop (Cairo)',
+			)
+		);
 		$this->assertStringEndsWith( '&label=Shop%20%28Cairo%29', $built );
 		$this->assertSame( self::parsed( 'https://a.b/c', null, 'Shop (Cairo)' ), SetupLink::parse( $built . '.' ) );
-		$dot = SetupLink::build( array( 'url' => 'https://a.b/c', 'label' => 'Shop Inc.' ) );
+		$dot = SetupLink::build(
+			array(
+				'url'   => 'https://a.b/c',
+				'label' => 'Shop Inc.',
+			)
+		);
 		$this->assertStringEndsWith( 'Inc%2E', $dot );
 		$this->assertSame( 'Shop Inc.', SetupLink::parse( $dot )['link']['label'] );
-		$quoted = SetupLink::build( array( 'url' => 'https://a.b/c', 'label' => "Ahmed's" ) );
+		$quoted = SetupLink::build(
+			array(
+				'url'   => 'https://a.b/c',
+				'label' => "Ahmed's",
+			)
+		);
 		$this->assertStringEndsWith( 'Ahmed%27s', $quoted );
 		$this->assertTrue( SetupLink::parse( "'" . $quoted . "'" )['ok'] );
-		$this->assertSame( 'qersh://setup?v=1&url=https%3A%2F%2Fa.b%2Fc&label=a%21%2A%28%29~', SetupLink::build( array( 'url' => 'https://a.b/c', 'label' => "a!*()~" ) ) );
+		$this->assertSame(
+			'qersh://setup?v=1&url=https%3A%2F%2Fa.b%2Fc&label=a%21%2A%28%29~',
+			SetupLink::build(
+				array(
+					'url'   => 'https://a.b/c',
+					'label' => 'a!*()~',
+				)
+			)
+		);
 		$this->assertSame( 'qersh://setup?v=1&url=https%3A%2F%2Fa.b%2Fc%2E', SetupLink::build( array( 'url' => 'https://a.b/c.' ) ) );
 	}
 
 	public function test_events_only_the_seven_names_and_never_written_by_build(): void {
 		$this->assertCount( 7, SetupLink::EVENTS );
-		$this->assertTrue( SetupLink::validate( array( 'url' => 'https://a.b/c', 'events' => array( 'transfer.received', ' transfer.updated ' ) ) )['ok'] );
+		$this->assertTrue(
+			SetupLink::validate(
+				array(
+					'url'    => 'https://a.b/c',
+					'events' => array( 'transfer.received', ' transfer.updated ' ),
+				)
+			)['ok']
+		);
 		$this->assertSame(
 			array(
 				'ok'      => false,
 				'problem' => 'event_unknown',
 				'detail'  => 'webhook.test',
 			),
-			SetupLink::validate( array( 'url' => 'https://a.b/c', 'events' => array( 'webhook.test' ) ) )
+			SetupLink::validate(
+				array(
+					'url'    => 'https://a.b/c',
+					'events' => array( 'webhook.test' ),
+				)
+			)
 		);
 		$this->assertSame(
 			array(
@@ -150,10 +209,23 @@ final class SetupLinkTest extends TestCase {
 				'problem' => 'event_unknown',
 				'detail'  => 'transfer.reversed',
 			),
-			SetupLink::validate( array( 'url' => 'https://a.b/c', 'events' => array( 'transfer.reversed' ) ) )
+			SetupLink::validate(
+				array(
+					'url'    => 'https://a.b/c',
+					'events' => array( 'transfer.reversed' ),
+				)
+			)
 		);
 		// The TypeScript writes &events=…; the plugin never does (docs/17 §4.1).
-		$this->assertSame( 'qersh://setup?v=1&url=https%3A%2F%2Fa.b%2Fc', SetupLink::build( array( 'url' => 'https://a.b/c', 'events' => array( 'transfer.received', 'device.heartbeat' ) ) ) );
+		$this->assertSame(
+			'qersh://setup?v=1&url=https%3A%2F%2Fa.b%2Fc',
+			SetupLink::build(
+				array(
+					'url'    => 'https://a.b/c',
+					'events' => array( 'transfer.received', 'device.heartbeat' ),
+				)
+			)
+		);
 	}
 
 	public function test_url_rules_follow_webhook_url_is_valid(): void {
@@ -162,15 +234,15 @@ final class SetupLinkTest extends TestCase {
 		$this->assertTrue( SetupLink::validate( array( 'url' => 'http://localhost:5678/webhook/qersh' ) )['ok'] );
 		$this->assertTrue( SetupLink::validate( array( 'url' => 'http://my-n8n.local/webhook/qersh' ) )['ok'] );
 		$problems = array(
-			'http://n8n.example.com/webhook/qersh'      => 'url_insecure_remote',
-			'http://[::1]:5678/webhook'                 => 'url_insecure_remote',
-			'http://a.b.local/webhook'                  => 'url_insecure_remote',
-			'https://user:pw@n8n.example.com/webhook'   => 'url_userinfo',
-			'https://@n8n.example.com/webhook'          => 'url_userinfo',
-			'ftp://n8n.example.com/webhook'             => 'url_scheme',
-			'https://' . str_repeat( 'a', 2050 )        => 'url_too_long',
-			''                                          => 'url_missing',
-			'not a url'                                 => 'url_invalid',
+			'http://n8n.example.com/webhook/qersh'    => 'url_insecure_remote',
+			'http://[::1]:5678/webhook'               => 'url_insecure_remote',
+			'http://a.b.local/webhook'                => 'url_insecure_remote',
+			'https://user:pw@n8n.example.com/webhook' => 'url_userinfo',
+			'https://@n8n.example.com/webhook'        => 'url_userinfo',
+			'ftp://n8n.example.com/webhook'           => 'url_scheme',
+			'https://' . str_repeat( 'a', 2050 )      => 'url_too_long',
+			''                                        => 'url_missing',
+			'not a url'                               => 'url_invalid',
 		);
 		foreach ( $problems as $url => $problem ) {
 			$this->assertSame(
@@ -194,41 +266,48 @@ final class SetupLinkTest extends TestCase {
 	public function test_url_parsing_matches_the_whatwg_parser(): void {
 		// Each expectation is what new URL() in Node gives (checked against tests/parity/core/setup-link.js).
 		$cases = array(
-			'https:example.com'                => true,
-			'HTTPS://EXAMPLE.COM'              => true,
-			'http://LOCALHOST/'                => true,
-			'http://127.1/'                    => true, // IPv4 shorthand: 127.0.0.1
-			'http://0x7f.0.0.1/'               => true,
-			'http://0177.0.0.1/'               => true,
-			'http://3232235777/'               => true, // 192.168.1.1
-			'http://169.254.1.1/'              => 'url_insecure_remote',
-			'http://256.0.0.1/'                => 'url_invalid',
-			'http://a.1/'                      => 'url_invalid',
-			'http://4294967296/'               => 'url_invalid',
-			'https://[::ffff:1.2.3.4]/'        => true,
-			'https://[::ffff:1.02.3.4]/'       => 'url_invalid',
-			'https://[1::2::3]/'               => 'url_invalid',
-			'https://[::1'                     => 'url_invalid',
-			'https://host:65535/'              => true,
-			'https://host:65536/'              => 'url_invalid',
-			'https://host:abc/'                => 'url_invalid',
-			'https://user@/'                   => 'url_invalid',
-			'https:user@host/'                 => 'url_userinfo',
-			'https://a.b\\@x'                  => 'url_userinfo',
-			'mailto:foo@example.com'           => 'url_invalid',
-			'foo://bar/'                       => 'url_scheme',
-			'file://server/share'              => 'url_scheme',
-			'file:///C:/x'                     => 'url_invalid',
-			'file://localhost/x'               => 'url_invalid',
-			'https://a%2Fb/'                   => 'url_invalid',
-			'https://a b/'                     => 'url_invalid',
-			'https://a_b.com/'                 => true,
-			"ht\ttps://a.b/"                   => true,
-			"\u{0000}https://a.b/"             => true,
+			'https:example.com'          => true,
+			'HTTPS://EXAMPLE.COM'        => true,
+			'http://LOCALHOST/'          => true,
+			'http://127.1/'              => true, // IPv4 shorthand: 127.0.0.1
+			'http://0x7f.0.0.1/'         => true,
+			'http://0177.0.0.1/'         => true,
+			'http://3232235777/'         => true, // 192.168.1.1
+			'http://169.254.1.1/'        => 'url_insecure_remote',
+			'http://256.0.0.1/'          => 'url_invalid',
+			'http://a.1/'                => 'url_invalid',
+			'http://4294967296/'         => 'url_invalid',
+			'https://[::ffff:1.2.3.4]/'  => true,
+			'https://[::ffff:1.02.3.4]/' => 'url_invalid',
+			'https://[1::2::3]/'         => 'url_invalid',
+			'https://[::1'               => 'url_invalid',
+			'https://host:65535/'        => true,
+			'https://host:65536/'        => 'url_invalid',
+			'https://host:abc/'          => 'url_invalid',
+			'https://user@/'             => 'url_invalid',
+			'https:user@host/'           => 'url_userinfo',
+			'https://a.b\\@x'            => 'url_userinfo',
+			'mailto:foo@example.com'     => 'url_invalid',
+			'foo://bar/'                 => 'url_scheme',
+			'file://server/share'        => 'url_scheme',
+			'file:///C:/x'               => 'url_invalid',
+			'file://localhost/x'         => 'url_invalid',
+			'https://a%2Fb/'             => 'url_invalid',
+			'https://a b/'               => 'url_invalid',
+			'https://a_b.com/'           => true,
+			"ht\ttps://a.b/"             => true,
+			"\u{0000}https://a.b/"       => true,
 		);
 		foreach ( $cases as $url => $expected ) {
 			$result = SetupLink::validate_receiver_url( (string) $url );
-			$this->assertSame( true === $expected ? array( 'ok' => true ) : array( 'ok' => false, 'problem' => $expected ), $result, (string) $url );
+			$this->assertSame(
+				true === $expected ? array( 'ok' => true ) : array(
+					'ok'      => false,
+					'problem' => $expected,
+				),
+				$result,
+				(string) $url
+			);
 		}
 		$this->assertSame( array( 'ok' => true ), SetupLink::validate_receiver_url( "https://\u{0645}\u{062A}\u{062C}\u{0631}.\u{0645}\u{0635}\u{0631}/wp-json" ) );
 		$this->assertSame( 'url_missing', SetupLink::validate_receiver_url( 42 )['problem'] );
@@ -247,18 +326,51 @@ final class SetupLinkTest extends TestCase {
 				'ok'      => false,
 				'problem' => 'secret_invalid',
 			),
-			SetupLink::validate( array( 'url' => 'https://a.b/c', 'secret' => 'short' ) )
+			SetupLink::validate(
+				array(
+					'url'    => 'https://a.b/c',
+					'secret' => 'short',
+				)
+			)
 		);
 		$this->assertSame(
 			array(
 				'ok'       => true,
 				'warnings' => array( 'secret_included' ),
 			),
-			SetupLink::validate( array( 'url' => 'https://a.b/c', 'secret' => $vector ) )
+			SetupLink::validate(
+				array(
+					'url'    => 'https://a.b/c',
+					'secret' => $vector,
+				)
+			)
 		);
-		$this->assertSame( 'secret_invalid', SetupLink::validate( array( 'url' => 'https://a.b/c', 'secret' => 42 ) )['problem'] );
-		$this->assertSame( 'secret_invalid', SetupLink::validate( array( 'url' => 'https://a.b/c', 'secret' => '   ' ) )['problem'] ); // as the TypeScript
-		$this->assertTrue( SetupLink::validate( array( 'url' => 'https://a.b/c', 'secret' => '' ) )['ok'] );
+		$this->assertSame(
+			'secret_invalid',
+			SetupLink::validate(
+				array(
+					'url'    => 'https://a.b/c',
+					'secret' => 42,
+				)
+			)['problem']
+		);
+		$this->assertSame(
+			'secret_invalid',
+			SetupLink::validate(
+				array(
+					'url'    => 'https://a.b/c',
+					'secret' => '   ',
+				)
+			)['problem']
+		); // as the TypeScript
+		$this->assertTrue(
+			SetupLink::validate(
+				array(
+					'url'    => 'https://a.b/c',
+					'secret' => '',
+				)
+			)['ok']
+		);
 	}
 
 	public function test_extraction_follows_the_app(): void {
@@ -281,10 +393,34 @@ final class SetupLinkTest extends TestCase {
 		$this->assertSame( $link, SetupLink::extract( $link . "\u{060C}" ) );
 		$this->assertSame( strtoupper( $link ), SetupLink::extract( strtoupper( $link ) ) );
 		$this->assertNull( SetupLink::extract( "qer\u{017F}h://setup?v=1" ) ); // JavaScript /i does not fold the long s
-		$this->assertSame( array( 'ok' => false, 'problem' => 'not_a_setup_link' ), SetupLink::parse( 'nothing here' ) );
-		$this->assertSame( array( 'ok' => false, 'problem' => 'not_a_setup_link' ), SetupLink::parse( null ) );
-		$this->assertSame( array( 'ok' => false, 'problem' => 'bad_version' ), SetupLink::parse( 'qersh://setup?v=2&url=' . rawurlencode( 'https://a.b/c' ) ) );
-		$this->assertSame( array( 'ok' => false, 'problem' => 'event_unknown' ), SetupLink::parse( 'qersh://setup?v=1&url=' . rawurlencode( 'https://a.b/c' ) . '&events=webhook.test' ) );
+		$this->assertSame(
+			array(
+				'ok'      => false,
+				'problem' => 'not_a_setup_link',
+			),
+			SetupLink::parse( 'nothing here' )
+		);
+		$this->assertSame(
+			array(
+				'ok'      => false,
+				'problem' => 'not_a_setup_link',
+			),
+			SetupLink::parse( null )
+		);
+		$this->assertSame(
+			array(
+				'ok'      => false,
+				'problem' => 'bad_version',
+			),
+			SetupLink::parse( 'qersh://setup?v=2&url=' . rawurlencode( 'https://a.b/c' ) )
+		);
+		$this->assertSame(
+			array(
+				'ok'      => false,
+				'problem' => 'event_unknown',
+			),
+			SetupLink::parse( 'qersh://setup?v=1&url=' . rawurlencode( 'https://a.b/c' ) . '&events=webhook.test' )
+		);
 		$malformed = SetupLink::parse( 'qersh://setup?v=1&url=' . rawurlencode( 'https://a.b/c' ) . '&label=%E0%A4%A' ); // malformed percent-encoding
 		$this->assertTrue( $malformed['ok'] );
 		$this->assertSame( "\u{FFFD}%A", $malformed['link']['label'] );
@@ -354,10 +490,34 @@ final class SetupLinkTest extends TestCase {
 
 	public function test_extract_secret_refuses_a_link_without_a_key(): void {
 		$keyless = SetupLink::build( array( 'url' => 'https://shop.example/wp-json/qersh/v1/webhook/k7q2m9x4p1rz' ) );
-		$this->assertSame( array( 'ok' => false, 'error' => 'keyless_link' ), SetupLink::extract_secret( $keyless ) );
-		$this->assertSame( array( 'ok' => false, 'error' => 'keyless_link' ), SetupLink::extract_secret( 'افتح هذا الرابط: ' . $keyless ) );
-		$this->assertSame( array( 'ok' => false, 'error' => 'invalid' ), SetupLink::extract_secret( $keyless . '&secret=short' ) );
-		$this->assertSame( array( 'ok' => false, 'error' => 'invalid' ), SetupLink::extract_secret( 'qersh://setup?v=1&url=' . rawurlencode( 'http://shop.example/' ) . '&secret=' . self::vector() ) );
+		$this->assertSame(
+			array(
+				'ok'    => false,
+				'error' => 'keyless_link',
+			),
+			SetupLink::extract_secret( $keyless )
+		);
+		$this->assertSame(
+			array(
+				'ok'    => false,
+				'error' => 'keyless_link',
+			),
+			SetupLink::extract_secret( 'افتح هذا الرابط: ' . $keyless )
+		);
+		$this->assertSame(
+			array(
+				'ok'    => false,
+				'error' => 'invalid',
+			),
+			SetupLink::extract_secret( $keyless . '&secret=short' )
+		);
+		$this->assertSame(
+			array(
+				'ok'    => false,
+				'error' => 'invalid',
+			),
+			SetupLink::extract_secret( 'qersh://setup?v=1&url=' . rawurlencode( 'http://shop.example/' ) . '&secret=' . self::vector() )
+		);
 	}
 
 	public function test_extract_secret_reads_the_env_line(): void {
@@ -370,9 +530,27 @@ final class SetupLinkTest extends TestCase {
 		$this->assertSame( $line, SetupLink::extract_secret( "# .env\nPORT=8787\nQERSH_WEBHOOK_SECRET=" . $vector . "\nQERSH_WEBHOOK_SECRET_PREVIOUS=" . $previous ) );
 		$this->assertSame( $line, SetupLink::extract_secret( 'QERSH_WEBHOOK_SECRET_PREVIOUS=' . $previous . "\nQERSH_WEBHOOK_SECRET=" . $vector ) );
 		// The previous key stops working on the phone within 24 hours: never take it as the current one.
-		$this->assertSame( array( 'ok' => false, 'error' => 'invalid' ), SetupLink::extract_secret( 'QERSH_WEBHOOK_SECRET_PREVIOUS=' . $previous ) );
-		$this->assertSame( array( 'ok' => false, 'error' => 'invalid' ), SetupLink::extract_secret( 'QERSH_WEBHOOK_SECRET=short' ) );
-		$this->assertSame( array( 'ok' => false, 'error' => 'invalid' ), SetupLink::extract_secret( 'QERSH_WEBHOOK_SECRET=https://shop.example/a/long/enough/address' ) );
+		$this->assertSame(
+			array(
+				'ok'    => false,
+				'error' => 'invalid',
+			),
+			SetupLink::extract_secret( 'QERSH_WEBHOOK_SECRET_PREVIOUS=' . $previous )
+		);
+		$this->assertSame(
+			array(
+				'ok'    => false,
+				'error' => 'invalid',
+			),
+			SetupLink::extract_secret( 'QERSH_WEBHOOK_SECRET=short' )
+		);
+		$this->assertSame(
+			array(
+				'ok'    => false,
+				'error' => 'invalid',
+			),
+			SetupLink::extract_secret( 'QERSH_WEBHOOK_SECRET=https://shop.example/a/long/enough/address' )
+		);
 	}
 
 	public function test_extract_secret_reads_the_key_itself(): void {
@@ -388,14 +566,68 @@ final class SetupLinkTest extends TestCase {
 		$this->assertSame( $key, SetupLink::extract_secret( "\u{200F}\"" . $vector . "\"\u{200E}" ) );
 		$this->assertSame( $key, SetupLink::extract_secret( "\"' " . $vector . " '\"" ) ); // removeSurrounding("\"") then ("'"), then trim
 		$this->assertSame( self::secret( 'a-merchant-chosen-secret-of-24', 'key' ), SetupLink::extract_secret( 'a-merchant-chosen-secret-of-24' ) );
-		$this->assertSame( array( 'ok' => false, 'error' => 'invalid' ), SetupLink::extract_secret( '"qsk_short"' ) );
-		$this->assertSame( array( 'ok' => false, 'error' => 'invalid' ), SetupLink::extract_secret( '"https://shop.example/wp-json/qersh/v1/webhook/k7q2m9x4p1rz"' ) );
-		$this->assertSame( array( 'ok' => false, 'error' => 'invalid' ), SetupLink::extract_secret( 'qsk_short' ) );
-		$this->assertSame( array( 'ok' => false, 'error' => 'invalid' ), SetupLink::extract_secret( 'https://shop.example/wp-json/qersh/v1/webhook/k7q2m9x4p1rz' ) );
-		$this->assertSame( array( 'ok' => false, 'error' => 'not_found' ), SetupLink::extract_secret( 'please send me the key again' ) );
-		$this->assertSame( array( 'ok' => false, 'error' => 'not_found' ), SetupLink::extract_secret( "  \u{200F} " ) );
-		$this->assertSame( array( 'ok' => false, 'error' => 'not_found' ), SetupLink::extract_secret( '' ) );
-		$this->assertSame( array( 'ok' => false, 'error' => 'not_found' ), SetupLink::extract_secret( null ) );
-		$this->assertSame( array( 'ok' => false, 'error' => 'not_found' ), SetupLink::extract_secret( array( $vector ) ) );
+		$this->assertSame(
+			array(
+				'ok'    => false,
+				'error' => 'invalid',
+			),
+			SetupLink::extract_secret( '"qsk_short"' )
+		);
+		$this->assertSame(
+			array(
+				'ok'    => false,
+				'error' => 'invalid',
+			),
+			SetupLink::extract_secret( '"https://shop.example/wp-json/qersh/v1/webhook/k7q2m9x4p1rz"' )
+		);
+		$this->assertSame(
+			array(
+				'ok'    => false,
+				'error' => 'invalid',
+			),
+			SetupLink::extract_secret( 'qsk_short' )
+		);
+		$this->assertSame(
+			array(
+				'ok'    => false,
+				'error' => 'invalid',
+			),
+			SetupLink::extract_secret( 'https://shop.example/wp-json/qersh/v1/webhook/k7q2m9x4p1rz' )
+		);
+		$this->assertSame(
+			array(
+				'ok'    => false,
+				'error' => 'not_found',
+			),
+			SetupLink::extract_secret( 'please send me the key again' )
+		);
+		$this->assertSame(
+			array(
+				'ok'    => false,
+				'error' => 'not_found',
+			),
+			SetupLink::extract_secret( "  \u{200F} " )
+		);
+		$this->assertSame(
+			array(
+				'ok'    => false,
+				'error' => 'not_found',
+			),
+			SetupLink::extract_secret( '' )
+		);
+		$this->assertSame(
+			array(
+				'ok'    => false,
+				'error' => 'not_found',
+			),
+			SetupLink::extract_secret( null )
+		);
+		$this->assertSame(
+			array(
+				'ok'    => false,
+				'error' => 'not_found',
+			),
+			SetupLink::extract_secret( array( $vector ) )
+		);
 	}
 }

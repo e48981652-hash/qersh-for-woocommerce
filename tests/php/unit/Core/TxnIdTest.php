@@ -109,29 +109,114 @@ final class TxnIdTest extends TestCase {
 	public function test_canonical_typed_joins_only_one_separator_on_one_line(): void {
 		$args = array( '01001234567', array( '01212345678' ) );
 		// Joined runs whose length is not an id leave each run to be read alone.
-		$this->assertSame( array( 'ok' => true, 'txn' => '7700031948' ), TxnId::canonical_typed( 'orange_cash', 'رقم المعاملة 7700031948 100', ...$args ) );
-		$this->assertSame( array( 'ok' => true, 'txn' => '25007294067405' ), TxnId::canonical_typed( 'orange_cash', 'رقم المعاملة 25007294067405 7770', ...$args ) );
-		$this->assertSame( array( 'ok' => true, 'txn' => '25007294067405' ), TxnId::canonical_typed( 'orange_cash', 'بمبلغ 11.00 جنيه رقم المعاملة 25007294067405', ...$args ) );
+		$this->assertSame(
+			array(
+				'ok'  => true,
+				'txn' => '7700031948',
+			),
+			TxnId::canonical_typed( 'orange_cash', 'رقم المعاملة 7700031948 100', ...$args )
+		);
+		$this->assertSame(
+			array(
+				'ok'  => true,
+				'txn' => '25007294067405',
+			),
+			TxnId::canonical_typed( 'orange_cash', 'رقم المعاملة 25007294067405 7770', ...$args )
+		);
+		$this->assertSame(
+			array(
+				'ok'  => true,
+				'txn' => '25007294067405',
+			),
+			TxnId::canonical_typed( 'orange_cash', 'بمبلغ 11.00 جنيه رقم المعاملة 25007294067405', ...$args )
+		);
 		// A line break of any kind keeps numbers apart.
 		foreach ( array( "\n", "\r\n", "\r", "\u{2028}", "\u{2029}", "\u{000B}", "\u{000C}", "\u{001E}" ) as $break ) {
-			$this->assertSame( array( 'ok' => true, 'txn' => '7700031948' ), TxnId::canonical_typed( 'orange_cash', 'رقم المعاملة 7700031948' . $break . '1000 جنيه', ...$args ), bin2hex( $break ) );
+			$this->assertSame(
+				array(
+					'ok'  => true,
+					'txn' => '7700031948',
+				),
+				TxnId::canonical_typed( 'orange_cash', 'رقم المعاملة 7700031948' . $break . '1000 جنيه', ...$args ),
+				bin2hex( $break )
+			);
 		}
 		// Two 14-digit ids on one line stay two.
-		$this->assertSame( array( 'ok' => false, 'error' => 'qersh_txn_several' ), TxnId::canonical_typed( 'orange_cash', 'رقم 25007294067405 25005172944183', ...$args ) );
+		$this->assertSame(
+			array(
+				'ok'    => false,
+				'error' => 'qersh_txn_several',
+			),
+			TxnId::canonical_typed( 'orange_cash', 'رقم 25007294067405 25005172944183', ...$args )
+		);
 		// A joined phone number is left out like a whole one.
-		$this->assertSame( array( 'ok' => false, 'error' => 'qersh_txn_wallet_number' ), TxnId::canonical_typed( 'orange_cash', 'من 0020 1001234567 فقط', ...$args ) );
-		$this->assertSame( array( 'ok' => true, 'txn' => '25007294067405' ), TxnId::canonical_typed( 'orange_cash', 'من 121 234 5678 رقم المعاملة 25007294067405', ...$args ) );
+		$this->assertSame(
+			array(
+				'ok'    => false,
+				'error' => 'qersh_txn_wallet_number',
+			),
+			TxnId::canonical_typed( 'orange_cash', 'من 0020 1001234567 فقط', ...$args )
+		);
+		$this->assertSame(
+			array(
+				'ok'  => true,
+				'txn' => '25007294067405',
+			),
+			TxnId::canonical_typed( 'orange_cash', 'من 121 234 5678 رقم المعاملة 25007294067405', ...$args )
+		);
 		// The compact attempt still reads the id alone, with any white space inside.
-		$this->assertSame( array( 'ok' => true, 'txn' => '25007294067405' ), TxnId::canonical_typed( 'orange_cash', "2500\n7294067405", ...$args ) );
+		$this->assertSame(
+			array(
+				'ok'  => true,
+				'txn' => '25007294067405',
+			),
+			TxnId::canonical_typed( 'orange_cash', "2500\n7294067405", ...$args )
+		);
 	}
 
 	public function test_canonical_typed_handles_odd_input(): void {
-		$this->assertSame( array( 'ok' => false, 'error' => 'qersh_txn_format' ), TxnId::canonical_typed( 'orange_cash', array( '25007294067405' ), null, array() ) );
-		$this->assertSame( array( 'ok' => false, 'error' => 'qersh_txn_format' ), TxnId::canonical_typed( 'orange_cash', 2.5007294067405E+13, null, array() ) );
-		$this->assertSame( array( 'ok' => false, 'error' => 'qersh_txn_too_long' ), TxnId::canonical_typed( 'orange_cash', str_repeat( "\xFF", 401 ), null, array() ) );
-		$this->assertSame( array( 'ok' => true, 'txn' => '25007294067405' ), TxnId::canonical_typed( 'orange_cash', "\xFF25007294067405", null, array() ) ); // not UTF-8
-		$this->assertSame( array( 'ok' => true, 'txn' => '25007294067405' ), TxnId::canonical_typed( 'orange_cash', '25007294067405', null, array( null, 7, '', 'shop@instapay' ) ) );
-		$this->assertSame( array( 'ok' => false, 'error' => 'qersh_txn_wallet_number' ), TxnId::canonical_typed( 'orange_cash', 'shop', null, array( 'shop@instapay' ) ) );
+		$this->assertSame(
+			array(
+				'ok'    => false,
+				'error' => 'qersh_txn_format',
+			),
+			TxnId::canonical_typed( 'orange_cash', array( '25007294067405' ), null, array() )
+		);
+		$this->assertSame(
+			array(
+				'ok'    => false,
+				'error' => 'qersh_txn_format',
+			),
+			TxnId::canonical_typed( 'orange_cash', 2.5007294067405E+13, null, array() )
+		);
+		$this->assertSame(
+			array(
+				'ok'    => false,
+				'error' => 'qersh_txn_too_long',
+			),
+			TxnId::canonical_typed( 'orange_cash', str_repeat( "\xFF", 401 ), null, array() )
+		);
+		$this->assertSame(
+			array(
+				'ok'  => true,
+				'txn' => '25007294067405',
+			),
+			TxnId::canonical_typed( 'orange_cash', "\xFF25007294067405", null, array() )
+		); // not UTF-8
+		$this->assertSame(
+			array(
+				'ok'  => true,
+				'txn' => '25007294067405',
+			),
+			TxnId::canonical_typed( 'orange_cash', '25007294067405', null, array( null, 7, '', 'shop@instapay' ) )
+		);
+		$this->assertSame(
+			array(
+				'ok'    => false,
+				'error' => 'qersh_txn_wallet_number',
+			),
+			TxnId::canonical_typed( 'orange_cash', 'shop', null, array( 'shop@instapay' ) )
+		);
 	}
 
 	public function test_canonical_stored(): void {

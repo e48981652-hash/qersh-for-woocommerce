@@ -19,7 +19,7 @@ final class Autoloader {
 	/**
 	 * Registers the loader once.
 	 */
-	public static function register() {
+	public static function register(): void {
 		static $done = false;
 		if ( $done ) {
 			return;
@@ -33,7 +33,7 @@ final class Autoloader {
 	 *
 	 * @param string $class_name Fully qualified class name.
 	 */
-	public static function load( $class_name ) {
+	public static function load( $class_name ): void {
 		if ( 0 !== strpos( $class_name, self::PREFIX ) ) {
 			return;
 		}

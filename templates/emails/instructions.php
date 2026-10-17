@@ -24,6 +24,10 @@ use QershPay\WooCommerce\Format;
 $qersh_wc_allowed = Format::allowed_html();
 $qersh_wc_ctx     = Format::EMAIL_HTML;
 
+/**
+ * WooCommerce's email header (WC_Emails::email_header()).
+ * This action is documented in woocommerce/templates/emails/customer-processing-order.php.
+ */
 do_action( 'woocommerce_email_header', $email_heading, $email ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WooCommerce's email hook.
 ?>
 
@@ -125,12 +129,30 @@ do_action( 'woocommerce_email_header', $email_heading, $email ); // phpcs:ignore
 <?php endif; ?>
 
 <?php
+/**
+ * WooCommerce's order details table (WC_Emails::order_details()).
+ * This action is documented in woocommerce/templates/emails/customer-processing-order.php.
+ */
 do_action( 'woocommerce_email_order_details', $order, $sent_to_admin, $plain_text, $email ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WooCommerce's email hook.
+
+/**
+ * WooCommerce's order meta (WC_Emails::order_meta()).
+ * This action is documented in woocommerce/templates/emails/customer-processing-order.php.
+ */
 do_action( 'woocommerce_email_order_meta', $order, $sent_to_admin, $plain_text, $email ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WooCommerce's email hook.
+
+/**
+ * WooCommerce's customer details (WC_Emails::customer_details(), WC_Emails::email_address()).
+ * This action is documented in woocommerce/templates/emails/customer-processing-order.php.
+ */
 do_action( 'woocommerce_email_customer_details', $order, $sent_to_admin, $plain_text, $email ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WooCommerce's email hook.
 
 if ( $additional_content ) {
 	echo wp_kses_post( wpautop( wptexturize( $additional_content ) ) );
 }
 
+/**
+ * WooCommerce's email footer (WC_Emails::email_footer()).
+ * This action is documented in woocommerce/templates/emails/customer-processing-order.php.
+ */
 do_action( 'woocommerce_email_footer', $email ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WooCommerce's email hook.

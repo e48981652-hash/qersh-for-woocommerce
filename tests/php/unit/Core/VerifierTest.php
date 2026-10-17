@@ -65,7 +65,7 @@ final class VerifierTest extends TestCase {
 				return $case;
 			}
 		}
-		throw new \RuntimeException( 'no vector ' . $name );
+		throw new \RuntimeException( 'no vector ' . $name ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- unit test without WordPress (no esc_html()): the message only reaches the PHPUnit report.
 	}
 
 	/**
@@ -103,7 +103,7 @@ final class VerifierTest extends TestCase {
 	/**
 	 * Docs/17 §1: the nine vectors pass the original verify.php and Verifier alike, accept and reject exactly.
 	 */
-	public function test_every_kit_vector_gives_the_expected_verdict_in_the_port_and_in_verify_php() {
+	public function test_every_kit_vector_gives_the_expected_verdict_in_the_port_and_in_verify_php(): void {
 		$cases = self::vectors()['cases'];
 		$this->assertCount( 9, $cases );
 		foreach ( $cases as $case ) {
@@ -117,13 +117,55 @@ final class VerifierTest extends TestCase {
 	/**
 	 * Vectors.test.ts: failure reasons name the cause.
 	 */
-	public function test_failure_reasons_name_the_cause() {
-		$this->assertSame( array( 'ok' => false, 'reason' => 'bad_signature', 't' => 1791725802 ), self::run_case( 'wrong_secret' ) );
-		$this->assertSame( array( 'ok' => false, 'reason' => 'bad_signature', 't' => 1791725802 ), self::run_case( 'tampered_body' ) );
-		$this->assertSame( array( 'ok' => false, 'reason' => 'stale_timestamp', 't' => 1791725802 ), self::run_case( 'stale_timestamp' ) );
-		$this->assertSame( array( 'ok' => false, 'reason' => 'stale_timestamp', 't' => 1791725802 ), self::run_case( 'future_timestamp' ) );
-		$this->assertSame( array( 'ok' => false, 'reason' => 'missing_header', 't' => null ), self::run_case( 'missing_signature_header' ) );
-		$this->assertSame( array( 'ok' => false, 'reason' => 'malformed_header', 't' => null ), self::run_case( 'garbage_signature_header' ) );
+	public function test_failure_reasons_name_the_cause(): void {
+		$this->assertSame(
+			array(
+				'ok'     => false,
+				'reason' => 'bad_signature',
+				't'      => 1791725802,
+			),
+			self::run_case( 'wrong_secret' )
+		);
+		$this->assertSame(
+			array(
+				'ok'     => false,
+				'reason' => 'bad_signature',
+				't'      => 1791725802,
+			),
+			self::run_case( 'tampered_body' )
+		);
+		$this->assertSame(
+			array(
+				'ok'     => false,
+				'reason' => 'stale_timestamp',
+				't'      => 1791725802,
+			),
+			self::run_case( 'stale_timestamp' )
+		);
+		$this->assertSame(
+			array(
+				'ok'     => false,
+				'reason' => 'stale_timestamp',
+				't'      => 1791725802,
+			),
+			self::run_case( 'future_timestamp' )
+		);
+		$this->assertSame(
+			array(
+				'ok'     => false,
+				'reason' => 'missing_header',
+				't'      => null,
+			),
+			self::run_case( 'missing_signature_header' )
+		);
+		$this->assertSame(
+			array(
+				'ok'     => false,
+				'reason' => 'malformed_header',
+				't'      => null,
+			),
+			self::run_case( 'garbage_signature_header' )
+		);
 		// The previous key signed the second v1 of the header.
 		$this->assertSame(
 			array(
@@ -148,7 +190,7 @@ final class VerifierTest extends TestCase {
 	/**
 	 * Vectors.test.ts: the valid case verifies at the window edges and fails just outside.
 	 */
-	public function test_the_window_is_inclusive_at_300_seconds() {
+	public function test_the_window_is_inclusive_at_300_seconds(): void {
 		$this->assertTrue( self::run_case( 'valid_transfer_received', 1791725802 + 300 )['ok'] );
 		$this->assertTrue( self::run_case( 'valid_transfer_received', 1791725802 - 300 )['ok'] );
 		$this->assertFalse( self::run_case( 'valid_transfer_received', 1791725802 + 301 )['ok'] );
@@ -159,7 +201,7 @@ final class VerifierTest extends TestCase {
 	/**
 	 * Vectors.test.ts: a header with several v1 values matches whichever key the receiver holds.
 	 */
-	public function test_rotation_header_matches_whichever_key_the_receiver_holds() {
+	public function test_rotation_header_matches_whichever_key_the_receiver_holds(): void {
 		$case    = self::vector( 'valid_transfer_received' );
 		$vectors = self::vectors();
 		$header  = Verifier::sign_header( $case['now'], $case['body'], array( $vectors['secret'], $vectors['previous_secret'] ) );
@@ -196,7 +238,7 @@ final class VerifierTest extends TestCase {
 	 * Vectors.test.ts: keys are trimmed like the phone trims them, blanks and non-strings mean no_key, and key_index
 	 * is the caller's index.
 	 */
-	public function test_keys_are_trimmed_and_key_index_is_the_callers_index() {
+	public function test_keys_are_trimmed_and_key_index_is_the_callers_index(): void {
 		$case   = self::vector( 'valid_transfer_received' );
 		$secret = $case['secrets'][0];
 		$t      = Verifier::parse_header( self::header_of( $case ) )['t'];
@@ -233,13 +275,21 @@ final class VerifierTest extends TestCase {
 			Verifier::usable_keys( array( 7, " a\t", "\xC2\xA0" ) )
 		);
 		// Associative arrays count by position, like Array.prototype.forEach.
-		$this->assertSame( $ok( 1 ), $run( array( 'x' => self::other_key( 2 ), 'y' => $secret ) ) );
+		$this->assertSame(
+			$ok( 1 ),
+			$run(
+				array(
+					'x' => self::other_key( 2 ),
+					'y' => $secret,
+				)
+			)
+		);
 	}
 
 	/**
 	 * Vectors.test.ts: a window that is not a finite non-negative number falls back to 300.
 	 */
-	public function test_tolerance_falls_back_to_300() {
+	public function test_tolerance_falls_back_to_300(): void {
 		$this->assertSame( 300, Verifier::tolerance_of( INF ) );
 		$this->assertSame( 300, Verifier::tolerance_of( NAN ) );
 		$this->assertSame( 300, Verifier::tolerance_of( -1 ) );
@@ -260,7 +310,7 @@ final class VerifierTest extends TestCase {
 	/**
 	 * Sign_header builds the header the phone sends, byte for byte.
 	 */
-	public function test_sign_header_reproduces_the_vector_headers() {
+	public function test_sign_header_reproduces_the_vector_headers(): void {
 		$vectors  = self::vectors();
 		$valid    = self::vector( 'valid_transfer_received' );
 		$rotation = self::vector( 'rotation_previous_secret_still_valid' );
@@ -274,7 +324,7 @@ final class VerifierTest extends TestCase {
 	/**
 	 * Docs/17 §13 item 5: a space after the comma.
 	 */
-	public function test_a_space_after_the_comma_still_verifies() {
+	public function test_a_space_after_the_comma_still_verifies(): void {
 		$case   = self::vector( 'valid_transfer_received' );
 		$header = str_replace( ',', ', ', self::header_of( $case ) );
 		$this->assertStringContainsString( ', v1=', $header );
@@ -288,11 +338,11 @@ final class VerifierTest extends TestCase {
 	/**
 	 * Docs/17 §13 item 5 and §4.8: four v1 values (the current key and three previous ones) with the match last.
 	 */
-	public function test_four_v1_values_with_the_match_last() {
-		$case    = self::vector( 'valid_transfer_received' );
-		$secret  = $case['secrets'][0];
-		$keys    = array( self::other_key( 1 ), self::other_key( 2 ), self::other_key( 3 ), $secret );
-		$header  = Verifier::sign_header( $case['now'], $case['body'], $keys );
+	public function test_four_v1_values_with_the_match_last(): void {
+		$case   = self::vector( 'valid_transfer_received' );
+		$secret = $case['secrets'][0];
+		$keys   = array( self::other_key( 1 ), self::other_key( 2 ), self::other_key( 3 ), $secret );
+		$header = Verifier::sign_header( $case['now'], $case['body'], $keys );
 		$this->assertCount( 4, Verifier::parse_header( $header )['v1'] );
 		$this->assertSame(
 			array(
@@ -321,7 +371,7 @@ final class VerifierTest extends TestCase {
 	/**
 	 * ParseSignatureHeader: at most 8192 characters after trimming, counted as JavaScript counts them.
 	 */
-	public function test_header_length_limit() {
+	public function test_header_length_limit(): void {
 		$case   = self::vector( 'valid_transfer_received' );
 		$header = self::header_of( $case );
 		$verify = function ( string $h ) use ( $case ) {
@@ -353,7 +403,7 @@ final class VerifierTest extends TestCase {
 	/**
 	 * ParseSignatureHeader: `t` is 1 to 13 digits, and a bad `t` anywhere refuses the header.
 	 */
-	public function test_t_must_be_one_to_thirteen_digits() {
+	public function test_t_must_be_one_to_thirteen_digits(): void {
 		$case   = self::vector( 'valid_transfer_received' );
 		$header = self::header_of( $case );
 		$v1     = substr( $header, strpos( $header, ',' ) );
@@ -389,7 +439,7 @@ final class VerifierTest extends TestCase {
 	/**
 	 * ParseSignatureHeader: a v1 value that is not 64 hex characters is ignored, others are lower-cased.
 	 */
-	public function test_malformed_v1_values_are_ignored() {
+	public function test_malformed_v1_values_are_ignored(): void {
 		$case   = self::vector( 'valid_transfer_received' );
 		$header = self::header_of( $case );
 		$t      = substr( $header, 0, strpos( $header, ',' ) );
@@ -415,7 +465,7 @@ final class VerifierTest extends TestCase {
 	 * The reasons come in the core's order: no_key, raw_body_unavailable, missing_header, malformed_header,
 	 * stale_timestamp, bad_signature.
 	 */
-	public function test_reason_order() {
+	public function test_reason_order(): void {
 		$case = self::vector( 'valid_transfer_received' );
 		$now  = $case['now'];
 		$this->assertSame( 'no_key', Verifier::verify( null, null, array(), $now )['reason'] );
@@ -437,7 +487,7 @@ final class VerifierTest extends TestCase {
 	/**
 	 * An empty body is a body: it verifies when it was signed.
 	 */
-	public function test_an_empty_body_is_not_a_missing_body() {
+	public function test_an_empty_body_is_not_a_missing_body(): void {
 		$secret = self::vectors()['secret'];
 		$header = Verifier::sign_header( 1791725802, '', array( $secret ) );
 		$this->assertTrue( Verifier::verify( '', $header, array( $secret ), 1791725802 )['ok'] );
@@ -447,7 +497,7 @@ final class VerifierTest extends TestCase {
 	/**
 	 * Parse_header returns the core's shape, and trims as JavaScript does.
 	 */
-	public function test_parse_header_shape_and_trimming() {
+	public function test_parse_header_shape_and_trimming(): void {
 		$case   = self::vector( 'valid_transfer_received' );
 		$header = self::header_of( $case );
 		$parsed = Verifier::parse_header( $header );
@@ -467,4 +517,3 @@ final class VerifierTest extends TestCase {
 		$this->assertSame( "\xFF", Verifier::trim_js( " \xFF " ) );
 	}
 }
-

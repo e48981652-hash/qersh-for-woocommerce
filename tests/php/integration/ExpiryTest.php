@@ -18,7 +18,7 @@ class ExpiryTest extends TestCase {
 	/**
 	 * Open and overdue: cancelled, row expired, _qersh_expired_at set.
 	 */
-	public function test_expiry_cancels_an_open_order() {
+	public function test_expiry_cancels_an_open_order(): void {
 		$wallet = $this->vodafone_wallet();
 		$order  = $this->order( $this->product( '100' ) );
 		$this->assertSame( 'success', $this->pay( $order, '01122334488', $wallet['id'] )['result'] );
@@ -35,7 +35,7 @@ class ExpiryTest extends TestCase {
 	/**
 	 * Not overdue yet (the deadline plus the late window is in the future): nothing happens.
 	 */
-	public function test_expiry_before_the_deadline_does_nothing() {
+	public function test_expiry_before_the_deadline_does_nothing(): void {
 		$wallet = $this->vodafone_wallet();
 		$order  = $this->order( $this->product( '100' ) );
 		$this->assertSame( 'success', $this->pay( $order, '01122334499', $wallet['id'] )['result'] );
@@ -49,7 +49,7 @@ class ExpiryTest extends TestCase {
 	/**
 	 * Partly paid and overdue: never cancelled, the order stays pending.
 	 */
-	public function test_expiry_leaves_a_partly_paid_order_pending() {
+	public function test_expiry_leaves_a_partly_paid_order_pending(): void {
 		$wallet = $this->vodafone_wallet();
 		$order  = $this->order( $this->product( '140' ) );
 		$this->assertSame( 'success', $this->pay( $order, '01122334400', $wallet['id'] )['result'] );

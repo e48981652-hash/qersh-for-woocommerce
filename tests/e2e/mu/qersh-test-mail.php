@@ -80,7 +80,7 @@ add_filter(
 			'slow'    => $slow,
 			'ms'      => (int) round( ( microtime( true ) - $started ) * 1000 ),
 		);
-		file_put_contents( QERSH_E2E_MAIL_LOG, wp_json_encode( $line, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) . "\n", FILE_APPEND | LOCK_EX ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+		file_put_contents( QERSH_E2E_MAIL_LOG, wp_json_encode( $line, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) . "\n", FILE_APPEND | LOCK_EX ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- the test mail log, outside the plugin folder.
 		return true;
 	},
 	10,

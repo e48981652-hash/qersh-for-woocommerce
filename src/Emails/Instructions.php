@@ -37,7 +37,7 @@ class Instructions extends \WC_Email {
 		$this->id             = self::ID;
 		$this->customer_email = true;
 		$this->title          = __( 'Wallet transfer instructions', 'qersh-for-woocommerce' );
-		$this->description    = __( 'Sent to the customer when an order is placed with wallet transfer, and again after each new attempt from "Pay for order". It holds the amount, the wallet to transfer to, the number to transfer from and the deadline.', 'qersh-for-woocommerce' );
+		$this->description    = __( 'Sent to the customer when an order is placed with wallet transfer, and again after each new attempt from “Pay for order”. It holds the amount, the wallet to transfer to, the number to transfer from and the deadline.', 'qersh-for-woocommerce' );
 		$this->email_group    = 'orders';
 		$this->template_html  = 'emails/instructions.php';
 		$this->template_plain = 'emails/plain/instructions.php';
@@ -84,6 +84,7 @@ class Instructions extends \WC_Email {
 	 *
 	 * @param int            $order_id Order id.
 	 * @param \WC_Order|bool $order    Order, when the caller has it.
+	 * @return void
 	 */
 	public function trigger( $order_id, $order = false ) {
 		$this->setup_locale();

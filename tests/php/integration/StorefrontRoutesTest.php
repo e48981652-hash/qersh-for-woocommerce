@@ -18,7 +18,7 @@ class StorefrontRoutesTest extends TestCase {
 	/**
 	 * GET on either route: 404 rest_no_route.
 	 */
-	public function test_routes_are_post_only() {
+	public function test_routes_are_post_only(): void {
 		foreach ( array( '/qersh/v1/order-status', '/qersh/v1/order-txn' ) as $route ) {
 			$response = $this->server->dispatch( new \WP_REST_Request( 'GET', $route ) );
 			$this->assertSame( 404, $response->get_status(), $route );
@@ -30,7 +30,7 @@ class StorefrontRoutesTest extends TestCase {
 	 * The status route: a wrong key, an unknown order and an order of another method share one 404 body; the right
 	 * key answers the state with no-store, and LiteSpeed Cache is told not to keep it.
 	 */
-	public function test_status_route_answers_and_refuses_the_same_way() {
+	public function test_status_route_answers_and_refuses_the_same_way(): void {
 		$wallet = $this->vodafone_wallet();
 		$order  = $this->order( $this->product( '100' ) );
 		$this->assertSame( 'success', $this->pay( $order, '01122334455', $wallet['id'] )['result'] );
@@ -81,7 +81,7 @@ class StorefrontRoutesTest extends TestCase {
 	/**
 	 * The status follows the row: paid after the matched transfer.
 	 */
-	public function test_status_route_says_paid_after_the_match() {
+	public function test_status_route_says_paid_after_the_match(): void {
 		$wallet = $this->vodafone_wallet();
 		$order  = $this->order( $this->product( '100' ) );
 		$this->assertSame( 'success', $this->pay( $order, '01122334456', $wallet['id'] )['result'] );
@@ -108,7 +108,7 @@ class StorefrontRoutesTest extends TestCase {
 	 * The transaction-id route: refusals share the status route's 404 body; a body above 2 KB is 400; a wrong
 	 * shape is 400 with its code and writes nothing; a good id is 200 saved with no-store and claim true after.
 	 */
-	public function test_txn_route_refuses_checks_size_and_saves() {
+	public function test_txn_route_refuses_checks_size_and_saves(): void {
 		$wallet = $this->orange_wallet();
 		$order  = $this->order( $this->product( '140' ), self::ORANGE_PAYER );
 		$this->assertSame( 'success', $this->pay( $order, self::ORANGE_PAYER, $wallet['id'] )['result'] );

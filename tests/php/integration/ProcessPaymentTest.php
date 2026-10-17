@@ -19,7 +19,7 @@ class ProcessPaymentTest extends TestCase {
 	 * A successful process_payment() writes the row, the meta, the deadline and the expiry action, and sends one
 	 * instructions email; the order stays pending.
 	 */
-	public function test_process_payment_writes_the_row_meta_and_deadline() {
+	public function test_process_payment_writes_the_row_meta_and_deadline(): void {
 		$wallet = $this->vodafone_wallet();
 		$order  = $this->order( $this->product( '140' ) );
 		$before = time();
@@ -66,7 +66,7 @@ class ProcessPaymentTest extends TestCase {
 	/**
 	 * Arabic-Indic digits and +20 are stored as the normalised 11-digit number.
 	 */
-	public function test_arabic_digits_and_country_code_are_normalised() {
+	public function test_arabic_digits_and_country_code_are_normalised(): void {
 		$wallet = $this->vodafone_wallet();
 
 		$first = $this->order( $this->product( '100' ) );
@@ -81,7 +81,7 @@ class ProcessPaymentTest extends TestCase {
 	/**
 	 * The store's own wallet number is refused: no row, no meta, the order stays as it was.
 	 */
-	public function test_the_store_number_is_refused() {
+	public function test_the_store_number_is_refused(): void {
 		$wallet = $this->vodafone_wallet();
 		$order  = $this->order( $this->product( '100' ) );
 
@@ -105,7 +105,7 @@ class ProcessPaymentTest extends TestCase {
 	 *
 	 * @param callable $callback Callback.
 	 */
-	private function with_session( callable $callback ) {
+	private function with_session( callable $callback ): void {
 		$previous     = WC()->session;
 		WC()->session = new class() extends \WC_Session {
 		};

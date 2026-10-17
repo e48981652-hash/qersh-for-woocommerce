@@ -29,7 +29,7 @@ final class SchemaTest extends TestCase {
 	}
 
 	/** Five tables, each a dbDelta-ready CREATE TABLE. */
-	public function test_five_tables() {
+	public function test_five_tables(): void {
 		$sql = $this->sql();
 		$this->assertSame( array( 'deliveries', 'transfers', 'orders', 'wallets', 'locks' ), array_keys( $sql ) );
 		foreach ( $sql as $short => $statement ) {
@@ -40,7 +40,7 @@ final class SchemaTest extends TestCase {
 	}
 
 	/** One field per line, two spaces after PRIMARY KEY, KEY never INDEX, no backticks (docs/16 §8). */
-	public function test_dbdelta_rules() {
+	public function test_dbdelta_rules(): void {
 		foreach ( $this->sql() as $short => $statement ) {
 			$this->assertStringNotContainsString( '`', $statement, $short );
 			$this->assertDoesNotMatchRegularExpression( '/\bINDEX\b/i', $statement, $short );
@@ -53,7 +53,7 @@ final class SchemaTest extends TestCase {
 	}
 
 	/** Every column of CONTRACTS.md §7 is in the CREATE statement and in COLUMNS, and nothing else. */
-	public function test_columns_match() {
+	public function test_columns_match(): void {
 		$contract = array(
 			'deliveries' => 'id delivery_id wallet event redelivery state claim_token http_status reply_json claimed_at answered_at',
 			'transfers'  => 'id transfer_id wallet provider delivery_id amount_minor currency payer_key payer_name provider_txn_id money_at sms_at risk risk_reasons auto_confirm_ok balance_chain outcome reason claim_eval claim_eval_at order_id flag phone_sync phone_sync_since phone_sync_count note created_at updated_at',
@@ -61,7 +61,7 @@ final class SchemaTest extends TestCase {
 			'wallets'    => 'wallet state deleted_at gone_at key_erased_at snapshot last_delivery_at last_event last_heartbeat_at last_device_state grace_until sender_masked auto_seen seen_host seen_form last_test_at last_test_app_version last_test_provider last_test_number_masked silent_since silent_notified',
 			'locks'      => 'name created_at',
 		);
-		$sql = $this->sql();
+		$sql      = $this->sql();
 		foreach ( $contract as $short => $names ) {
 			$expected = explode( ' ', $names );
 			$this->assertSame( $expected, array_keys( Schema::COLUMNS[ $short ] ), $short . ' COLUMNS' );
@@ -71,19 +71,19 @@ final class SchemaTest extends TestCase {
 	}
 
 	/** NULL in COLUMNS agrees with NULL in the CREATE statement. */
-	public function test_nullability_matches() {
+	public function test_nullability_matches(): void {
 		$sql = $this->sql();
 		foreach ( Schema::COLUMNS as $short => $columns ) {
 			foreach ( $columns as $column => $spec ) {
 				$this->assertSame( 1, preg_match( '/^' . $column . ' .*$/m', $sql[ $short ], $m ), $column );
 				$nullable = Schema::parse_spec( $spec )[2];
-				$this->assertSame( $nullable, false === strpos( $m[0], 'NOT NULL' ), $short . '.' . $column );
+				$this->assertSame( $nullable, ( false === strpos( $m[0], 'NOT NULL' ) ), $short . '.' . $column );
 			}
 		}
 	}
 
 	/** Key columns are refused when too long, so their lengths must equal the column. */
-	public function test_key_lengths_match() {
+	public function test_key_lengths_match(): void {
 		$sql = $this->sql();
 		foreach ( Schema::COLUMNS as $short => $columns ) {
 			foreach ( $columns as $column => $spec ) {
@@ -98,7 +98,7 @@ final class SchemaTest extends TestCase {
 	}
 
 	/** Every spec has a known type; a `nul` column turns a too-long value into NULL, so it must allow NULL. */
-	public function test_spec_types() {
+	public function test_spec_types(): void {
 		foreach ( Schema::COLUMNS as $short => $columns ) {
 			foreach ( $columns as $column => $spec ) {
 				list( $type, , $nullable ) = Schema::parse_spec( $spec );

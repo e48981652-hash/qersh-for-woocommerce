@@ -19,7 +19,7 @@ class CompletionTest extends TestCase {
 	 * Completion::run() twice (the after-reply path and the action, or the sweep): one payment_complete(), one
 	 * stock reduction.
 	 */
-	public function test_a_matched_transfer_completes_the_order_once() {
+	public function test_a_matched_transfer_completes_the_order_once(): void {
 		$wallet  = $this->vodafone_wallet();
 		$product = $this->product( '140', 10 );
 		$order   = $this->order( $product );
@@ -59,7 +59,7 @@ class CompletionTest extends TestCase {
 	/**
 	 * A repeat of the same delivery after the completion changes nothing.
 	 */
-	public function test_a_repeated_delivery_after_completion_changes_nothing() {
+	public function test_a_repeated_delivery_after_completion_changes_nothing(): void {
 		$wallet  = $this->vodafone_wallet();
 		$product = $this->product( '100', 5 );
 		$order   = $this->order( $product );

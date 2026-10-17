@@ -60,7 +60,7 @@ final class MatcherTest extends TestCase {
 	/**
 	 * The kit's fresh(): an empty store.
 	 */
-	private function fresh() {
+	private function fresh(): void {
 		$this->orders   = array();
 		$this->payments = array();
 		$this->flagged  = array();
@@ -73,9 +73,9 @@ final class MatcherTest extends TestCase {
 	/**
 	 * `data` of a transfer.received whose money arrived `$age` seconds ago.
 	 *
-	 * @param int      $age    Seconds before NOW.
-	 * @param int|null $amount Piasters.
-	 * @param array    $extra  Fields to override.
+	 * @param int                        $age    Seconds before NOW.
+	 * @param int|float|string|bool|null $amount Piasters; the other types are the unreadable amounts the tests try.
+	 * @param array                      $extra  Fields to override.
 	 * @return array
 	 */
 	private static function transfer( int $age, $amount = 15000, array $extra = array() ): array {
@@ -174,7 +174,7 @@ final class MatcherTest extends TestCase {
 	 * @param array $orders Candidates, changed in place.
 	 * @param array $r      Match result.
 	 */
-	private static function apply( array &$orders, array $r ) {
+	private static function apply( array &$orders, array $r ): void {
 		foreach ( $orders as $i => $o ) {
 			if ( $o['order_number'] !== $r['order_number'] ) {
 				continue;
@@ -233,7 +233,7 @@ final class MatcherTest extends TestCase {
 	 * @param string $number Order number.
 	 * @param int    $price  Piasters.
 	 */
-	private function kit_open( string $number, int $price ) {
+	private function kit_open( string $number, int $price ): void {
 		$this->orders[ $number ] = self::open_order( $number, $price );
 	}
 
@@ -244,7 +244,7 @@ final class MatcherTest extends TestCase {
 	 * @param int    $opened_ago Seconds before NOW.
 	 * @param int    $ttl        Seconds.
 	 */
-	private function kit_old( string $number, int $opened_ago, int $ttl ) {
+	private function kit_old( string $number, int $opened_ago, int $ttl ): void {
 		$this->orders[ $number ] = self::old_order( $number, $opened_ago, $ttl );
 	}
 
@@ -257,10 +257,10 @@ final class MatcherTest extends TestCase {
 	private function kit_match( array $data ): array {
 		$r = Matcher::match( $data, $this->orders, self::NOW );
 		if ( null !== $r['action'] ) {
-			$number             = $r['order_number'];
-			$o                  = $this->orders[ $number ];
-			$o['status']        = 'mark_paid' === $r['action'] ? 'paid' : 'partial';
-			$o['paid_minor']   += $r['amount_minor'];
+			$number                  = $r['order_number'];
+			$o                       = $this->orders[ $number ];
+			$o['status']             = 'mark_paid' === $r['action'] ? 'paid' : 'partial';
+			$o['paid_minor']        += $r['amount_minor'];
 			$this->orders[ $number ] = $o;
 
 			$this->payments[ $r['transfer_id'] ] = $number;
@@ -290,27 +290,27 @@ final class MatcherTest extends TestCase {
 	 */
 
 	/** Kit check 1. */
-	public function test_kit_a_transfer_that_just_arrived_pays_the_open_order() {
+	public function test_kit_a_transfer_that_just_arrived_pays_the_open_order(): void {
 		$this->kit_open( 'B', 15000 );
 		$this->assertSame( self::answer( 'matched', 'B' ), $this->kit_match( self::transfer( 10 ) ) );
 		$this->assertSame( 'paid', $this->orders['B']['status'] );
 	}
 
 	/** Kit check 2. */
-	public function test_kit_a_retry_34_minutes_late_pays_the_order_that_was_open_when_the_money_arrived() {
+	public function test_kit_a_retry_34_minutes_late_pays_the_order_that_was_open_when_the_money_arrived(): void {
 		$this->kit_old( 'B', 40 * self::MIN, 2 * self::HOUR );
 		$this->assertSame( self::answer( 'matched', 'B' ), $this->kit_match( self::transfer( 34 * self::MIN ) ) );
 	}
 
 	/** Kit check 3. */
-	public function test_kit_a_retry_34_minutes_late_never_pays_an_order_opened_30_minutes_after_the_money() {
+	public function test_kit_a_retry_34_minutes_late_never_pays_an_order_opened_30_minutes_after_the_money(): void {
 		$this->kit_old( 'B', 4 * self::MIN, 2 * self::HOUR );
 		$this->assertSame( 'unmatched', $this->kit_match( self::transfer( 34 * self::MIN ) )['status'] );
 		$this->assertSame( 'open', $this->orders['B']['status'] );
 	}
 
 	/** Kit check 4. */
-	public function test_kit_a_transfer_held_15_minutes_pays_the_order_open_when_the_money_arrived_not_one_opened_during_the_hold() {
+	public function test_kit_a_transfer_held_15_minutes_pays_the_order_open_when_the_money_arrived_not_one_opened_during_the_hold(): void {
 		$this->kit_old( 'A', 20 * self::MIN, 2 * self::HOUR );
 		$this->kit_old( 'B', 2 * self::MIN, 2 * self::HOUR ); // the customer opened a second order while the first payment was held
 		$this->assertSame( self::answer( 'matched', 'A' ), $this->kit_match( self::transfer( 15 * self::MIN ) ) );
@@ -318,27 +318,27 @@ final class MatcherTest extends TestCase {
 	}
 
 	/** Kit check 5. */
-	public function test_kit_a_transfer_held_15_minutes_whose_order_expired_during_the_hold_the_money_came_in_time() {
+	public function test_kit_a_transfer_held_15_minutes_whose_order_expired_during_the_hold_the_money_came_in_time(): void {
 		$this->kit_old( 'A', 2 * self::HOUR + 10 * self::MIN, 2 * self::HOUR ); // expired 10 minutes ago, the money arrived 15 minutes ago
 		$this->assertSame( self::answer( 'matched', 'A' ), $this->kit_match( self::transfer( 15 * self::MIN ) ) );
 	}
 
 	/** Kit check 6. */
-	public function test_kit_a_3_day_old_transfer_never_pays_an_order_opened_today_same_amount() {
+	public function test_kit_a_3_day_old_transfer_never_pays_an_order_opened_today_same_amount(): void {
 		$this->kit_open( 'B', 15000 );
 		$this->assertSame( 'review', $this->kit_match( self::transfer( 3 * self::DAY ) )['status'] );
 		$this->assertSame( 'open', $this->orders['B']['status'] );
 	}
 
 	/** Kit check 7. */
-	public function test_kit_a_3_day_old_transfer_never_part_pays_the_only_order_opened_today_other_amount() {
+	public function test_kit_a_3_day_old_transfer_never_part_pays_the_only_order_opened_today_other_amount(): void {
 		$this->kit_open( 'B', 20000 );
 		$this->assertSame( 'review', $this->kit_match( self::transfer( 3 * self::DAY ) )['status'] );
 		$this->assertSame( 0, $this->orders['B']['paid_minor'] );
 	}
 
 	/** Kit check 8. */
-	public function test_kit_a_3_day_old_transfer_pays_the_order_that_was_open_when_the_money_arrived_and_only_that_one() {
+	public function test_kit_a_3_day_old_transfer_pays_the_order_that_was_open_when_the_money_arrived_and_only_that_one(): void {
 		$this->kit_old( 'A', 3 * self::DAY + 20 * self::MIN, 2 * self::HOUR );
 		$this->kit_open( 'B', 15000 );
 		$this->assertSame( self::answer( 'matched', 'A' ), $this->kit_match( self::transfer( 3 * self::DAY ) ) );
@@ -346,7 +346,7 @@ final class MatcherTest extends TestCase {
 	}
 
 	/** Kit check 9. */
-	public function test_kit_late_transfer_the_order_of_that_time_had_expired_less_than_2_hours_before_the_money_paid_after_expiry() {
+	public function test_kit_late_transfer_the_order_of_that_time_had_expired_less_than_2_hours_before_the_money_paid_after_expiry(): void {
 		$this->kit_old( 'A', 3 * self::DAY + 3 * self::HOUR, 2 * self::HOUR );
 		$this->assertSame(
 			array(
@@ -359,20 +359,20 @@ final class MatcherTest extends TestCase {
 	}
 
 	/** Kit check 10. */
-	public function test_kit_late_transfer_the_order_of_that_time_had_expired_more_than_2_hours_before_the_money_review() {
+	public function test_kit_late_transfer_the_order_of_that_time_had_expired_more_than_2_hours_before_the_money_review(): void {
 		$this->kit_old( 'A', 3 * self::DAY + 6 * self::HOUR, 2 * self::HOUR );
 		$this->assertSame( 'review', $this->kit_match( self::transfer( 3 * self::DAY ) )['status'] );
 		$this->assertSame( 'open', $this->orders['A']['status'] );
 	}
 
 	/** Kit check 11. */
-	public function test_kit_an_order_opened_a_few_minutes_after_the_money_clock_difference_still_takes_a_late_delivery() {
+	public function test_kit_an_order_opened_a_few_minutes_after_the_money_clock_difference_still_takes_a_late_delivery(): void {
 		$this->kit_old( 'A', 5 * self::HOUR - 5 * self::MIN, 2 * self::HOUR );
 		$this->assertSame( self::answer( 'matched', 'A' ), $this->kit_match( self::transfer( 5 * self::HOUR ) ) );
 	}
 
 	/** Kit check 12. */
-	public function test_kit_received_at_in_the_future_missing_or_unreadable_counts_as_now() {
+	public function test_kit_received_at_in_the_future_missing_or_unreadable_counts_as_now(): void {
 		foreach ( array( Time::sec_to_iso( self::NOW + 3 * self::HOUR ), null, 'not a date' ) as $received_at ) {
 			$this->fresh();
 			$this->kit_open( 'B', 15000 );
@@ -381,14 +381,14 @@ final class MatcherTest extends TestCase {
 	}
 
 	/** Kit check 13. */
-	public function test_kit_received_at_with_the_numeric_offset_the_phone_sends_is_read() {
+	public function test_kit_received_at_with_the_numeric_offset_the_phone_sends_is_read(): void {
 		$this->kit_open( 'B', 15000 );
 		$this->assertSame( 'review', $this->kit_match( self::transfer( 0, 15000, array( 'received_at' => '2026-10-11T16:36:41+03:00' ) ) )['status'] );
 		$this->assertSame( 'open', $this->orders['B']['status'] );
 	}
 
 	/** Kit check 14. */
-	public function test_kit_no_order_partial_and_overpaid_answers_are_unchanged_for_a_transfer_that_just_arrived() {
+	public function test_kit_no_order_partial_and_overpaid_answers_are_unchanged_for_a_transfer_that_just_arrived(): void {
 		$this->assertSame( array( 'status' => 'unmatched' ), $this->kit_match( self::transfer( 1 ) ) );
 		$this->kit_open( 'B', 20000 );
 		$this->assertSame( self::answer( 'partial', 'B' ), $this->kit_match( self::transfer( 1, 15000 ) ) );
@@ -396,14 +396,14 @@ final class MatcherTest extends TestCase {
 	}
 
 	/** Kit check 15. */
-	public function test_kit_auto_confirm_ok_false_is_always_review() {
+	public function test_kit_auto_confirm_ok_false_is_always_review(): void {
 		$this->kit_open( 'B', 15000 );
 		$this->assertSame( array( 'status' => 'review' ), $this->kit_match( self::transfer( 1, 15000, array( 'auto_confirm_ok' => false ) ) ) );
 		$this->assertSame( 'open', $this->orders['B']['status'] );
 	}
 
 	/** Kit check 16. */
-	public function test_kit_transfer_updated_with_suspected_forgery_stops_the_order_that_transfer_paid_and_is_answered_ok() {
+	public function test_kit_transfer_updated_with_suspected_forgery_stops_the_order_that_transfer_paid_and_is_answered_ok(): void {
 		$this->kit_open( 'B', 15000 );
 		$this->assertSame( 'matched', $this->kit_match( self::transfer( 1 ) )['status'] );
 		$this->assertSame( array( 'status' => 'ok' ), $this->kit_updated( self::update() ) );
@@ -412,7 +412,7 @@ final class MatcherTest extends TestCase {
 	}
 
 	/** Kit check 17. */
-	public function test_kit_transfer_updated_with_balance_chain_refuted_alone_also_stops_the_order() {
+	public function test_kit_transfer_updated_with_balance_chain_refuted_alone_also_stops_the_order(): void {
 		$this->kit_open( 'B', 15000 );
 		$this->kit_match( self::transfer( 1 ) );
 		$this->assertSame( array( 'status' => 'ok' ), $this->kit_updated( self::update( array( 'risk_reasons' => array( 'balance_inconsistent' ) ) ) ) );
@@ -420,7 +420,7 @@ final class MatcherTest extends TestCase {
 	}
 
 	/** Kit check 18. */
-	public function test_kit_other_transfer_updated_late_proof_merchant_confirmed_change_nothing_and_are_answered_ok() {
+	public function test_kit_other_transfer_updated_late_proof_merchant_confirmed_change_nothing_and_are_answered_ok(): void {
 		foreach ( array( 'late_consistent', 'merchant_confirmed' ) as $chain ) {
 			$this->fresh();
 			$this->kit_open( 'B', 15000 );
@@ -438,7 +438,7 @@ final class MatcherTest extends TestCase {
 	}
 
 	/** Kit check 19. */
-	public function test_kit_transfer_updated_with_suspected_forgery_for_a_transfer_that_paid_nothing_is_remembered_and_answered_ok() {
+	public function test_kit_transfer_updated_with_suspected_forgery_for_a_transfer_that_paid_nothing_is_remembered_and_answered_ok(): void {
 		$this->assertSame( array( 'status' => 'ok' ), $this->kit_updated( self::update() ) );
 		$this->assertSame( 'suspected_forgery', $this->flagged[ self::TRANSFER_ID ] );
 	}
@@ -448,7 +448,7 @@ final class MatcherTest extends TestCase {
 	 */
 
 	/** Core test 1. */
-	public function test_core_a_transfer_that_just_arrived_pays_the_open_order() {
+	public function test_core_a_transfer_that_just_arrived_pays_the_open_order(): void {
 		$orders = array( self::open_order( 'B' ) );
 		$r      = self::match_now( self::transfer( 10 ), $orders );
 		$this->assertSame( self::answer( 'matched', 'B' ), self::reply( $r ) );
@@ -458,7 +458,7 @@ final class MatcherTest extends TestCase {
 	}
 
 	/** Core test 2. */
-	public function test_core_a_retry_34_minutes_late_pays_the_order_that_was_open_when_the_money_arrived() {
+	public function test_core_a_retry_34_minutes_late_pays_the_order_that_was_open_when_the_money_arrived(): void {
 		$this->assertSame(
 			self::answer( 'matched', 'B' ),
 			self::reply( self::match_now( self::transfer( 34 * self::MIN ), array( self::old_order( 'B', 40 * self::MIN, 2 * self::HOUR ) ) ) )
@@ -466,20 +466,20 @@ final class MatcherTest extends TestCase {
 	}
 
 	/** Core test 3. */
-	public function test_core_a_retry_34_minutes_late_never_pays_an_order_opened_30_minutes_after_the_money() {
+	public function test_core_a_retry_34_minutes_late_never_pays_an_order_opened_30_minutes_after_the_money(): void {
 		$r = self::match_now( self::transfer( 34 * self::MIN ), array( self::old_order( 'B', 4 * self::MIN, 2 * self::HOUR ) ) );
 		$this->assertSame( 'unmatched', $r['status'] );
 		$this->assertNull( $r['action'] );
 	}
 
 	/** Core test 4. */
-	public function test_core_a_transfer_held_15_minutes_pays_the_order_open_when_the_money_arrived_not_one_opened_during_the_hold() {
+	public function test_core_a_transfer_held_15_minutes_pays_the_order_open_when_the_money_arrived_not_one_opened_during_the_hold(): void {
 		$orders = array( self::old_order( 'A', 20 * self::MIN, 2 * self::HOUR ), self::old_order( 'B', 2 * self::MIN, 2 * self::HOUR ) );
 		$this->assertSame( self::answer( 'matched', 'A' ), self::reply( self::match_now( self::transfer( 15 * self::MIN ), $orders ) ) );
 	}
 
 	/** Core test 5. */
-	public function test_core_a_transfer_held_15_minutes_whose_order_expired_during_the_hold_the_money_came_in_time() {
+	public function test_core_a_transfer_held_15_minutes_whose_order_expired_during_the_hold_the_money_came_in_time(): void {
 		$this->assertSame(
 			self::answer( 'matched', 'A' ),
 			self::reply( self::match_now( self::transfer( 15 * self::MIN ), array( self::old_order( 'A', 2 * self::HOUR + 10 * self::MIN, 2 * self::HOUR ) ) ) )
@@ -487,21 +487,21 @@ final class MatcherTest extends TestCase {
 	}
 
 	/** Core test 6. */
-	public function test_core_a_3_day_old_transfer_never_pays_an_order_opened_today_same_amount() {
+	public function test_core_a_3_day_old_transfer_never_pays_an_order_opened_today_same_amount(): void {
 		$r = self::match_now( self::transfer( 3 * self::DAY ), array( self::open_order( 'B' ) ) );
 		$this->assertSame( 'review', $r['status'] );
 		$this->assertNull( $r['action'] );
 	}
 
 	/** Core test 7. */
-	public function test_core_a_3_day_old_transfer_never_part_pays_the_only_order_opened_today_other_amount() {
+	public function test_core_a_3_day_old_transfer_never_part_pays_the_only_order_opened_today_other_amount(): void {
 		$r = self::match_now( self::transfer( 3 * self::DAY ), array( self::open_order( 'B', 20000 ) ) );
 		$this->assertSame( 'review', $r['status'] );
 		$this->assertNull( $r['action'] );
 	}
 
 	/** Core test 8. */
-	public function test_core_a_3_day_old_transfer_pays_the_order_that_was_open_when_the_money_arrived_and_only_that_one() {
+	public function test_core_a_3_day_old_transfer_pays_the_order_that_was_open_when_the_money_arrived_and_only_that_one(): void {
 		$orders = array( self::old_order( 'A', 3 * self::DAY + 20 * self::MIN, 2 * self::HOUR ), self::open_order( 'B' ) );
 		$r      = self::match_now( self::transfer( 3 * self::DAY ), $orders );
 		$this->assertSame( self::answer( 'matched', 'A' ), self::reply( $r ) );
@@ -510,7 +510,7 @@ final class MatcherTest extends TestCase {
 	}
 
 	/** Core test 9. */
-	public function test_core_late_transfer_the_order_of_that_time_had_expired_less_than_2_hours_before_the_money_paid_after_expiry() {
+	public function test_core_late_transfer_the_order_of_that_time_had_expired_less_than_2_hours_before_the_money_paid_after_expiry(): void {
 		$this->assertSame(
 			array(
 				'status'    => 'matched',
@@ -522,14 +522,14 @@ final class MatcherTest extends TestCase {
 	}
 
 	/** Core test 10. */
-	public function test_core_late_transfer_the_order_of_that_time_had_expired_more_than_2_hours_before_the_money_review() {
+	public function test_core_late_transfer_the_order_of_that_time_had_expired_more_than_2_hours_before_the_money_review(): void {
 		$r = self::match_now( self::transfer( 3 * self::DAY ), array( self::old_order( 'A', 3 * self::DAY + 6 * self::HOUR, 2 * self::HOUR ) ) );
 		$this->assertSame( 'review', $r['status'] );
 		$this->assertNull( $r['action'] );
 	}
 
 	/** Core test 11. */
-	public function test_core_an_order_opened_a_few_minutes_after_the_money_clock_difference_still_takes_a_late_delivery() {
+	public function test_core_an_order_opened_a_few_minutes_after_the_money_clock_difference_still_takes_a_late_delivery(): void {
 		$this->assertSame(
 			self::answer( 'matched', 'A' ),
 			self::reply( self::match_now( self::transfer( 5 * self::HOUR ), array( self::old_order( 'A', 5 * self::HOUR - 5 * self::MIN, 2 * self::HOUR ) ) ) )
@@ -537,7 +537,7 @@ final class MatcherTest extends TestCase {
 	}
 
 	/** Core test 12: `undefined` is a missing key here, and null too. */
-	public function test_core_received_at_in_the_future_missing_or_unreadable_counts_as_now() {
+	public function test_core_received_at_in_the_future_missing_or_unreadable_counts_as_now(): void {
 		foreach ( array( Time::sec_to_iso( self::NOW + 3 * self::HOUR ), null, 'not a date' ) as $received_at ) {
 			$this->assertSame(
 				self::answer( 'matched', 'B' ),
@@ -550,14 +550,14 @@ final class MatcherTest extends TestCase {
 	}
 
 	/** Core test 13. */
-	public function test_core_received_at_with_the_numeric_offset_the_phone_sends_is_read() {
+	public function test_core_received_at_with_the_numeric_offset_the_phone_sends_is_read(): void {
 		$r = self::match_now( self::transfer( 0, 15000, array( 'received_at' => '2026-10-11T16:36:41+03:00' ) ), array( self::open_order( 'B' ) ) );
 		$this->assertSame( 'review', $r['status'] );
 		$this->assertNull( $r['action'] );
 	}
 
 	/** Core test 14. */
-	public function test_core_no_order_partial_and_overpaid_answers_are_unchanged_for_a_transfer_that_just_arrived() {
+	public function test_core_no_order_partial_and_overpaid_answers_are_unchanged_for_a_transfer_that_just_arrived(): void {
 		$this->assertSame( array( 'status' => 'unmatched' ), self::reply( self::match_now( self::transfer( 1 ), array() ) ) );
 		$orders  = array( self::open_order( 'B', 20000 ) );
 		$partial = self::match_now( self::transfer( 1, 15000 ), $orders );
@@ -569,14 +569,14 @@ final class MatcherTest extends TestCase {
 	}
 
 	/** Core test 15. */
-	public function test_core_auto_confirm_ok_false_is_always_review() {
+	public function test_core_auto_confirm_ok_false_is_always_review(): void {
 		$r = self::match_now( self::transfer( 1, 15000, array( 'auto_confirm_ok' => false ) ), array( self::open_order( 'B' ) ) );
 		$this->assertSame( array( 'status' => 'review' ), self::reply( $r ) );
 		$this->assertNull( $r['action'] );
 	}
 
 	/** Core test 16. */
-	public function test_core_transfer_updated_with_suspected_forgery_stops_the_order_that_transfer_paid_and_is_answered_ok() {
+	public function test_core_transfer_updated_with_suspected_forgery_stops_the_order_that_transfer_paid_and_is_answered_ok(): void {
 		$this->assertSame(
 			array(
 				'status'      => 'ok',
@@ -589,12 +589,12 @@ final class MatcherTest extends TestCase {
 	}
 
 	/** Core test 17. */
-	public function test_core_transfer_updated_with_balance_chain_refuted_alone_also_stops_the_order() {
+	public function test_core_transfer_updated_with_balance_chain_refuted_alone_also_stops_the_order(): void {
 		$this->assertTrue( Matcher::judge_update( self::update( array( 'risk_reasons' => array( 'balance_inconsistent' ) ) ) )['stop_order'] );
 	}
 
 	/** Core test 18. */
-	public function test_core_other_transfer_updated_late_proof_merchant_confirmed_change_nothing_and_are_answered_ok() {
+	public function test_core_other_transfer_updated_late_proof_merchant_confirmed_change_nothing_and_are_answered_ok(): void {
 		foreach ( array( 'late_consistent', 'merchant_confirmed' ) as $chain ) {
 			$extra = array(
 				'checks'          => array( 'balance_chain' => $chain ),
@@ -615,13 +615,13 @@ final class MatcherTest extends TestCase {
 	}
 
 	/** Core test 19. */
-	public function test_core_transfer_updated_with_suspected_forgery_for_a_transfer_that_paid_nothing_is_still_a_stop_signal() {
+	public function test_core_transfer_updated_with_suspected_forgery_for_a_transfer_that_paid_nothing_is_still_a_stop_signal(): void {
 		$this->assertTrue( Matcher::judge_update( self::update() )['stop_order'] );
 		$this->assertFalse( Matcher::judge_update( null )['stop_order'] );
 	}
 
 	/** Core test 20. */
-	public function test_core_a_masked_payer_number_falls_through_to_the_handle_and_no_identifier_at_all_is_unmatched() {
+	public function test_core_a_masked_payer_number_falls_through_to_the_handle_and_no_identifier_at_all_is_unmatched(): void {
 		$masked = self::transfer(
 			1,
 			15000,
@@ -653,8 +653,8 @@ final class MatcherTest extends TestCase {
 	}
 
 	/** Core test 21. */
-	public function test_core_the_summarised_item_shape_and_iso_order_times_are_accepted_other_payers_and_closed_orders_are_skipped() {
-		$summarised = array(
+	public function test_core_the_summarised_item_shape_and_iso_order_times_are_accepted_other_payers_and_closed_orders_are_skipped(): void {
+		$summarised         = array(
 			'transfer_id'     => self::TRANSFER_ID,
 			'auto_confirm_ok' => true,
 			'amount_minor'    => 15000,
@@ -685,7 +685,7 @@ final class MatcherTest extends TestCase {
 	}
 
 	/** Core test 22. */
-	public function test_core_a_transfer_without_an_integer_amount_is_review_never_a_partial_payment_of_0() {
+	public function test_core_a_transfer_without_an_integer_amount_is_review_never_a_partial_payment_of_0(): void {
 		$this->assertSame( 'review', self::match_now( self::transfer( 1, null ), array( self::open_order( 'B' ) ) )['status'] );
 	}
 
@@ -694,7 +694,7 @@ final class MatcherTest extends TestCase {
 	 * an array are a TypeError from the signature (CONTRACTS.md §6 types them `array`; match.ts reads them as no
 	 * candidates), and `$now` is an int, so a NaN clock is the real clock here. Array input never throws.
 	 */
-	public function test_core_hostile_candidate_lists() {
+	public function test_core_hostile_candidate_lists(): void {
 		foreach ( array( 'nope', null ) as $not_a_list ) {
 			try {
 				Matcher::match( self::transfer( 1 ), $not_a_list, self::NOW ); // @phpstan-ignore-line
@@ -749,7 +749,7 @@ final class MatcherTest extends TestCase {
 	 */
 
 	/** The result has every MatchResult key, in the order the core's object spreads give them. */
-	public function test_result_keys_and_order_match_the_core() {
+	public function test_result_keys_and_order_match_the_core(): void {
 		$this->assertSame(
 			array(
 				'order_number'    => 'B',
@@ -799,7 +799,7 @@ final class MatcherTest extends TestCase {
 	}
 
 	/** Every note string of the core, exactly. */
-	public function test_notes_are_the_core_strings() {
+	public function test_notes_are_the_core_strings(): void {
 		$this->assertSame( 'no amount in the message', self::match_now( self::transfer( 1, -1 ), array() )['note'] );
 		$this->assertSame( 'late delivery: no order of this payer was open when the money arrived', self::match_now( self::transfer( 3 * self::DAY ), array() )['note'] );
 		$bad                = self::open_order( 'U' );
@@ -813,7 +813,7 @@ final class MatcherTest extends TestCase {
 	}
 
 	/** The plugin passes skew_min = 0 (the owner's decision): an order opened after the money never takes it. */
-	public function test_skew_min_zero_never_takes_an_order_opened_after_the_money() {
+	public function test_skew_min_zero_never_takes_an_order_opened_after_the_money(): void {
 		$options = array(
 			'late_window_min' => 120,
 			'skew_min'        => 0,
@@ -828,7 +828,7 @@ final class MatcherTest extends TestCase {
 	}
 
 	/** The late window comes from the options, in minutes; an invalid option falls back to the core default. */
-	public function test_windows_come_from_the_options_in_minutes() {
+	public function test_windows_come_from_the_options_in_minutes(): void {
 		$expired_40_min_before = array( self::old_order( 'A', 2 * self::HOUR + 40 * self::MIN, 2 * self::HOUR ) );
 		$this->assertSame( 'matched', Matcher::match( self::transfer( 0 ), $expired_40_min_before, self::NOW, array( 'late_window_min' => 60 ) )['status'] );
 		$this->assertSame( 'unmatched', Matcher::match( self::transfer( 0 ), $expired_40_min_before, self::NOW, array( 'late_window_min' => 30 ) )['status'] );
@@ -842,7 +842,7 @@ final class MatcherTest extends TestCase {
 	}
 
 	/** "Integer" is Number.isInteger(): a float without a fraction counts, a numeric string never does. */
-	public function test_integers_follow_number_is_integer() {
+	public function test_integers_follow_number_is_integer(): void {
 		$this->assertSame( 'matched', self::match_now( self::transfer( 1, 1.5e4 ), array( self::open_order( 'B' ) ) )['status'] );
 		$this->assertSame( 15000, self::match_now( self::transfer( 1, 15000.0 ), array() )['amount_minor'] );
 		$this->assertSame( 'review', self::match_now( self::transfer( 1, 15000.5 ), array( self::open_order( 'B' ) ) )['status'] );
@@ -856,7 +856,7 @@ final class MatcherTest extends TestCase {
 	}
 
 	/** Values as $wpdb returns them (strings) are unreadable: the caller casts price, paid and times to int. */
-	public function test_database_strings_are_unreadable() {
+	public function test_database_strings_are_unreadable(): void {
 		$row = array(
 			'order_number' => '1234',
 			'price_minor'  => '15000',
@@ -891,7 +891,7 @@ final class MatcherTest extends TestCase {
 	 * match is not at index 0: without the tie-break, 7.4 picks the second exact match, T15 of 17 or T30 of 40 (from
 	 * an emulation of PHP 7.4's zend_sort.c). CI must run this suite on PHP 7.4 too.
 	 */
-	public function test_keyed_candidates_and_stable_ties() {
+	public function test_keyed_candidates_and_stable_ties(): void {
 		$keyed = array(
 			901 => self::open_order( 'A', 20000 ),
 			17  => self::open_order( 'B', 15000 ),
@@ -913,7 +913,7 @@ final class MatcherTest extends TestCase {
 	}
 
 	/** received_at: ISO with Z or an offset; an int is seconds; an offset-less date-time counts as now. */
-	public function test_received_at_forms() {
+	public function test_received_at_forms(): void {
 		$order_then = array( self::old_order( 'A', 3 * self::DAY + 20 * self::MIN, 2 * self::HOUR ) );
 		$then       = self::NOW - 3 * self::DAY;
 		$this->assertSame( 'matched', self::match_now( self::transfer( 0, 15000, array( 'received_at' => Time::sec_to_iso( $then ) ) ), $order_then )['status'] );
@@ -932,7 +932,7 @@ final class MatcherTest extends TestCase {
 	 * between docs/17 and CONTRACTS.md §1 is reported; the guard is MatchPolicy's (present but unreadable → review),
 	 * because the matcher must keep `not a date` = now for kit check 12.
 	 */
-	public function test_received_at_without_offset_counts_as_now() {
+	public function test_received_at_without_offset_counts_as_now(): void {
 		$options    = array(
 			'late_window_min' => 120,
 			'skew_min'        => 0,
@@ -945,7 +945,7 @@ final class MatcherTest extends TestCase {
 	}
 
 	/** The summarised payer.key wins over the counterparty; a bad key falls back to the counterparty, then the payer. */
-	public function test_payer_key_precedence() {
+	public function test_payer_key_precedence(): void {
 		$transfer = self::transfer(
 			1,
 			15000,
@@ -982,7 +982,7 @@ final class MatcherTest extends TestCase {
 	 * real state, it is skipped and the transfer part-pays the other order. And an unreadable order counts whatever
 	 * its times, so the caller passes only the rows of the window.
 	 */
-	public function test_blocking_orders_must_be_passed_open_with_no_price() {
+	public function test_blocking_orders_must_be_passed_open_with_no_price(): void {
 		$options = array(
 			'late_window_min' => 120,
 			'skew_min'        => 0,
@@ -1026,7 +1026,7 @@ final class MatcherTest extends TestCase {
 	}
 
 	/** Statuses: missing is open, open and partial are candidates, anything else (null included) is skipped. */
-	public function test_candidate_statuses() {
+	public function test_candidate_statuses(): void {
 		foreach ( array( 'open', 'partial' ) as $status ) {
 			$o           = self::open_order( 'B' );
 			$o['status'] = $status;
@@ -1047,7 +1047,7 @@ final class MatcherTest extends TestCase {
 	}
 
 	/** judge_update() reads only well-shaped fields and never throws. */
-	public function test_judge_update_shapes() {
+	public function test_judge_update_shapes(): void {
 		$this->assertTrue( Matcher::judge_update( array( 'suspected_forgery' => true ) )['stop_order'] );
 		$this->assertFalse( Matcher::judge_update( array( 'suspected_forgery' => 'true' ) )['stop_order'] );
 		$this->assertTrue( Matcher::judge_update( array( 'balance_chain' => 'refuted' ) )['stop_order'] );

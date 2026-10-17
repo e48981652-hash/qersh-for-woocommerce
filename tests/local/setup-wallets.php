@@ -11,18 +11,20 @@
  * @package QershPay\WooCommerce\Tests
  */
 
+// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped, WordPress.WP.AlternativeFunctions.file_system_operations_fwrite -- a command-line script: its report goes to a terminal (STDOUT and STDERR), not a page.
+
 require __DIR__ . '/lib/bootstrap.php';
 
 use QershPay\WooCommerce\Core\Config;
 use QershPay\WooCommerce\Plugin;
 
-$qersh_plugin = Plugin::instance();
-$qersh_config = $qersh_plugin->config_store()->get();
-$qersh_out    = array(
+$qersh_plugin            = Plugin::instance();
+$qersh_config            = $qersh_plugin->config_store()->get();
+$qersh_out               = array(
 	'site'    => home_url(),
 	'wallets' => array(),
 );
-$qersh_want   = array(
+$qersh_want              = array(
 	array(
 		'label'           => 'Vodafone test',
 		'provider'        => 'vodafone_cash',
@@ -51,7 +53,7 @@ foreach ( $qersh_want as $qersh_w ) {
 	);
 	$qersh_key                 = Config::new_key();
 	$qersh_plugin->secrets()->set_current( $qersh_id, $qersh_key, time() );
-	$qersh_out['wallets'][]    = array(
+	$qersh_out['wallets'][] = array(
 		'id'              => $qersh_id,
 		'provider'        => $qersh_w['provider'],
 		'receive_address' => $qersh_w['receive_address'],
@@ -76,6 +78,7 @@ $qersh_settings            = is_array( $qersh_settings ) ? $qersh_settings : arr
 $qersh_settings['enabled'] = 'yes';
 update_option( 'woocommerce_qersh_settings', $qersh_settings );
 
+/** @var string $qersh_local_site Set by lib/bootstrap.php. */
 $qersh_file = qersh_local_wallets_file( $qersh_local_site );
 if ( false === file_put_contents( $qersh_file, wp_json_encode( $qersh_out, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) . "\n" ) ) {
 	fwrite( STDERR, "could not write {$qersh_file}\n" );

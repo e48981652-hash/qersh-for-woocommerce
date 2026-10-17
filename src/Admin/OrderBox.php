@@ -49,7 +49,7 @@ final class OrderBox {
 	 * @param string $screen_or_type Screen id or post type.
 	 * @param mixed  $post_or_order  WP_Post or WC_Order.
 	 */
-	public static function add( $screen_or_type = '', $post_or_order = null ) {
+	public static function add( $screen_or_type = '', $post_or_order = null ): void {
 		if ( ! in_array( $screen_or_type, self::screens(), true ) || ! current_user_can( Module::CAP ) ) {
 			return;
 		}
@@ -82,7 +82,7 @@ final class OrderBox {
 	 *
 	 * @param mixed $post_or_order WP_Post or WC_Order.
 	 */
-	public static function render( $post_or_order ) {
+	public static function render( $post_or_order ): void {
 		$order = self::order_of( $post_or_order );
 		if ( ! $order ) {
 			return;
@@ -119,7 +119,7 @@ final class OrderBox {
 		}
 
 		if ( null === $row && $order->has_status( 'pending' ) ) {
-			$lines[] = esc_html__( 'Waiting for the transfer has not started yet. Send the customer the payment page (Order actions → “Send order details to customer”) so they enter the number they will transfer from, or attach their transfer from “Personal transfers” if they transferred before the order was created.', 'qersh-for-woocommerce' );
+			$lines[] = esc_html__( 'The wait for the transfer has not started yet. Send the customer the payment page (Order actions → “Send order details to customer”) so they enter the number they will transfer from, or attach their transfer from “Personal transfers” if they transferred before the order was created.', 'qersh-for-woocommerce' );
 		}
 		if ( '' !== $payer ) {
 			/* translators: %s: wallet number or InstaPay address. */
@@ -145,7 +145,7 @@ final class OrderBox {
 		}
 
 		$flag = 'forgery' === (string) $order->get_meta( '_qersh_flag' )
-			? esc_html__( 'This transfer\'s message is suspected to be forged. Do not deliver the order until you have checked that the money arrived in the wallet app.', 'qersh-for-woocommerce' )
+			? esc_html( Reasons::forgery_warning() )
 			: null;
 
 		if ( null !== $wallet ) {
@@ -218,7 +218,7 @@ final class OrderBox {
 				}
 				if ( ! empty( $transfer['order_id'] ) && in_array( $transfer['outcome'], array( 'matched', 'partial', 'overpaid', 'attached' ), true ) ) {
 					/* translators: %s: order number. */
-					$status = sprintf( esc_html__( 'Paid order %s before', 'qersh-for-woocommerce' ), View::order_link( (int) $transfer['order_id'] ) );
+					$status = sprintf( esc_html__( 'Already paid order %s', 'qersh-for-woocommerce' ), View::order_link( (int) $transfer['order_id'] ) );
 					break;
 				}
 				$status = esc_html__( 'Waits for your decision in “Needs a decision”', 'qersh-for-woocommerce' );

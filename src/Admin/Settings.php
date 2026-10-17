@@ -46,7 +46,7 @@ final class Settings {
 	/**
 	 * Renders the tab.
 	 */
-	public static function render() {
+	public static function render(): void {
 		$plugin   = Module::plugin();
 		$store    = $plugin->config_store();
 		$config   = $plugin->config();
@@ -152,7 +152,7 @@ final class Settings {
 	/**
 	 * Saves the store values (admin-post qersh_wc_settings_save).
 	 */
-	public static function handle_save() {
+	public static function handle_save(): void {
 		Module::check_action( 'qersh_wc_settings_save' );
 		check_admin_referer( 'qersh_wc_settings_save' );
 		$store = Module::plugin()->config_store();
@@ -200,7 +200,7 @@ final class Settings {
 	 * Imports settings pasted as JSON (admin-post qersh_wc_config_import). The imported wallets replace the current
 	 * ones; a wallet missing from the import is deleted (and can be restored for 72 hours).
 	 */
-	public static function handle_import() {
+	public static function handle_import(): void {
 		Module::check_action( 'qersh_wc_config_import' );
 		check_admin_referer( 'qersh_wc_config_import' );
 		$store = Module::plugin()->config_store();
@@ -230,7 +230,7 @@ final class Settings {
 	/**
 	 * Downloads the settings as JSON (admin-post qersh_wc_config_export): no keys, no runtime state.
 	 */
-	public static function handle_export() {
+	public static function handle_export(): void {
 		Module::check_action( 'qersh_wc_config_export' );
 		check_admin_referer( 'qersh_wc_config_export' );
 		$export = Module::plugin()->config_store()->export();

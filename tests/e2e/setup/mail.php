@@ -15,7 +15,8 @@
 
 if ( ! defined( 'ABSPATH' ) ) {
 	require dirname( __DIR__, 2 ) . '/local/lib/bootstrap.php';
-	$args = $qersh_local_args; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
+	/** @var string[] $qersh_local_args Set by tests/local/lib/bootstrap.php. */
+	$args = $qersh_local_args; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- the name wp eval-file gives the arguments.
 }
 defined( 'ABSPATH' ) || exit;
 
@@ -48,7 +49,7 @@ if ( '1' === $qersh_e2e_opts['slow'] || '0' === $qersh_e2e_opts['slow'] ) {
 
 $qersh_e2e_file = defined( 'QERSH_E2E_MAIL_LOG' ) ? QERSH_E2E_MAIL_LOG : '';
 if ( '' !== $qersh_e2e_file && '1' === $qersh_e2e_opts['clear'] ) {
-	file_put_contents( $qersh_e2e_file, '' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+	file_put_contents( $qersh_e2e_file, '' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- the test mail log, outside the plugin folder.
 }
 $qersh_e2e_log = array();
 if ( '' !== $qersh_e2e_file && is_file( $qersh_e2e_file ) ) {

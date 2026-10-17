@@ -19,7 +19,8 @@ defined( 'ABSPATH' ) || exit;
  * (409 or 429), the note, and the late evaluation outside the customer's request. The answer is the same whatever is
  * behind the id, never cached, and the raw text is never stored or logged here.
  *
- * handle_body() is the whole route, used by the REST callback and by Webhook\Fallback (`?wc-api=qersh&qo=txn`).
+ * The method handle_body() is the whole route, used by the REST callback and by Webhook\Fallback
+ * (`?wc-api=qersh&qo=txn`).
  */
 final class ClaimRoute {
 

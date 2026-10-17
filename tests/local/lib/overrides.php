@@ -16,7 +16,9 @@ if ( false !== $qersh_local_db_path && '' !== $qersh_local_db_path && ! defined(
 }
 $qersh_local_home = getenv( 'QERSH_BASE' );
 if ( '1' === getenv( 'QERSH_HOME_OVERRIDE' ) && false !== $qersh_local_home && '' !== $qersh_local_home && ! defined( 'WP_HOME' ) ) {
-	ini_set( 'display_errors', '0' ); // The second define() in wp-config.php must not reach a JSON answer.
+	// The second define() in wp-config.php must not reach a JSON answer. WP_DEBUG_DISPLAY cannot stop it: the warning
+	// comes from wp-config.php itself, before wp_debug_mode() reads that constant.
+	ini_set( 'display_errors', '0' ); // phpcs:ignore WordPress.PHP.IniSet.display_errors_Disallowed -- see above; test store only.
 	define( 'WP_HOME', rtrim( (string) $qersh_local_home, '/' ) );
 	define( 'WP_SITEURL', rtrim( (string) $qersh_local_home, '/' ) );
 }

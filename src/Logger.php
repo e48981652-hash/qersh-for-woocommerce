@@ -43,19 +43,12 @@ final class Logger {
 	const DIGIT = '[0-9\x{0660}-\x{0669}\x{06F0}-\x{06F9}]';
 
 	/**
-	 * The plugin, if any.
+	 * Builds the service. It needs nothing from the plugin; the parameter is the container's `new X( $plugin )`.
 	 *
-	 * @var Plugin|null
-	 */
-	private $plugin;
-
-	/**
-	 * Builds the service.
-	 *
-	 * @param Plugin|null $plugin The plugin.
+	 * @param Plugin|null $plugin The plugin (not used).
 	 */
 	public function __construct( $plugin = null ) {
-		$this->plugin = $plugin;
+		unset( $plugin );
 	}
 
 	/**
@@ -64,7 +57,7 @@ final class Logger {
 	 * @param string $message Message.
 	 * @param array  $context Context.
 	 */
-	public function info( string $message, array $context = array() ) {
+	public function info( string $message, array $context = array() ): void {
 		$this->write( 'info', $message, $context );
 	}
 
@@ -74,7 +67,7 @@ final class Logger {
 	 * @param string $message Message.
 	 * @param array  $context Context.
 	 */
-	public function warning( string $message, array $context = array() ) {
+	public function warning( string $message, array $context = array() ): void {
 		$this->write( 'warning', $message, $context );
 	}
 
@@ -84,7 +77,7 @@ final class Logger {
 	 * @param string $message Message.
 	 * @param array  $context Context.
 	 */
-	public function error( string $message, array $context = array() ) {
+	public function error( string $message, array $context = array() ): void {
 		$this->write( 'error', $message, $context );
 	}
 
@@ -96,7 +89,7 @@ final class Logger {
 	 * @param string $key     Throttle key, for example `sig:<wallet>`.
 	 * @param string $message Message (redacted like every line).
 	 */
-	public function throttled( string $key, string $message ) {
+	public function throttled( string $key, string $message ): void {
 		try {
 			$flag = 'qersh_wc_log_' . substr( md5( $key ), 0, 20 );
 			if ( function_exists( 'wp_using_ext_object_cache' ) && wp_using_ext_object_cache() ) {
@@ -149,7 +142,7 @@ final class Logger {
 		$text  = (string) preg_replace_callback(
 			'/(?<keep>' . $keep . ')|(?<!' . $d . ')(?<num>(?>' . $phone . '|' . $run . '))(?!' . $d . ')/u',
 			function ( $m ) {
-				if ( isset( $m['keep'] ) && '' !== $m['keep'] ) {
+				if ( '' !== $m['keep'] ) { // The first group is always in $m: empty when the number matched.
 					return $m['keep'];
 				}
 				return '***' . self::tail( (string) preg_replace( '/[^' . substr( self::DIGIT, 1, -1 ) . ']/u', '', $m['num'] ) );
@@ -209,7 +202,7 @@ final class Logger {
 	 * @param string $message Message.
 	 * @param array  $context Context.
 	 */
-	private function write( string $level, string $message, array $context ) {
+	private function write( string $level, string $message, array $context ): void {
 		try {
 			if ( ! function_exists( 'wc_get_logger' ) ) {
 				return;

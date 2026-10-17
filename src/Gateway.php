@@ -53,6 +53,8 @@ class Gateway extends \WC_Payment_Gateway {
 
 	/**
 	 * The translated admin texts, the form fields and the settings (no translation call before init).
+	 *
+	 * @return void
 	 */
 	public function set_texts() {
 		$this->method_title       = __( 'Wallet transfer (Qersh)', 'qersh-for-woocommerce' );
@@ -65,7 +67,7 @@ class Gateway extends \WC_Payment_Gateway {
 	/**
 	 * Reads the display settings into the object.
 	 */
-	private function load_settings() {
+	private function load_settings(): void {
 		$this->title        = $this->resolve_title();
 		$this->description  = (string) $this->get_option( 'description' );
 		$this->instructions = (string) $this->get_option( 'instructions' );
@@ -79,7 +81,7 @@ class Gateway extends \WC_Payment_Gateway {
 	 */
 	public static function disclosure(): string {
 		return sprintf(
-			/* translators: 1: link to the app's download page, 2: support email link. */
+			/* translators: 1: link to the app download page, 2: support email address. */
 			esc_html__( "Works with the paid Qersh Android app (monthly subscription) on the phone that receives your wallet's messages. Get the app: %1\$s. Support: the plugin's forum on wordpress.org or %2\$s.", 'qersh-for-woocommerce' ),
 			'<a href="' . esc_url( 'https://qersh.cfd/en/download' ) . '" target="_blank" rel="noopener">https://qersh.cfd/en/download</a>',
 			'<a href="' . esc_url( 'mailto:support@qersh.cfd' ) . '">support@qersh.cfd</a>'
@@ -88,6 +90,8 @@ class Gateway extends \WC_Payment_Gateway {
 
 	/**
 	 * Only the display texts (docs/17 §4.2).
+	 *
+	 * @return void
 	 */
 	public function init_form_fields() {
 		$this->form_fields = array(
@@ -211,6 +215,8 @@ class Gateway extends \WC_Payment_Gateway {
 	/**
 	 * The fields under the method: description, the wallet choice and the payer field. On "Pay for order" of an
 	 * Orange Cash order, the line that sends a customer who already transferred to the order page (docs/17 §4.10).
+	 *
+	 * @return void
 	 */
 	public function payment_fields() {
 		$plugin      = Plugin::instance();
@@ -240,7 +246,7 @@ class Gateway extends \WC_Payment_Gateway {
 	 * @param Plugin    $plugin The plugin.
 	 * @param \WC_Order $order  Order.
 	 */
-	private function order_pay_lines( Plugin $plugin, \WC_Order $order ) {
+	private function order_pay_lines( Plugin $plugin, \WC_Order $order ): void {
 		$row    = Checkout::order_row( $plugin, $order->get_id() );
 		$wallet = $plugin->wallet( Checkout::order_wallet_id( $order, $row ) );
 		if ( ! Checkout::txn_entry_open( $plugin, $wallet ) ) {
@@ -367,6 +373,7 @@ class Gateway extends \WC_Payment_Gateway {
 	 * object was built in this request).
 	 *
 	 * @param int $order_id Order id.
+	 * @return void
 	 */
 	public function thankyou_page( $order_id ) {
 		Checkout::thankyou( $order_id );

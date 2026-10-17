@@ -14,8 +14,8 @@ use QershPay\WooCommerce\Store\LockTimeout;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * run() is the `qersh_wc_expire` action of one order and the 15-minute sweep's step, under the payer lock and in
- * its transaction:
+ * Expiry::run() is the `qersh_wc_expire` action of one order and the 15-minute sweep's step, under the payer lock
+ * and in its transaction:
  * - a row still `open` whose customer typed a transaction id that a transfer waiting for the merchant carries
  *   (review, no order, no flag) is not cancelled: the order stays pending, the transfer gets `claim_overdue`, the
  *   row `review`, the customer a note and the admin an alert;
@@ -72,7 +72,7 @@ final class Expiry {
 	 *
 	 * @param Plugin $plugin The plugin.
 	 */
-	public static function register_hooks( Plugin $plugin ) {
+	public static function register_hooks( Plugin $plugin ): void {
 		unset( $plugin );
 		add_filter( 'woocommerce_cancel_unpaid_order', array( __CLASS__, 'filter_cancel_unpaid' ), 10, 2 );
 		add_filter( 'woocommerce_order_hold_stock_minutes', array( __CLASS__, 'filter_hold_minutes' ), 10, 2 );
@@ -86,8 +86,9 @@ final class Expiry {
 	 * tries again.
 	 *
 	 * @param int $order_id Order id.
+	 * @throws \Throwable Any other error of the locked transaction, after its rollback.
 	 */
-	public function run( int $order_id ) {
+	public function run( int $order_id ): void {
 		if ( $order_id <= 0 || ! $this->plugin->wc_ready() || ! $this->plugin->tables_ready() ) {
 			return;
 		}
@@ -118,7 +119,7 @@ final class Expiry {
 	 * The sweep (every 15 minutes): open and partial rows past the deadline plus the late window, and expired rows
 	 * whose cancellation may have been cut short.
 	 */
-	public function sweep() {
+	public function sweep(): void {
 		if ( ! $this->plugin->wc_ready() || ! $this->plugin->tables_ready() ) {
 			return;
 		}
@@ -137,9 +138,9 @@ final class Expiry {
 	}
 
 	/**
-	 * woocommerce_cancel_unpaid_order: WooCommerce's own cancellation of unpaid orders skips a `qersh` order that
-	 * has our deadline; anything else (a Blocks order the server refused, still pending without a deadline) is left
-	 * to WooCommerce.
+	 * Filters woocommerce_cancel_unpaid_order: WooCommerce's own cancellation of unpaid orders skips a `qersh` order
+	 * that has our deadline; anything else (a Blocks order the server refused, still pending without a deadline) is
+	 * left to WooCommerce.
 	 *
 	 * @param bool           $cancel Whether WooCommerce would cancel it.
 	 * @param \WC_Order|null $order  Order.
@@ -153,7 +154,7 @@ final class Expiry {
 	}
 
 	/**
-	 * woocommerce_order_hold_stock_minutes: the hold lasts until the deadline plus the late window, from the
+	 * Filters woocommerce_order_hold_stock_minutes: the hold lasts until the deadline plus the late window, from the
 	 * configuration, because WooCommerce holds before process_payment(). A store that switched the hold off (0)
 	 * keeps it off.
 	 *
@@ -183,8 +184,8 @@ final class Expiry {
 	}
 
 	/**
-	 * woocommerce_valid_order_statuses_for_cancel: the customer cannot cancel an order whose money the merchant
-	 * already holds, or whose customer typed a live transaction id.
+	 * Filters woocommerce_valid_order_statuses_for_cancel: the customer cannot cancel an order whose money the
+	 * merchant already holds, or whose customer typed a live transaction id.
 	 *
 	 * @param array          $statuses Statuses the customer may cancel from.
 	 * @param \WC_Order|null $order    Order.
@@ -201,8 +202,8 @@ final class Expiry {
 	}
 
 	/**
-	 * woocommerce_available_payment_gateways: on "Pay for order" of such an order, only our method is offered
-	 * (payment_fields() says why, package C).
+	 * Filters woocommerce_available_payment_gateways: on "Pay for order" of such an order, only our method is
+	 * offered (payment_fields() says why, package C).
 	 *
 	 * @param array $gateways Gateways by id.
 	 * @return array
@@ -220,9 +221,9 @@ final class Expiry {
 	}
 
 	/**
-	 * woocommerce_email_enabled_cancelled_order: store.admin_cancel_email_on_expiry, on by default, turns off the
-	 * admin's "Cancelled order" email when our expiry alone cancelled the order (docs/17 §4.2, §4.7); off, the email
-	 * goes as WooCommerce sends it. Every other cancellation keeps it.
+	 * Filters woocommerce_email_enabled_cancelled_order: store.admin_cancel_email_on_expiry, on by default, turns off
+	 * the admin's "Cancelled order" email when our expiry alone cancelled the order (docs/17 §4.2, §4.7); off, the
+	 * email goes as WooCommerce sends it. Every other cancellation keeps it.
 	 *
 	 * @param bool           $enabled Whether the email is enabled.
 	 * @param \WC_Order|null $order   Order.
@@ -296,7 +297,7 @@ final class Expiry {
 			return true;
 		}
 		$waiting = in_array( $row['state'], MatchPolicy::LIVE_STATES, true ) || 'review' === $row['state'];
-		return isset( $row['claim_txn'] ) && null !== $row['claim_txn'] && '' !== $row['claim_txn'] && $waiting;
+		return isset( $row['claim_txn'] ) && '' !== $row['claim_txn'] && $waiting;
 	}
 
 	/**
@@ -412,7 +413,7 @@ final class Expiry {
 	 * @return array|null
 	 */
 	private function waiting_transfer( array $row ): ?array {
-		$txn = isset( $row['claim_txn'] ) && null !== $row['claim_txn'] ? (string) $row['claim_txn'] : '';
+		$txn = isset( $row['claim_txn'] ) ? (string) $row['claim_txn'] : '';
 		if ( '' === $txn ) {
 			return null;
 		}
@@ -436,7 +437,7 @@ final class Expiry {
 	 * @param array     $row   Row.
 	 * @param array     $tr    The waiting transfer.
 	 */
-	private function hold_for_claim( \WC_Order $order, array $row, array $tr ) {
+	private function hold_for_claim( \WC_Order $order, array $row, array $tr ): void {
 		$id = (int) $row['order_id'];
 		$this->plugin->orders_index()->update( $id, array( 'state' => 'review' ) );
 		$this->plugin->transfers()->update(
@@ -508,9 +509,9 @@ final class Expiry {
 	 * @param array     $opts  MatchPolicy::options().
 	 * @param int       $now   UTC seconds.
 	 */
-	private function cancel( \WC_Order $order, array $row, array $opts, int $now ) {
+	private function cancel( \WC_Order $order, array $row, array $opts, int $now ): void {
 		$id = (int) $order->get_id();
-		$order->update_meta_data( '_qersh_expired_at', $now );
+		$order->update_meta_data( '_qersh_expired_at', (string) $now );
 		self::$cancelling = $id;
 		try {
 			$order->update_status( 'cancelled', __( 'The transfer did not arrive before the deadline.', 'qersh-for-woocommerce' ) );
@@ -531,16 +532,15 @@ final class Expiry {
 	private function customer_note( \WC_Order $order, array $row, array $opts ): string {
 		$providers = $this->plugin->orders()->wallet_providers();
 		$provider  = isset( $providers[ $row['wallet'] ] ) ? $providers[ $row['wallet'] ] : '';
-		$txn       = isset( $row['claim_txn'] ) && null !== $row['claim_txn'] ? (string) $row['claim_txn'] : '';
+		$txn       = isset( $row['claim_txn'] ) ? (string) $row['claim_txn'] : '';
 		$number    = Orders::ltr( (string) $order->get_order_number() );
 		switch ( self::note_kind( $provider, '' !== $txn, ! empty( $opts['txn_entry'] ) ) ) {
 			case 'payer':
 				/* translators: %s: order number. */
 				return sprintf( __( 'The transfer window for order #%s has ended and the order was cancelled. Do not transfer for it now. If you transferred before the deadline, your order will be confirmed when the transfer arrives; otherwise contact the store with your order number.', 'qersh-for-woocommerce' ), $number );
 			case 'orange':
-				$url  = class_exists( Checkout::class ) && method_exists( Checkout::class, 'txn_page_url' ) ? Checkout::txn_page_url( $order ) : $order->get_checkout_order_received_url() . '#qersh-txn';
-				$link = '<a href="' . esc_url( $url ) . '">' . esc_html( $url ) . '</a>';
-				$link = class_exists( Format::class ) ? Format::isolate( $link, Format::NOTE ) : '<span dir="ltr" style="unicode-bidi:isolate">' . $link . '</span>';
+				$url  = Checkout::txn_page_url( $order );
+				$link = Format::isolate( '<a href="' . esc_url( $url ) . '">' . esc_html( $url ) . '</a>', Format::NOTE );
 				/* translators: 1: order number, 2: link to the order page. */
 				return sprintf( __( 'The transfer window for order #%1$s has ended and the order was cancelled. Do not transfer for it now. If you transferred before the deadline, enter the transaction id from your transfer message on your order page within 72 hours: %2$s. Your order comes back when your transfer matches it, as long as the products are available; otherwise contact the store with your order number.', 'qersh-for-woocommerce' ), $number, $link );
 			case 'orange_txn':

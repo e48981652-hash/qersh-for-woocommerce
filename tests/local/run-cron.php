@@ -21,7 +21,7 @@ foreach ( is_array( $qersh_crons ) ? $qersh_crons : array() as $qersh_timestamp 
 		foreach ( $qersh_events as $qersh_event ) {
 			wp_unschedule_event( $qersh_timestamp, $qersh_hook, $qersh_event['args'] );
 			do_action_ref_array( $qersh_hook, $qersh_event['args'] );
-			$qersh_ran++;
+			++$qersh_ran;
 		}
 	}
 }
@@ -29,4 +29,4 @@ $qersh_processed = 0;
 if ( class_exists( 'ActionScheduler_QueueRunner' ) ) {
 	$qersh_processed = ActionScheduler_QueueRunner::instance()->run( 'qersh-local' );
 }
-echo "cron events run: {$qersh_ran}; action scheduler actions processed: {$qersh_processed}\n";
+echo 'cron events run: ' . (int) $qersh_ran . '; action scheduler actions processed: ' . (int) $qersh_processed . "\n";

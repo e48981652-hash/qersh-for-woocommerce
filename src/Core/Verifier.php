@@ -265,10 +265,10 @@ final class Verifier {
 	private static function too_long( string $s ): bool {
 		$bytes = strlen( $s );
 		if ( $bytes <= self::MAX_HEADER_LENGTH ) {
-			return false; // a UTF-16 code unit takes at least one byte
+			return false; // a UTF-16 code unit takes at least one byte.
 		}
 		if ( $bytes > 3 * self::MAX_HEADER_LENGTH ) {
-			return true; // and at most three
+			return true; // and at most three.
 		}
 		return self::js_length( $s ) > self::MAX_HEADER_LENGTH;
 	}
@@ -287,9 +287,9 @@ final class Verifier {
 		$units = $bytes;
 		foreach ( count_chars( $s, 1 ) as $byte => $count ) {
 			if ( $byte >= 0x80 && $byte <= 0xBF ) {
-				$units -= $count; // continuation bytes add no unit
+				$units -= $count; // continuation bytes add no unit.
 			} elseif ( $byte >= 0xF0 ) {
-				$units += $count; // four-byte sequences are a surrogate pair
+				$units += $count; // four-byte sequences are a surrogate pair.
 			}
 		}
 		return $units;

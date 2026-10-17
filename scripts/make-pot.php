@@ -33,6 +33,11 @@
  * @package QershPay\WooCommerce\Scripts
  */
 
+// A command-line tool that WordPress never loads: WordPress's functions (WP_Filesystem, wp_json_encode(), the
+// escaping functions) do not exist here, its output goes to a terminal or to files of this repository, and its global
+// names cannot meet those of WordPress or of a plugin.
+// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals, WordPress.WP.AlternativeFunctions, WordPress.Security.EscapeOutput -- a command-line tool (above).
+
 if ( 'cli' !== PHP_SAPI ) {
 	exit( 1 );
 }
@@ -70,22 +75,22 @@ $pot_path  = $root . '/languages/' . QERSH_I18N_DOMAIN . '.pot';
  * Argument layout of each gettext function. "number" is the count of _n and is not read.
  */
 const QERSH_POT_PHP_FUNCTIONS = array(
-	'__'           => array( 'text', 'domain' ),
-	'_e'           => array( 'text', 'domain' ),
-	'esc_html__'   => array( 'text', 'domain' ),
-	'esc_html_e'   => array( 'text', 'domain' ),
-	'esc_attr__'   => array( 'text', 'domain' ),
-	'esc_attr_e'   => array( 'text', 'domain' ),
-	'_x'           => array( 'text', 'context', 'domain' ),
-	'_ex'          => array( 'text', 'context', 'domain' ),
-	'esc_html_x'   => array( 'text', 'context', 'domain' ),
-	'esc_attr_x'   => array( 'text', 'context', 'domain' ),
-	'_n'           => array( 'text', 'plural', 'number', 'domain' ),
-	'_nx'          => array( 'text', 'plural', 'number', 'context', 'domain' ),
-	'_n_noop'      => array( 'text', 'plural', 'domain' ),
-	'_nx_noop'     => array( 'text', 'plural', 'context', 'domain' ),
-	'translate'    => null, // Never with a literal in a plugin: reported.
-	'_c'           => null,
+	'__'         => array( 'text', 'domain' ),
+	'_e'         => array( 'text', 'domain' ),
+	'esc_html__' => array( 'text', 'domain' ),
+	'esc_html_e' => array( 'text', 'domain' ),
+	'esc_attr__' => array( 'text', 'domain' ),
+	'esc_attr_e' => array( 'text', 'domain' ),
+	'_x'         => array( 'text', 'context', 'domain' ),
+	'_ex'        => array( 'text', 'context', 'domain' ),
+	'esc_html_x' => array( 'text', 'context', 'domain' ),
+	'esc_attr_x' => array( 'text', 'context', 'domain' ),
+	'_n'         => array( 'text', 'plural', 'number', 'domain' ),
+	'_nx'        => array( 'text', 'plural', 'number', 'context', 'domain' ),
+	'_n_noop'    => array( 'text', 'plural', 'domain' ),
+	'_nx_noop'   => array( 'text', 'plural', 'context', 'domain' ),
+	'translate'  => null, // Never with a literal in a plugin: reported.
+	'_c'         => null,
 );
 
 const QERSH_POT_JS_FUNCTIONS = array(
@@ -114,13 +119,13 @@ $GLOBALS['qersh_pot'] = array(
  * @param string|null $comment   Extracted comment.
  * @param bool        $is_php    Whether the call is in PHP (php-format flag).
  */
-function qersh_pot_add( $ref, $text, $plural, $context, $comment, $is_php ) {
+function qersh_pot_add( $ref, $text, $plural, $context, $comment, $is_php ): void {
 	$entries = &$GLOBALS['qersh_pot']['entries'];
 	$key     = null === $context ? $text : $context . "\x04" . $text;
 	if ( ! isset( $entries[ $key ] ) ) {
-		$e            = qersh_i18n_entry();
-		$e['msgid']   = $text;
-		$e['msgctxt'] = $context;
+		$e               = qersh_i18n_entry();
+		$e['msgid']      = $text;
+		$e['msgctxt']    = $context;
 		$entries[ $key ] = $e;
 	}
 	$e = &$entries[ $key ];
@@ -190,9 +195,11 @@ function qersh_pot_translators_comment( $raw ) {
 	return implode( ' ', $lines );
 }
 
-/* ---------------------------------------------------------------------------------------------------------------
+/*
+ * -------------------------------------------------------------------------------------------------------------
  * PHP.
- * ------------------------------------------------------------------------------------------------------------- */
+ * -------------------------------------------------------------------------------------------------------------
+ */
 
 /**
  * The value of a single-quoted or double-quoted PHP literal (T_CONSTANT_ENCAPSED_STRING, so without variables).
@@ -212,7 +219,8 @@ function qersh_pot_php_string( $lit ) {
 	return preg_replace_callback(
 		'/\\\\(?:([nrtvef\\\\$"])|([0-7]{1,3})|x([0-9A-Fa-f]{1,2})|u\{([0-9A-Fa-f]+)\})/',
 		static function ( $m ) {
-			if ( isset( $m[1] ) && '' !== $m[1] ) {
+			// A group before the one that matched is present as ''; the ones after it are left out.
+			if ( '' !== $m[1] ) {
 				$map = array(
 					'n'  => "\n",
 					'r'  => "\r",
@@ -226,10 +234,10 @@ function qersh_pot_php_string( $lit ) {
 				);
 				return $map[ $m[1] ];
 			}
-			if ( isset( $m[2] ) && '' !== $m[2] ) {
+			if ( '' !== $m[2] ) {
 				return chr( octdec( $m[2] ) & 255 );
 			}
-			if ( isset( $m[3] ) && '' !== $m[3] ) {
+			if ( '' !== $m[3] ) {
 				return chr( hexdec( $m[3] ) );
 			}
 			return mb_convert_encoding( pack( 'N', hexdec( $m[4] ) ), 'UTF-8', 'UTF-32BE' );
@@ -244,7 +252,7 @@ function qersh_pot_php_string( $lit ) {
  * @param string $rel  Path relative to the repository root.
  * @param string $code File content.
  */
-function qersh_pot_scan_php( $rel, $code ) {
+function qersh_pot_scan_php( $rel, $code ): void {
 	$raw    = token_get_all( $code );
 	$tokens = array();
 	$line   = 1;
@@ -256,10 +264,10 @@ function qersh_pot_scan_php( $rel, $code ) {
 			$tokens[] = array( $t, $t, $line );
 		}
 	}
-	$fq      = defined( 'T_NAME_FULLY_QUALIFIED' ) ? constant( 'T_NAME_FULLY_QUALIFIED' ) : -1;
+	$fq       = defined( 'T_NAME_FULLY_QUALIFIED' ) ? constant( 'T_NAME_FULLY_QUALIFIED' ) : -1;
 	$nullsafe = defined( 'T_NULLSAFE_OBJECT_OPERATOR' ) ? constant( 'T_NULLSAFE_OBJECT_OPERATOR' ) : -1;
-	$skip    = array( T_WHITESPACE, T_COMMENT, T_DOC_COMMENT );
-	$count   = count( $tokens );
+	$skip     = array( T_WHITESPACE, T_COMMENT, T_DOC_COMMENT );
+	$count    = count( $tokens );
 
 	$prev_sig = static function ( $i ) use ( $tokens, $skip ) {
 		for ( $j = $i - 1; $j >= 0; $j-- ) {
@@ -325,12 +333,12 @@ function qersh_pot_scan_php( $rel, $code ) {
 				continue;
 			}
 			if ( in_array( $t[0], array( '(', '[', '{', T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES ), true ) ) {
-				$depth++;
+				++$depth;
 				if ( 1 === $depth ) {
 					continue;
 				}
 			} elseif ( in_array( $t[0], array( ')', ']', '}' ), true ) ) {
-				$depth--;
+				--$depth;
 				if ( 0 === $depth ) {
 					break;
 				}
@@ -364,15 +372,15 @@ function qersh_pot_scan_php( $rel, $code ) {
 		foreach ( array( 'text', 'plural', 'context' ) as $role ) {
 			if ( array_key_exists( $role, $values ) && ! is_string( $values[ $role ] ) ) {
 				$GLOBALS['qersh_pot']['errors'][] = sprintf( '%s: %s() needs a single string literal as its %s', $ref, $name, $role );
-				$bad = true;
+				$bad                              = true;
 			}
 		}
 		if ( ! is_string( $values['domain'] ) ) {
 			$GLOBALS['qersh_pot']['errors'][] = sprintf( '%s: %s() needs the text domain \'%s\' as a string literal', $ref, $name, QERSH_I18N_DOMAIN );
-			$bad = true;
+			$bad                              = true;
 		} elseif ( QERSH_I18N_DOMAIN !== $values['domain'] ) {
 			$GLOBALS['qersh_pot']['errors'][] = sprintf( '%s: %s() uses the text domain \'%s\', not \'%s\'', $ref, $name, $values['domain'], QERSH_I18N_DOMAIN );
-			$bad = true;
+			$bad                              = true;
 		}
 		if ( $bad ) {
 			continue;
@@ -396,7 +404,7 @@ function qersh_pot_scan_php( $rel, $code ) {
 			if ( ! $placed ) {
 				$n = $c + 1;
 				while ( $n < $i && T_WHITESPACE === $tokens[ $n ][0] ) {
-					$n++;
+					++$n;
 				}
 				$placed = ( $n >= $i ) || ( $tokens[ $n ][2] === $tok[2] );
 			}
@@ -408,9 +416,11 @@ function qersh_pot_scan_php( $rel, $code ) {
 	}
 }
 
-/* ---------------------------------------------------------------------------------------------------------------
+/*
+ * -------------------------------------------------------------------------------------------------------------
  * JavaScript.
- * ------------------------------------------------------------------------------------------------------------- */
+ * -------------------------------------------------------------------------------------------------------------
+ */
 
 /**
  * Splits JavaScript into tokens: [ type, value, line, end_line ] with type id, str, tpl, num, re, punct or comment.
@@ -431,12 +441,12 @@ function qersh_pot_js_tokens( $src, $rel ) {
 	while ( $i < $len ) {
 		$ch = $src[ $i ];
 		if ( "\n" === $ch ) {
-			$line++;
-			$i++;
+			++$line;
+			++$i;
 			continue;
 		}
 		if ( ' ' === $ch || "\t" === $ch || "\r" === $ch || "\f" === $ch || "\v" === $ch ) {
-			$i++;
+			++$i;
 			continue;
 		}
 		$start_line = $line;
@@ -473,13 +483,13 @@ function qersh_pot_js_tokens( $src, $rel ) {
 				if ( '\\' === $c ) {
 					$n = $j + 1 < $len ? $src[ $j + 1 ] : '';
 					if ( "\n" === $n ) {
-						$line++;
+						++$line;
 						$j += 2;
 						continue;
 					}
 					if ( "\r" === $n ) {
 						$j += ( "\n" === substr( $src, $j + 2, 1 ) ) ? 3 : 2;
-						$line++;
+						++$line;
 						continue;
 					}
 					$map = array(
@@ -531,9 +541,10 @@ function qersh_pot_js_tokens( $src, $rel ) {
 					continue;
 				}
 				$value .= $c;
-				$j++;
+				++$j;
 			}
-			$tokens[] = $prev = array( 'str', $value, $start_line, $line );
+			$prev     = array( 'str', $value, $start_line, $line );
+			$tokens[] = $prev;
 			$i        = $j + 1;
 			continue;
 		}
@@ -547,7 +558,7 @@ function qersh_pot_js_tokens( $src, $rel ) {
 				}
 				$c = $src[ $j ];
 				if ( "\n" === $c ) {
-					$line++;
+					++$line;
 				}
 				if ( '\\' === $c ) {
 					$j += 2;
@@ -557,28 +568,31 @@ function qersh_pot_js_tokens( $src, $rel ) {
 					break;
 				}
 				if ( '$' === $c && '{' === substr( $src, $j + 1, 1 ) ) {
-					$depth++;
+					++$depth;
 					$j += 2;
 					continue;
 				}
 				if ( $depth > 0 && '{' === $c ) {
-					$depth++;
+					++$depth;
 				} elseif ( $depth > 0 && '}' === $c ) {
-					$depth--;
+					--$depth;
 				}
-				$j++;
+				++$j;
 			}
-			$tokens[] = $prev = array( 'tpl', substr( $src, $i, $j + 1 - $i ), $start_line, $line );
+			$prev     = array( 'tpl', substr( $src, $i, $j + 1 - $i ), $start_line, $line );
+			$tokens[] = $prev;
 			$i        = $j + 1;
 			continue;
 		}
 		if ( preg_match( '/\G[A-Za-z_$][A-Za-z0-9_$]*/', $src, $m, 0, $i ) ) {
-			$tokens[] = $prev = array( 'id', $m[0], $start_line, $start_line );
+			$prev     = array( 'id', $m[0], $start_line, $start_line );
+			$tokens[] = $prev;
 			$i       += strlen( $m[0] );
 			continue;
 		}
 		if ( preg_match( '/\G(?:0[xX][0-9A-Fa-f_]+|0[oO][0-7_]+|0[bB][01_]+|(?:[0-9][0-9_]*(?:\.[0-9_]*)?|\.[0-9][0-9_]*)(?:[eE][+-]?[0-9]+)?n?)/', $src, $m, 0, $i ) ) {
-			$tokens[] = $prev = array( 'num', $m[0], $start_line, $start_line );
+			$prev     = array( 'num', $m[0], $start_line, $start_line );
+			$tokens[] = $prev;
 			$i       += strlen( $m[0] );
 			continue;
 		}
@@ -605,31 +619,35 @@ function qersh_pot_js_tokens( $src, $rel ) {
 					} elseif ( '/' === $c && ! $class ) {
 						break;
 					}
-					$j++;
+					++$j;
 				}
-				$j++;
+				++$j;
 				while ( $j < $len && ctype_alpha( $src[ $j ] ) ) {
-					$j++;
+					++$j;
 				}
-				$tokens[] = $prev = array( 're', substr( $src, $i, $j - $i ), $start_line, $start_line );
+				$prev     = array( 're', substr( $src, $i, $j - $i ), $start_line, $start_line );
+				$tokens[] = $prev;
 				$i        = $j;
 				continue;
 			}
 		}
 		// Punctuators: only the brackets, the comma, the dot and ";" matter; the rest is one char at a time.
 		if ( '?.' === $two && ! ctype_digit( substr( $src, $i + 2, 1 ) ) ) {
-			$tokens[] = $prev = array( 'punct', '.', $start_line, $start_line );
+			$prev     = array( 'punct', '.', $start_line, $start_line );
+			$tokens[] = $prev;
 			$i       += 2;
 			continue;
 		}
 		if ( preg_match( '/\G(?:\+\+|--)/', $src, $m, 0, $i ) ) {
 			// Postfix ++ / -- ends an expression; prefix starts one. Treat it as an operand end, like ")".
-			$tokens[] = $prev = array( 'punct', ')', $start_line, $start_line );
+			$prev     = array( 'punct', ')', $start_line, $start_line );
+			$tokens[] = $prev;
 			$i       += 2;
 			continue;
 		}
-		$tokens[] = $prev = array( 'punct', $ch, $start_line, $start_line );
-		$i++;
+		$prev     = array( 'punct', $ch, $start_line, $start_line );
+		$tokens[] = $prev;
+		++$i;
 	}
 	return $tokens;
 }
@@ -640,7 +658,7 @@ function qersh_pot_js_tokens( $src, $rel ) {
  * @param string $rel  Path relative to the repository root.
  * @param string $code File content.
  */
-function qersh_pot_scan_js( $rel, $code ) {
+function qersh_pot_scan_js( $rel, $code ): void {
 	try {
 		$tokens = qersh_pot_js_tokens( $code, $rel );
 	} catch ( RuntimeException $e ) {
@@ -666,19 +684,19 @@ function qersh_pot_scan_js( $rel, $code ) {
 		if ( $s > 0 && 'id' === $tokens[ $sig[ $s - 1 ] ][0] && 'function' === $tokens[ $sig[ $s - 1 ] ][1] ) {
 			continue;
 		}
-		$name = $tok[1];
-		$ref  = $rel . ':' . $tok[2];
-		$args = array( array() );
+		$name  = $tok[1];
+		$ref   = $rel . ':' . $tok[2];
+		$args  = array( array() );
 		$depth = 0;
 		for ( $k = $s + 1; $k < $nsig; $k++ ) {
 			$t = $tokens[ $sig[ $k ] ];
 			if ( 'punct' === $t[0] && in_array( $t[1], array( '(', '[', '{' ), true ) ) {
-				$depth++;
+				++$depth;
 				if ( 1 === $depth ) {
 					continue;
 				}
 			} elseif ( 'punct' === $t[0] && in_array( $t[1], array( ')', ']', '}' ), true ) ) {
-				$depth--;
+				--$depth;
 				if ( 0 === $depth ) {
 					break;
 				}
@@ -707,15 +725,15 @@ function qersh_pot_scan_js( $rel, $code ) {
 		foreach ( array( 'text', 'plural', 'context' ) as $role ) {
 			if ( array_key_exists( $role, $values ) && ! is_string( $values[ $role ] ) ) {
 				$GLOBALS['qersh_pot']['errors'][] = sprintf( '%s: %s() needs a single string literal as its %s', $ref, $name, $role );
-				$bad = true;
+				$bad                              = true;
 			}
 		}
 		if ( ! is_string( $values['domain'] ) ) {
 			$GLOBALS['qersh_pot']['errors'][] = sprintf( '%s: %s() needs the text domain \'%s\' as a string literal', $ref, $name, QERSH_I18N_DOMAIN );
-			$bad = true;
+			$bad                              = true;
 		} elseif ( QERSH_I18N_DOMAIN !== $values['domain'] ) {
 			$GLOBALS['qersh_pot']['errors'][] = sprintf( '%s: %s() uses the text domain \'%s\', not \'%s\'', $ref, $name, $values['domain'], QERSH_I18N_DOMAIN );
-			$bad = true;
+			$bad                              = true;
 		}
 		if ( $bad ) {
 			continue;
@@ -740,9 +758,11 @@ function qersh_pot_scan_js( $rel, $code ) {
 	}
 }
 
-/* ---------------------------------------------------------------------------------------------------------------
+/*
+ * -------------------------------------------------------------------------------------------------------------
  * Run.
- * ------------------------------------------------------------------------------------------------------------- */
+ * -------------------------------------------------------------------------------------------------------------
+ */
 
 /**
  * Files of a directory, sorted, with forward slashes.
@@ -881,7 +901,7 @@ foreach ( glob( $root . '/languages/*.po' ) as $po_path ) {
 			}
 			unset( $old[ $key ] );
 		} else {
-			$added++;
+			++$added;
 		}
 		$size = null === $n['msgid_plural'] ? 1 : $nplural;
 		$fill = array();

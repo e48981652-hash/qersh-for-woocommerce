@@ -21,7 +21,7 @@ require_once QERSH_WC_TESTS_ROOT . '/src/Autoloader.php';
 function qersh_wc_test_fixture( $relative ) {
 	$path = QERSH_WC_TESTS_ROOT . '/' . $relative;
 	if ( ! is_readable( $path ) ) {
-		throw new RuntimeException( 'missing fixture ' . $relative );
+		throw new RuntimeException( 'missing fixture ' . $relative ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- unit test without WordPress (no esc_html()): the message only reaches the PHPUnit report.
 	}
 	return (string) file_get_contents( $path );
 }

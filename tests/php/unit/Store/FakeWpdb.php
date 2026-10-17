@@ -105,7 +105,7 @@ final class FakeWpdb {
 			$query
 		);
 		if ( count( $args ) !== $i ) {
-			throw new \LogicException( 'prepare(): ' . count( $args ) . ' arguments for ' . $i . ' placeholders' );
+			throw new \LogicException( 'prepare(): ' . count( $args ) . ' arguments for ' . (int) $i . ' placeholders' );
 		}
 		return $out;
 	}

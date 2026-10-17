@@ -107,11 +107,12 @@ final class Transfers {
 	 *
 	 * @param array $row Column => value.
 	 * @return bool True when the row was inserted.
+	 * @throws \InvalidArgumentException When a required column is missing, or a value does not fit its column.
 	 */
 	public function insert( array $row ): bool {
 		foreach ( self::REQUIRED as $column ) {
 			if ( ! isset( $row[ $column ] ) ) {
-				throw new \InvalidArgumentException( 'qersh: transfers.' . $column . ' is required' );
+				throw new \InvalidArgumentException( 'qersh: transfers.' . rawurlencode( $column ) . ' is required' );
 			}
 		}
 		unset( $row['id'] );
@@ -134,7 +135,7 @@ final class Transfers {
 	 * @param string $transfer_id Transfer id.
 	 * @param array  $fields      Column => value (not `id` or `transfer_id`).
 	 */
-	public function update( string $transfer_id, array $fields ) {
+	public function update( string $transfer_id, array $fields ): void {
 		unset( $fields['id'], $fields['transfer_id'] );
 		if ( empty( $fields ) ) {
 			return;
@@ -176,7 +177,7 @@ final class Transfers {
 	 * @param string $transfer_id Transfer id.
 	 * @param int    $now         UTC seconds.
 	 */
-	public function request_sync( string $transfer_id, int $now ) {
+	public function request_sync( string $transfer_id, int $now ): void {
 		$this->update(
 			$transfer_id,
 			array(
@@ -214,7 +215,7 @@ final class Transfers {
 	 * @param string[] $transfer_ids Transfer ids included in the reply.
 	 * @param int      $now          UTC seconds.
 	 */
-	public function note_synced( array $transfer_ids, int $now ) {
+	public function note_synced( array $transfer_ids, int $now ): void {
 		$ids = array();
 		foreach ( $transfer_ids as $id ) {
 			if ( is_string( $id ) && '' !== $id && ! in_array( $id, $ids, true ) ) {

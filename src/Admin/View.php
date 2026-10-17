@@ -33,40 +33,26 @@ final class View {
 	const DECISION_PROVIDERS = array( 'instapay_app', 'bank_nbe', 'bank_cib', 'bank_egbank' );
 
 	/**
-	 * A value isolated left to right inside admin HTML (docs/17 §7): numbers, addresses, transaction ids, times.
+	 * A value isolated inside admin HTML (docs/17 §7, Format::ltr()): numbers, addresses, transaction ids and
+	 * fingerprints left to right, and a localized time by its first strong letter.
 	 *
 	 * @param string|int $value Value (plain text).
 	 * @return string Escaped HTML.
 	 */
 	public static function ltr( $value ): string {
-		$value = (string) $value;
-		if ( class_exists( Format::class ) && method_exists( Format::class, 'ltr' ) ) {
-			try {
-				$out = Format::ltr( $value, 'html' );
-			} catch ( \Throwable $e ) {
-				$out = null;
-			}
-			if ( is_string( $out ) && false !== strpos( $out, 'dir="ltr"' ) ) {
-				return $out;
-			}
-		}
-		return '<bdi dir="ltr">' . esc_html( $value ) . '</bdi>';
+		return Format::ltr( (string) $value, Format::HTML );
 	}
 
 	/**
-	 * A value isolated for an email: a span with unicode-bidi isolate in HTML (wp_kses_post() and mail clients drop
-	 * `<bdi>`), U+2066 … U+2069 in plain text.
+	 * A value isolated for an email (Format::ltr()): a span with unicode-bidi isolate in HTML (wp_kses_post() and
+	 * mail clients drop `<bdi>`), U+2066 (or U+2068 for a localized time) … U+2069 in plain text.
 	 *
 	 * @param string|int $value Value.
 	 * @param bool       $plain True for the plain-text email.
 	 * @return string Escaped HTML, or plain text.
 	 */
 	public static function email_ltr( $value, bool $plain ): string {
-		$value = (string) $value;
-		if ( $plain ) {
-			return "\u{2066}" . $value . "\u{2069}";
-		}
-		return '<span dir="ltr" style="unicode-bidi:isolate">' . esc_html( $value ) . '</span>';
+		return Format::ltr( (string) $value, $plain ? Format::PLAIN : Format::EMAIL_HTML );
 	}
 
 	/**

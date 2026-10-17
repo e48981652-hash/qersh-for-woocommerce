@@ -23,7 +23,7 @@ defined( 'ABSPATH' ) || exit;
 final class CheckoutTest extends TestCase {
 
 	/** Every qersh_orders state maps to one of the six customer statuses (CONTRACTS.md §12). */
-	public function test_status_from_state() {
+	public function test_status_from_state(): void {
 		$cases = array(
 			'open'     => 'waiting',
 			'partial'  => 'partial',
@@ -40,7 +40,7 @@ final class CheckoutTest extends TestCase {
 	}
 
 	/** Without a row, the WooCommerce status decides. */
-	public function test_status_without_row() {
+	public function test_status_without_row(): void {
 		$this->assertSame( 'waiting', Checkout::status_of( null, 'pending' ) );
 		$this->assertSame( 'paid', Checkout::status_of( null, 'processing' ) );
 		$this->assertSame( 'paid', Checkout::status_of( null, 'completed' ) );
@@ -54,7 +54,7 @@ final class CheckoutTest extends TestCase {
 	}
 
 	/** The amount: what remains, rounded up to the pound when the store allows it (139.50 → 140). */
-	public function test_amounts() {
+	public function test_amounts(): void {
 		$this->assertSame(
 			array(
 				'exact' => 13950,
@@ -88,7 +88,7 @@ final class CheckoutTest extends TestCase {
 	}
 
 	/** The confirmation line of each wallet type (docs/17 §3), with the Orange auto_seen variant. */
-	public function test_confirm_kind() {
+	public function test_confirm_kind(): void {
 		$this->assertSame( 'auto', Checkout::confirm_kind( 'vodafone_cash', false, false ) );
 		$this->assertSame( 'auto', Checkout::confirm_kind( 'etisalat_cash', true, true ) );
 		$this->assertSame( 'orange_auto', Checkout::confirm_kind( 'orange_cash', true, true ) );
@@ -100,7 +100,7 @@ final class CheckoutTest extends TestCase {
 	}
 
 	/** Orange Cash entries take transaction ids, turned off or not (turning off only hides it from the checkout). */
-	public function test_txn_wallet() {
+	public function test_txn_wallet(): void {
 		$orange = array(
 			'id'              => 'ccccccccccc3',
 			'label'           => 'Orange',
@@ -124,7 +124,7 @@ final class CheckoutTest extends TestCase {
 	}
 
 	/** After 15 minutes: the Orange reminder only while the field is there and empty; the base line otherwise. */
-	public function test_nudge_key() {
+	public function test_nudge_key(): void {
 		$this->assertSame( 'nudge_other', Checkout::nudge_key( 'waiting', true, false, false, false ) );
 		$this->assertSame( 'nudge_other', Checkout::nudge_key( 'waiting', true, false, true, true ), 'not an Orange order' );
 		$this->assertSame( 'nudge_txn', Checkout::nudge_key( 'waiting', true, true, true, false ) );
@@ -139,7 +139,7 @@ final class CheckoutTest extends TestCase {
 	}
 
 	/** The status line: the neutral saved line replaces "Waiting…" once a transaction id is saved. */
-	public function test_status_line_key() {
+	public function test_status_line_key(): void {
 		$this->assertSame( 'waiting', Checkout::status_line_key( 'waiting', false, false ) );
 		$this->assertSame( 'waiting_decision', Checkout::status_line_key( 'waiting', true, false ) );
 		$this->assertSame( 'saved', Checkout::status_line_key( 'waiting', true, true ) );
@@ -151,7 +151,7 @@ final class CheckoutTest extends TestCase {
 	}
 
 	/** The store's minimum and maximum. */
-	public function test_total_allowed() {
+	public function test_total_allowed(): void {
 		$this->assertTrue( Checkout::total_allowed( 100, null, null ) );
 		$this->assertFalse( Checkout::total_allowed( 999, 1000, null ) );
 		$this->assertTrue( Checkout::total_allowed( 1000, 1000, 1000 ) );
@@ -163,7 +163,7 @@ final class CheckoutTest extends TestCase {
 	}
 
 	/** The order id of a route body: a positive integer, or digits. */
-	public function test_order_id_of() {
+	public function test_order_id_of(): void {
 		$this->assertSame( 42, OrderStatusRoute::order_id_of( array( 'order_id' => 42 ) ) );
 		$this->assertSame( 42, OrderStatusRoute::order_id_of( array( 'order_id' => '42' ) ) );
 		$this->assertSame( 0, OrderStatusRoute::order_id_of( array( 'order_id' => '42abc' ) ) );
@@ -174,9 +174,25 @@ final class CheckoutTest extends TestCase {
 	}
 
 	/** The 2 KB limit of the transaction-id route, for callers with a decoded body. */
-	public function test_claim_body_size() {
-		$this->assertFalse( ClaimRoute::too_big( array( 'order_id' => 1, 'key' => 'wc_order_abc', 'txn' => str_repeat( 'x', 400 ) ) ) );
-		$this->assertTrue( ClaimRoute::too_big( array( 'order_id' => 1, 'key' => 'wc_order_abc', 'txn' => str_repeat( 'x', 2100 ) ) ) );
+	public function test_claim_body_size(): void {
+		$this->assertFalse(
+			ClaimRoute::too_big(
+				array(
+					'order_id' => 1,
+					'key'      => 'wc_order_abc',
+					'txn'      => str_repeat( 'x', 400 ),
+				)
+			)
+		);
+		$this->assertTrue(
+			ClaimRoute::too_big(
+				array(
+					'order_id' => 1,
+					'key'      => 'wc_order_abc',
+					'txn'      => str_repeat( 'x', 2100 ),
+				)
+			)
+		);
 		$this->assertFalse( ClaimRoute::too_big( array( 'txn' => str_repeat( 'ر', 900 ) ) ), 'Arabic counts its UTF-8 bytes, unescaped' );
 		$this->assertTrue( ClaimRoute::too_big( array( 'txn' => str_repeat( 'ر', 1100 ) ) ) );
 	}

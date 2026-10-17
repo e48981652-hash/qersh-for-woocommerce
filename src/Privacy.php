@@ -50,7 +50,7 @@ final class Privacy {
 	 *
 	 * @param Plugin $plugin The plugin.
 	 */
-	public static function register( Plugin $plugin ) {
+	public static function register( Plugin $plugin ): void {
 		self::$plugin = $plugin;
 		add_action( 'admin_init', array( __CLASS__, 'policy' ) );
 		add_filter( 'wp_privacy_personal_data_exporters', array( __CLASS__, 'exporters' ) );
@@ -74,7 +74,7 @@ final class Privacy {
 	/**
 	 * The suggested privacy policy text.
 	 */
-	public static function policy() {
+	public static function policy(): void {
 		if ( ! function_exists( 'wp_add_privacy_policy_content' ) ) {
 			return;
 		}
@@ -87,10 +87,19 @@ final class Privacy {
 		$paragraphs = array(
 			__( 'When you pay by wallet transfer, we ask for the wallet number or InstaPay address you transfer from, so we can recognize your transfer. We store it with your order.', 'qersh-for-woocommerce' ),
 			__( 'Our store\'s phone, running the Qersh app, reads the confirmation message of each transfer it receives and sends us directly the amount, the payer\'s number or InstaPay address and name as the message prints them, the operator\'s transaction id and the time. If you enter the transaction id of your transfer on your order page, we keep that id only, never the text you pasted. All of this is stored in our own database only: it does not pass through Qersh or any other outside service.', 'qersh-for-woocommerce' ),
-			/* translators: %d: number of days. */
-			sprintf( __( 'Transfer data that belongs to an order is kept as long as the order. The payer\'s number and name of a transfer that paid no order are erased after %d days. Records of the phone\'s deliveries hold no personal data and are kept for 180 days.', 'qersh-for-woocommerce' ), $days ),
+			sprintf(
+				/* translators: %d: number of days. */
+				_n(
+					'Transfer data that belongs to an order is kept as long as the order. The payer\'s number and name of a transfer that paid no order are erased after %d day. Records of the phone\'s deliveries hold no personal data and are kept for 180 days.',
+					'Transfer data that belongs to an order is kept as long as the order. The payer\'s number and name of a transfer that paid no order are erased after %d days. Records of the phone\'s deliveries hold no personal data and are kept for 180 days.',
+					$days,
+					'qersh-for-woocommerce'
+				),
+				$days
+			),
 			__( 'This data is included when you ask for your personal data, and erased when you ask us to erase it.', 'qersh-for-woocommerce' ),
 		);
+
 		$html = '';
 		foreach ( $paragraphs as $paragraph ) {
 			$html .= '<p class="privacy-policy-tutorial">' . esc_html( $paragraph ) . '</p>';
@@ -374,7 +383,7 @@ final class Privacy {
 	 *
 	 * @param \WC_Order $order Order.
 	 */
-	public static function erase_order( $order ) {
+	public static function erase_order( $order ): void {
 		if ( ! is_object( $order ) || ! is_a( $order, 'WC_Order' ) ) {
 			return;
 		}

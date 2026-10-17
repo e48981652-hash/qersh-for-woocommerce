@@ -56,7 +56,7 @@ final class Module {
 	const FLASH_PREFIX = 'qersh_wc_flash_';
 
 	/**
-	 * admin-post actions and their handlers.
+	 * The admin-post actions and their handlers.
 	 */
 	const ACTIONS = array(
 		'qersh_wc_wallet_save'        => array( Wallets::class, 'handle_save' ),
@@ -149,7 +149,7 @@ final class Module {
 	/**
 	 * WooCommerce → Qersh, with the needs-decision count.
 	 */
-	public static function menu() {
+	public static function menu(): void {
 		$count = self::badge_count();
 		$title = esc_html__( 'Qersh', 'qersh-for-woocommerce' );
 		if ( $count > 0 ) {
@@ -243,34 +243,35 @@ final class Module {
 	 * @return string
 	 */
 	public static function page_url( string $tab = 'wallets', array $args = array() ): string {
-		return add_query_arg( array_merge( array( 'page' => self::SLUG, 'tab' => $tab ), $args ), admin_url( 'admin.php' ) );
+		return add_query_arg(
+			array_merge(
+				array(
+					'page' => self::SLUG,
+					'tab'  => $tab,
+				),
+				$args
+			),
+			admin_url( 'admin.php' )
+		);
 	}
 
 	/**
-	 * Renders WooCommerce → Qersh.
+	 * Renders WooCommerce → Qersh. The page template prints the tab in place, through the tab's render(), so every
+	 * value is escaped where it is printed.
 	 */
-	public static function render_page() {
+	public static function render_page(): void {
 		if ( ! current_user_can( self::CAP ) ) {
 			wp_die( esc_html__( 'Sorry, you are not allowed to manage this store.', 'qersh-for-woocommerce' ), 403 );
 		}
 		$tab = self::current_tab();
 		self::plugin()->diagnostics()->as_health();
 		self::plugin()->diagnostics()->check_silence(); // Also without a working Cron, the one email per episode goes.
-		ob_start();
-		switch ( $tab ) {
-			case 'transfers':
-				Transfers::render();
-				break;
-			case 'settings':
-				Settings::render();
-				break;
-			case 'status':
-				Status::render();
-				break;
-			default:
-				Wallets::render();
-		}
-		$content = (string) ob_get_clean();
+		$renders = array(
+			'wallets'   => array( Wallets::class, 'render' ),
+			'transfers' => array( Transfers::class, 'render' ),
+			'settings'  => array( Settings::class, 'render' ),
+			'status'    => array( Status::class, 'render' ),
+		);
 		$tabs    = array(
 			'wallets'   => __( 'Wallets', 'qersh-for-woocommerce' ),
 			'transfers' => __( 'Transfers', 'qersh-for-woocommerce' ),
@@ -280,11 +281,11 @@ final class Module {
 		self::template(
 			'page',
 			array(
-				'tab'      => $tab,
-				'tabs'     => $tabs,
-				'badge'    => self::badge_count(),
-				'flash'    => self::take_flash(),
-				'content'  => $content,
+				'tab'    => $tab,
+				'tabs'   => $tabs,
+				'badge'  => self::badge_count(),
+				'flash'  => self::take_flash(),
+				'render' => $renders[ $tab ],
 			)
 		);
 	}
@@ -309,9 +310,9 @@ final class Module {
 	 * Includes a template of templates/admin/ with `$args` in scope.
 	 *
 	 * @param string $name Template name without .php.
-	 * @param array  $args Values for the template.
+	 * @param array  $args Values for the template, which reads them as `$args`.
 	 */
-	public static function template( string $name, array $args = array() ) {
+	public static function template( string $name, array $args = array() ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- the included template reads $args.
 		$name = sanitize_key( $name );
 		$file = QERSH_WC_DIR . 'templates/admin/' . str_replace( '_', '-', $name ) . '.php';
 		if ( is_readable( $file ) ) {
@@ -324,7 +325,7 @@ final class Module {
 	 *
 	 * @param string $hook_suffix Hook suffix of the screen.
 	 */
-	public static function enqueue( $hook_suffix ) {
+	public static function enqueue( $hook_suffix ): void {
 		$ours  = self::screen_id() === $hook_suffix || self::is_our_screen();
 		$order = OrderBox::is_order_screen();
 		if ( ! $ours && ! $order && ! self::is_wc_screen() ) {
@@ -367,7 +368,7 @@ final class Module {
 	/**
 	 * Prints the alerts of Diagnostics.
 	 */
-	public static function notices() {
+	public static function notices(): void {
 		if ( ! current_user_can( self::CAP ) || ! self::is_wc_screen() ) {
 			return;
 		}
@@ -432,7 +433,7 @@ final class Module {
 	/**
 	 * AJAX: remembers a dismissed notice.
 	 */
-	public static function ajax_dismiss_notice() {
+	public static function ajax_dismiss_notice(): void {
 		if ( ! isset( $_SERVER['REQUEST_METHOD'] ) || 'POST' !== strtoupper( sanitize_key( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) ) {
 			wp_send_json( array( 'code' => 'qersh_method' ), 405 );
 		}
@@ -454,7 +455,7 @@ final class Module {
 	/**
 	 * WooCommerce is active but older than the minimum: one line on the plugins screen.
 	 */
-	public static function wc_missing_notice() {
+	public static function wc_missing_notice(): void {
 		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
 		if ( ! $screen || 'plugins' !== $screen->id || ! current_user_can( 'activate_plugins' ) ) {
 			return;
@@ -481,7 +482,7 @@ final class Module {
 	 *
 	 * @param string $action The admin-post action (also its nonce action).
 	 */
-	public static function check_action( string $action ) {
+	public static function check_action( string $action ): void {
 		if ( ! isset( $_SERVER['REQUEST_METHOD'] ) || 'POST' !== strtoupper( sanitize_key( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) ) {
 			wp_die( esc_html__( 'This action needs a form submission.', 'qersh-for-woocommerce' ), 405 );
 		}
@@ -496,7 +497,7 @@ final class Module {
 	 * @param string $tab  Tab.
 	 * @param array  $args More query arguments.
 	 */
-	public static function redirect( string $tab, array $args = array() ) {
+	public static function redirect( string $tab, array $args = array() ): void {
 		wp_safe_redirect( self::page_url( $tab, $args ) );
 		exit;
 	}
@@ -507,7 +508,7 @@ final class Module {
 	 * @param string $type    `success`, `error`, `warning` or `info`.
 	 * @param string $message Escaped HTML.
 	 */
-	public static function flash( string $type, string $message ) {
+	public static function flash( string $type, string $message ): void {
 		$key      = self::FLASH_PREFIX . get_current_user_id();
 		$messages = get_transient( $key );
 		$messages = is_array( $messages ) ? $messages : array();

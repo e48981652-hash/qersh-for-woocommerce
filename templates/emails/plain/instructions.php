@@ -1,7 +1,8 @@
 <?php
 /**
- * Customer email "Transfer instructions for your order #N" (plain text). Numbers, addresses and times sit between
- * U+2066 and U+2069 so they keep their order inside Arabic text (docs/17 §7).
+ * Customer email "Transfer instructions for your order #N" (plain text). Numbers and addresses sit between U+2066
+ * and U+2069 so they keep their order inside Arabic text, and a time written with Arabic words between U+2068 and
+ * U+2069 (Format::isolate(), docs/17 §7).
  *
  * Override it by copying it to yourtheme/woocommerce/emails/plain/instructions.php.
  *
@@ -82,11 +83,24 @@ if ( is_array( $box ) ) {
 
 echo "\n----------------------------------------\n\n";
 
+/**
+ * WooCommerce's order details table (WC_Emails::order_details()).
+ * This action is documented in woocommerce/templates/emails/customer-processing-order.php.
+ */
 do_action( 'woocommerce_email_order_details', $order, $sent_to_admin, $plain_text, $email ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WooCommerce's email hook.
 
 echo "\n----------------------------------------\n\n";
 
+/**
+ * WooCommerce's order meta (WC_Emails::order_meta()).
+ * This action is documented in woocommerce/templates/emails/customer-processing-order.php.
+ */
 do_action( 'woocommerce_email_order_meta', $order, $sent_to_admin, $plain_text, $email ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WooCommerce's email hook.
+
+/**
+ * WooCommerce's customer details (WC_Emails::customer_details(), WC_Emails::email_address()).
+ * This action is documented in woocommerce/templates/emails/customer-processing-order.php.
+ */
 do_action( 'woocommerce_email_customer_details', $order, $sent_to_admin, $plain_text, $email ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WooCommerce's email hook.
 
 echo "\n\n----------------------------------------\n\n";
@@ -96,4 +110,5 @@ if ( $additional_content ) {
 	echo "\n\n----------------------------------------\n\n";
 }
 
+/** This filter is documented in woocommerce/templates/emails/email-footer.php. */
 echo wp_kses_post( apply_filters( 'woocommerce_email_footer_text', get_option( 'woocommerce_email_footer_text' ) ) ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WooCommerce's own filter, as its plain templates use it.

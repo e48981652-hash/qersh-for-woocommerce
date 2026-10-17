@@ -7,8 +7,13 @@
  * @package QershPay\WooCommerce\Scripts
  */
 
+// A command-line tool that WordPress never loads: WordPress's functions (WP_Filesystem, wp_json_encode(), the
+// escaping functions) do not exist here, its output goes to a terminal or to files of this repository, and its global
+// names cannot meet those of WordPress or of a plugin.
+// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals, WordPress.WP.GlobalVariablesOverride, WordPress.WP.AlternativeFunctions -- a command-line tool (above).
+
 $root  = dirname( __DIR__ );
-$dirs  = array( 'qersh-for-woocommerce.php', 'uninstall.php', 'src', 'templates', 'languages', 'scripts', 'tests/php', 'tests/parity', 'tests/local', 'tests/e2e' );
+$dirs  = array( 'qersh-for-woocommerce.php', 'uninstall.php', 'src', 'templates', 'languages', 'scripts', 'tests/php', 'tests/phpstan', 'tests/parity', 'tests/local', 'tests/e2e' );
 $files = array();
 foreach ( $dirs as $dir ) {
 	$path = $root . '/' . $dir;
@@ -30,9 +35,9 @@ $failed = 0;
 foreach ( $files as $file ) {
 	$output = array();
 	$code   = 0;
-	exec( escapeshellarg( PHP_BINARY ) . ' -l ' . escapeshellarg( $file ) . ' 2>&1', $output, $code );
+	exec( escapeshellarg( PHP_BINARY ) . ' -l ' . escapeshellarg( $file ) . ' 2>&1', $output, $code ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_exec -- runs php -l, the whole point of this tool.
 	if ( 0 !== $code ) {
-		$failed++;
+		++$failed;
 		fwrite( STDERR, implode( "\n", $output ) . "\n" );
 	}
 }

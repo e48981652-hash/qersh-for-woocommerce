@@ -273,7 +273,7 @@ final class ConfigStore {
 	 * @param array|null $before  Wallets of the configuration before the change, or null (the constant: every active
 	 *                            row not in it has left).
 	 */
-	private function sync_rows( array $rows, array $wallets, ?array $before ) {
+	private function sync_rows( array $rows, array $wallets, ?array $before ): void {
 		if ( ! $this->plugin instanceof Plugin ) {
 			return;
 		}
@@ -336,7 +336,7 @@ final class ConfigStore {
 			if ( null !== $rows && '' !== $id && isset( $rows[ $id ] ) && 'deleted' === $rows[ $id ]['state'] ) {
 				$issues[] = array(
 					'path'    => 'wallets[' . $i . '].id',
-					'message' => 'This wallet was deleted. Use "Restore wallet" in WooCommerce > Qersh > Wallets instead of adding it again.',
+					'message' => 'This wallet was deleted. Use “Restore wallet” in WooCommerce → Qersh → Wallets instead of adding it again.',
 					'code'    => 'deleted_wallet',
 				);
 				continue;
@@ -420,7 +420,7 @@ final class ConfigStore {
 			return __( 'QERSH_WC_CONFIG in wp-config.php is not a JSON object.', 'qersh-for-woocommerce' );
 		}
 		if ( 'deleted_wallet' === $code ) {
-			return __( 'This wallet was deleted. Use "Restore wallet" in WooCommerce > Qersh > Wallets instead of adding it again.', 'qersh-for-woocommerce' );
+			return __( 'This wallet was deleted. Use “Restore wallet” in WooCommerce → Qersh → Wallets instead of adding it again.', 'qersh-for-woocommerce' );
 		}
 		return $english;
 	}

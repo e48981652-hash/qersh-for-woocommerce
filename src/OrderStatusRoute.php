@@ -16,7 +16,8 @@ defined( 'ABSPATH' ) || exit;
  * transaction id is saved) for an Orange Cash order: a fact the customer knows, which says nothing about transfers.
  * Never cached (wc_nocache_headers(), litespeed_control_set_nocache).
  *
- * handle_body() is the whole route, used by the REST callback and by Webhook\Fallback (`?wc-api=qersh&qo=status`).
+ * The method handle_body() is the whole route, used by the REST callback and by Webhook\Fallback
+ * (`?wc-api=qersh&qo=status`).
  */
 final class OrderStatusRoute {
 
@@ -211,10 +212,17 @@ final class OrderStatusRoute {
 	 *
 	 * @param string $reason Reason passed to LiteSpeed Cache.
 	 */
-	public static function nocache( string $reason ) {
+	public static function nocache( string $reason ): void {
 		if ( function_exists( 'wc_nocache_headers' ) ) {
 			wc_nocache_headers();
 		}
+		/**
+		 * LiteSpeed Cache's own action: this response is not to be cached. Nothing listens without LiteSpeed Cache.
+		 *
+		 * @since 0.1.0
+		 *
+		 * @param string $reason Reason, shown in LiteSpeed Cache's debug log.
+		 */
 		do_action( 'litespeed_control_set_nocache', $reason ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- LiteSpeed Cache's own hook.
 	}
 

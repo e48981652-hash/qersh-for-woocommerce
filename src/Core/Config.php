@@ -240,7 +240,7 @@ final class Config {
 	 * @return string
 	 */
 	public static function new_key(): string {
-		return 'qsk_' . rtrim( strtr( base64_encode( random_bytes( 32 ) ), '+/', '-_' ), '=' );
+		return 'qsk_' . rtrim( strtr( base64_encode( random_bytes( 32 ) ), '+/', '-_' ), '=' ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode -- base64url text of 32 random bytes (the app's key format), no code.
 	}
 
 	/**
@@ -484,10 +484,10 @@ final class Config {
 		foreach ( array( 'min_total_minor', 'max_total_minor' ) as $key ) {
 			$v = array_key_exists( $key, $s ) ? $s[ $key ] : null;
 			if ( null !== $v && ( ! self::is_integer( $v ) || $v < 0 ) ) {
-				$issues[] = self::issue( 'store.' . $key, 'empty, or a non-negative integer number of piasters' );
+				$issues[]  = self::issue( 'store.' . $key, 'empty, or a non-negative integer number of piasters' );
 				$bounds_ok = false;
 			} elseif ( null !== $v && ! self::fits_int( $v ) ) {
-				$issues[] = self::issue( 'store.' . $key, self::too_large() );
+				$issues[]  = self::issue( 'store.' . $key, self::too_large() );
 				$bounds_ok = false;
 			}
 		}
@@ -542,14 +542,14 @@ final class Config {
 	 * `value ?? default` of the TypeScript, with a whole-number float that fits in an int turned into an int. A
 	 * float outside the int range is kept as it is (a cast would wrap it), for validate() to report.
 	 *
-	 * @param array  $a       Array.
-	 * @param string $key     Key.
-	 * @param mixed  $default Default.
+	 * @param array  $a        Array.
+	 * @param string $key      Key.
+	 * @param mixed  $fallback Default.
 	 * @return mixed
 	 */
-	private static function value_or( array $a, string $key, $default ) {
+	private static function value_or( array $a, string $key, $fallback ) {
 		if ( ! array_key_exists( $key, $a ) || null === $a[ $key ] ) {
-			return $default;
+			return $fallback;
 		}
 		$v = $a[ $key ];
 		return is_float( $v ) && self::is_integer( $v ) && self::fits_int( $v ) ? (int) $v : $v;
@@ -579,7 +579,7 @@ final class Config {
 		if ( is_int( $v ) ) {
 			return true;
 		}
-		return is_float( $v ) && $v >= (float) PHP_INT_MIN && $v < -(float) PHP_INT_MIN;
+		return is_float( $v ) && $v >= (float) PHP_INT_MIN && $v < -( (float) PHP_INT_MIN );
 	}
 
 	/**

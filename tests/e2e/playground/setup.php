@@ -8,7 +8,7 @@
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
-	require '/wordpress/wp-load.php';
+	require '/wordpress/wp-load.php'; // @phpstan-ignore require.fileNotFound (WordPress Playground's own path, which exists only inside the Playground.)
 }
 defined( 'ABSPATH' ) || exit;
 
@@ -30,7 +30,7 @@ $qersh_pg_config['wallets'] = array(
 		'enabled'         => true,
 	),
 );
-$qersh_pg_saved = $qersh_pg_plugin->config_store()->save( $qersh_pg_config );
+$qersh_pg_saved             = $qersh_pg_plugin->config_store()->save( $qersh_pg_config );
 if ( is_wp_error( $qersh_pg_saved ) ) {
 	echo 'config: ' . esc_html( $qersh_pg_saved->get_error_message() ) . "\n";
 	return;

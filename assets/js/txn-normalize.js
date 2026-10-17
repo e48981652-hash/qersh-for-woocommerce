@@ -5,6 +5,8 @@
  * - canonicalTyped() is Core\TxnId::canonical_typed() (docs/17 §4.10 steps 1-7). Both read
  *   tests/vectors/txn-normalize.json (tests/js/txn-normalize.test.mjs runs this file on it).
  * - checkPayer() and isStoreNumber() are PayerField::check() and PayerField::is_store_number() for one field.
+ * - hasRtl() is Format::has_rtl() on text: whether a value holds a right-to-left letter, so a localized time is
+ *   isolated by its first strong letter and a number stays left to right (docs/17 §7).
  *
  * Loaded before payer-field.js, checkout-blocks.js and thankyou.js as window.qershWcNormalize; under Node it is a
  * CommonJS module. In a browser the global is always set, even when another script leaked a global `module`
@@ -54,6 +56,14 @@
 
 	// Line and paragraph breaks that become "\n", so numbers are never joined across lines (TxnId::LINE_BREAKS).
 	var LINE_BREAKS = charClass( [ [ 0x000A, 0x000D ], [ 0x001C, 0x001F ], 0x2028, 0x2029 ] );
+
+	// Right-to-left letters (Format::RTL_LETTERS): Hebrew and Arabic letters and their presentation forms, without the
+	// Arabic-Indic digits and number signs. Not global, so test() keeps no state between calls.
+	var RTL_LETTERS = new RegExp( charClass( [
+		[ 0x05D0, 0x05EA ], [ 0x05EF, 0x05F2 ], [ 0x0620, 0x064A ], 0x066E, 0x066F, [ 0x0671, 0x06D3 ], 0x06D5, 0x06EE, 0x06EF,
+		[ 0x06FA, 0x06FF ], [ 0x0750, 0x077F ], [ 0x0870, 0x0887 ], [ 0x0889, 0x088E ], [ 0x08A0, 0x08C9 ], 0xFB1D,
+		[ 0xFB1F, 0xFB28 ], [ 0xFB2A, 0xFB4F ], [ 0xFB50, 0xFD3D ], [ 0xFD50, 0xFDFF ], [ 0xFE70, 0xFEFC ]
+	] ).source );
 
 	// Separators of the compact attempt, and the one character that may join two runs on a line (TxnId::SEPARATORS).
 	var COMPACT_DROP = /[ \-.#:\n]/g;
@@ -186,6 +196,17 @@
 		return { ok: true, payer: payer };
 	}
 
+	/**
+	 * Whether a text holds a right-to-left letter (Format::has_rtl()): then it is isolated by its first strong letter
+	 * (dir="auto"), otherwise left to right. Digits of any script, Latin text and symbols do not count.
+	 *
+	 * @param {*} text Text.
+	 * @return {boolean} True when the text has a Hebrew or Arabic letter.
+	 */
+	function hasRtl( text ) {
+		return typeof text === 'string' && text !== '' && RTL_LETTERS.test( text );
+	}
+
 	function error( code ) {
 		return { ok: false, error: code };
 	}
@@ -316,6 +337,7 @@
 		normalizePayer: normalizePayer,
 		isStoreNumber: isStoreNumber,
 		checkPayer: checkPayer,
-		canonicalTyped: canonicalTyped
+		canonicalTyped: canonicalTyped,
+		hasRtl: hasRtl
 	};
 } ) );

@@ -4,7 +4,8 @@
  *
  * @package QershPay\WooCommerce
  *
- * @var array $args `tab`, `tabs`, `badge`, `flash`, `content` (the tab, escaped by its own template).
+ * @var array $args `tab`, `tabs`, `badge`, `flash`, `render` (the callable that prints the tab in place through
+ *                  its own template, which escapes every value it prints).
  */
 
 use QershPay\WooCommerce\Admin\Module;
@@ -30,9 +31,6 @@ defined( 'ABSPATH' ) || exit;
 		<?php endforeach; ?>
 	</nav>
 	<div class="qersh-wc-tab">
-		<?php
-		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- the tab's own template escaped every value when it was rendered just before.
-		echo $args['content'];
-		?>
+		<?php call_user_func( $args['render'] ); ?>
 	</div>
 </div>

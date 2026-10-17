@@ -9,7 +9,6 @@ namespace QershPay\WooCommerce\Webhook;
 
 use QershPay\WooCommerce\Core\Envelope;
 use QershPay\WooCommerce\Core\Verifier;
-use QershPay\WooCommerce\Diagnostics;
 use QershPay\WooCommerce\Orders;
 use QershPay\WooCommerce\Plugin;
 use QershPay\WooCommerce\Store\Db;
@@ -120,8 +119,8 @@ final class Controller {
 	}
 
 	/**
-	 * permission_callback of the REST route: the wallet, then the signature. True when the store cannot answer at
-	 * all (WooCommerce or the tables missing): the callback then answers 503.
+	 * The permission_callback of the REST route: the wallet, then the signature. True when the store cannot answer
+	 * at all (WooCommerce or the tables missing): the callback then answers 503.
 	 *
 	 * @param \WP_REST_Request $request Request.
 	 * @return true|\WP_Error
@@ -332,8 +331,8 @@ final class Controller {
 	/**
 	 * Diagnostics::as_health() (package E) at the end of each verified webhook request. Never throws.
 	 */
-	public function as_health() {
-		if ( ! $this->ready() || ! class_exists( Diagnostics::class ) || ! method_exists( Diagnostics::class, 'as_health' ) ) {
+	public function as_health(): void {
+		if ( ! $this->ready() ) {
 			return;
 		}
 		try {
@@ -634,7 +633,7 @@ final class Controller {
 	 * @param array  $gate   The gate() result.
 	 * @param int    $now    UTC seconds.
 	 */
-	private function after_verified( string $wallet, array $gate, int $now ) {
+	private function after_verified( string $wallet, array $gate, int $now ): void {
 		try {
 			if ( 'pending' === $gate['slot'] ) {
 				$this->plugin->secrets()->promote_pending( $wallet, $now );
@@ -655,10 +654,7 @@ final class Controller {
 	 * @param int    $now      UTC seconds.
 	 * @param int    $v1_index Position of the matching v1 value in the signature header.
 	 */
-	private function record_delivery( string $wallet, array $envelope, string $form, int $now, int $v1_index ) {
-		if ( ! class_exists( Diagnostics::class ) || ! method_exists( Diagnostics::class, 'record_delivery' ) ) {
-			return;
-		}
+	private function record_delivery( string $wallet, array $envelope, string $form, int $now, int $v1_index ): void {
 		try {
 			$this->plugin->diagnostics()->record_delivery( $wallet, $envelope, $form, $now, array( 'v1_index' => $v1_index ) );
 		} catch ( \Throwable $e ) {
@@ -667,13 +663,13 @@ final class Controller {
 	}
 
 	/**
-	 * webhook.test: the last_test_* columns, without touching any order.
+	 * For webhook.test: the last_test_* columns, without touching any order.
 	 *
 	 * @param string $wallet   Wallet id.
 	 * @param array  $envelope Envelope.
 	 * @param int    $now      UTC seconds.
 	 */
-	private function touch_test( string $wallet, array $envelope, int $now ) {
+	private function touch_test( string $wallet, array $envelope, int $now ): void {
 		$device = isset( $envelope['device'] ) && is_array( $envelope['device'] ) ? $envelope['device'] : array();
 		$phone  = isset( $envelope['wallet'] ) && is_array( $envelope['wallet'] ) ? $envelope['wallet'] : array();
 		$this->plugin->wallets()->touch(
@@ -764,7 +760,7 @@ final class Controller {
 	 * @param string     $where Step.
 	 * @param \Throwable $e     Error.
 	 */
-	private function log_error( string $where, \Throwable $e ) {
+	private function log_error( string $where, \Throwable $e ): void {
 		try {
 			$this->plugin->logger()->error( self::error_line( $where, $e ) );
 		} catch ( \Throwable $ignored ) {
@@ -779,7 +775,7 @@ final class Controller {
 	 * @param string     $where Step.
 	 * @param \Throwable $e     Error.
 	 */
-	public static function log_throwable( string $where, \Throwable $e ) {
+	public static function log_throwable( string $where, \Throwable $e ): void {
 		try {
 			Plugin::instance()->logger()->error( self::error_line( $where, $e ) );
 		} catch ( \Throwable $ignored ) {

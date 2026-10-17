@@ -100,11 +100,12 @@ final class OrdersIndex {
 	 * those. The update half repeats the values instead of using VALUES(), which MySQL 8 deprecates.
 	 *
 	 * @param array $row Column => value.
+	 * @throws \InvalidArgumentException When a new row lacks a required column, or a value does not fit its column.
 	 */
-	public function upsert( array $row ) {
+	public function upsert( array $row ): void {
 		foreach ( self::REQUIRED as $column ) {
 			if ( ! isset( $row[ $column ] ) ) {
-				throw new \InvalidArgumentException( 'qersh: orders.' . $column . ' is required' );
+				throw new \InvalidArgumentException( 'qersh: orders.' . rawurlencode( $column ) . ' is required' );
 			}
 		}
 		if ( ! isset( $row['created_at'] ) ) {
@@ -129,7 +130,7 @@ final class OrdersIndex {
 	 * @param int   $order_id Order id.
 	 * @param array $fields   Column => value (not order_id).
 	 */
-	public function update( int $order_id, array $fields ) {
+	public function update( int $order_id, array $fields ): void {
 		unset( $fields['order_id'] );
 		if ( empty( $fields ) ) {
 			return;
@@ -148,7 +149,7 @@ final class OrdersIndex {
 	 *
 	 * @param int $order_id Order id.
 	 */
-	public function delete( int $order_id ) {
+	public function delete( int $order_id ): void {
 		$db = $this->db();
 		$db->exec( 'DELETE FROM %i WHERE order_id = %d', array( $db->table( 'orders' ), $order_id ) );
 	}
@@ -353,7 +354,7 @@ final class OrdersIndex {
 				array( $table, $cutoff, self::SWEEP_LIMIT )
 			)
 		);
-		$left = self::SWEEP_LIMIT - count( $due );
+		$left   = self::SWEEP_LIMIT - count( $due );
 		if ( $left <= 0 ) {
 			return $due;
 		}

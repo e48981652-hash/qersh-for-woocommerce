@@ -43,11 +43,45 @@ final class OrdersRulesTest extends TestCase {
 	}
 
 	/** Attaching: a free transfer is new; a waiting linked one is its order's own or moves; one that paid is refused. */
-	public function test_attach_kind() {
+	public function test_attach_kind(): void {
 		$this->assertSame( 'new', Orders::attach_kind( $this->transfer(), 10 ) );
-		$this->assertSame( 'new', Orders::attach_kind( $this->transfer( array( 'outcome' => 'unmatched', 'reason' => 'personal' ) ), 10 ) );
-		$this->assertSame( 'new', Orders::attach_kind( $this->transfer( array( 'outcome' => 'dismissed', 'order_id' => 7 ) ), 10 ), 'a dismissed transfer counts toward no order' );
-		$this->assertSame( 'new', Orders::attach_kind( $this->transfer( array( 'outcome' => 'dismissed', 'order_id' => 10 ) ), 10 ) );
+		$this->assertSame(
+			'new',
+			Orders::attach_kind(
+				$this->transfer(
+					array(
+						'outcome' => 'unmatched',
+						'reason'  => 'personal',
+					)
+				),
+				10
+			)
+		);
+		$this->assertSame(
+			'new',
+			Orders::attach_kind(
+				$this->transfer(
+					array(
+						'outcome'  => 'dismissed',
+						'order_id' => 7,
+					)
+				),
+				10
+			),
+			'a dismissed transfer counts toward no order'
+		);
+		$this->assertSame(
+			'new',
+			Orders::attach_kind(
+				$this->transfer(
+					array(
+						'outcome'  => 'dismissed',
+						'order_id' => 10,
+					)
+				),
+				10
+			)
+		);
 		$this->assertSame( 'linked', Orders::attach_kind( $this->transfer( array( 'outcome' => 'matched' ) ), 10 ), 'a verdict that paid, even without the link' );
 
 		foreach ( array( 'stock_short', 'closed_order', 'forgery', 'cancelled_paid' ) as $reason ) {
@@ -97,26 +131,128 @@ final class OrdersRulesTest extends TestCase {
 	}
 
 	/** Dismissing: a free transfer goes; a waiting linked one is released; what paid its order is refused with a way. */
-	public function test_dismiss_kind() {
+	public function test_dismiss_kind(): void {
 		$this->assertSame( 'free', Orders::dismiss_kind( $this->transfer() ) );
-		$this->assertSame( 'free', Orders::dismiss_kind( $this->transfer( array( 'outcome' => 'unmatched', 'reason' => 'personal' ) ) ) );
-		$this->assertSame( 'release', Orders::dismiss_kind( $this->transfer( array( 'reason' => 'cancelled_paid', 'order_id' => 10 ) ) ) );
-		$this->assertSame( 'release', Orders::dismiss_kind( $this->transfer( array( 'reason' => 'stock_short', 'order_id' => 10 ) ) ) );
-		$this->assertSame( 'partial', Orders::dismiss_kind( $this->transfer( array( 'outcome' => 'partial', 'reason' => 'partial_overdue', 'order_id' => 10 ) ) ) );
-		$this->assertSame( 'overpaid', Orders::dismiss_kind( $this->transfer( array( 'outcome' => 'overpaid', 'reason' => null, 'order_id' => 10 ) ) ) );
-		$this->assertSame( 'linked', Orders::dismiss_kind( $this->transfer( array( 'outcome' => 'matched', 'reason' => null, 'order_id' => 10 ) ) ) );
+		$this->assertSame(
+			'free',
+			Orders::dismiss_kind(
+				$this->transfer(
+					array(
+						'outcome' => 'unmatched',
+						'reason'  => 'personal',
+					)
+				)
+			)
+		);
+		$this->assertSame(
+			'release',
+			Orders::dismiss_kind(
+				$this->transfer(
+					array(
+						'reason'   => 'cancelled_paid',
+						'order_id' => 10,
+					)
+				)
+			)
+		);
+		$this->assertSame(
+			'release',
+			Orders::dismiss_kind(
+				$this->transfer(
+					array(
+						'reason'   => 'stock_short',
+						'order_id' => 10,
+					)
+				)
+			)
+		);
+		$this->assertSame(
+			'partial',
+			Orders::dismiss_kind(
+				$this->transfer(
+					array(
+						'outcome'  => 'partial',
+						'reason'   => 'partial_overdue',
+						'order_id' => 10,
+					)
+				)
+			)
+		);
+		$this->assertSame(
+			'overpaid',
+			Orders::dismiss_kind(
+				$this->transfer(
+					array(
+						'outcome'  => 'overpaid',
+						'reason'   => null,
+						'order_id' => 10,
+					)
+				)
+			)
+		);
+		$this->assertSame(
+			'linked',
+			Orders::dismiss_kind(
+				$this->transfer(
+					array(
+						'outcome'  => 'matched',
+						'reason'   => null,
+						'order_id' => 10,
+					)
+				)
+			)
+		);
 	}
 
 	/** The transfers of an order that wait with it, settled by one attach. */
-	public function test_waits_with_order() {
-		$this->assertTrue( Orders::waits_with_order( $this->transfer( array( 'reason' => 'stock_short', 'order_id' => 10 ) ) ) );
-		$this->assertTrue( Orders::waits_with_order( $this->transfer( array( 'outcome' => 'partial', 'reason' => 'partial_overdue', 'order_id' => 10 ) ) ) );
-		$this->assertFalse( Orders::waits_with_order( $this->transfer( array( 'outcome' => 'partial', 'reason' => null, 'order_id' => 10 ) ) ) );
-		$this->assertFalse( Orders::waits_with_order( $this->transfer( array( 'outcome' => 'dismissed', 'reason' => 'partial_overdue', 'order_id' => 10 ) ) ) );
+	public function test_waits_with_order(): void {
+		$this->assertTrue(
+			Orders::waits_with_order(
+				$this->transfer(
+					array(
+						'reason'   => 'stock_short',
+						'order_id' => 10,
+					)
+				)
+			)
+		);
+		$this->assertTrue(
+			Orders::waits_with_order(
+				$this->transfer(
+					array(
+						'outcome'  => 'partial',
+						'reason'   => 'partial_overdue',
+						'order_id' => 10,
+					)
+				)
+			)
+		);
+		$this->assertFalse(
+			Orders::waits_with_order(
+				$this->transfer(
+					array(
+						'outcome'  => 'partial',
+						'reason'   => null,
+						'order_id' => 10,
+					)
+				)
+			)
+		);
+		$this->assertFalse(
+			Orders::waits_with_order(
+				$this->transfer(
+					array(
+						'outcome'  => 'dismissed',
+						'reason'   => 'partial_overdue',
+						'order_id' => 10,
+					)
+				)
+			)
+		);
 	}
 
 	/** An amount that stops counting: paid_minor goes down, never below zero; a partial row without money opens. */
-	public function test_released_fields() {
+	public function test_released_fields(): void {
 		$row = array(
 			'paid_minor' => 14000,
 			'state'      => 'closed',
@@ -135,7 +271,7 @@ final class OrdersRulesTest extends TestCase {
 	}
 
 	/** The stored risk reasons read the same verdict as the arrival: null has none, a non-list is one unknown value. */
-	public function test_stored_reasons() {
+	public function test_stored_reasons(): void {
 		$this->assertSame( array(), Orders::stored_reasons( null ) );
 		$this->assertSame( array(), Risk::unknown_reasons( Orders::stored_reasons( null ) ), 'null is no unknown reason later either' );
 		$this->assertSame( array( 'no_baseline' ), Orders::stored_reasons( array( 'x' => 'no_baseline' ) ) );
@@ -145,7 +281,7 @@ final class OrdersRulesTest extends TestCase {
 	}
 
 	/** Only processing or completed by the merchant's hand decides an order that waited with money; on hold does not. */
-	public function test_merchant_decided() {
+	public function test_merchant_decided(): void {
 		$this->assertTrue( Orders::merchant_decided( 'processing' ) );
 		$this->assertTrue( Orders::merchant_decided( 'completed' ) );
 		$this->assertFalse( Orders::merchant_decided( 'on-hold' ) );
@@ -154,7 +290,7 @@ final class OrdersRulesTest extends TestCase {
 	}
 
 	/** store.admin_cancel_email_on_expiry, on by default, turns the admin's email of our expiry off (docs/17 §4.2). */
-	public function test_admin_cancel_email_switch() {
+	public function test_admin_cancel_email_switch(): void {
 		$this->assertTrue( Expiry::mutes_admin_cancel_email( array() ), 'the default' );
 		$this->assertTrue( Expiry::mutes_admin_cancel_email( array( 'store' => array( 'admin_cancel_email_on_expiry' => true ) ) ) );
 		$this->assertFalse( Expiry::mutes_admin_cancel_email( array( 'store' => array( 'admin_cancel_email_on_expiry' => false ) ) ) );

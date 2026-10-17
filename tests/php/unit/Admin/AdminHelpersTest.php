@@ -55,65 +55,183 @@ final class AdminHelpersTest extends TestCase {
 	}
 
 	/** The forgery flag wins; a store reason comes next; then the risk reasons in order. */
-	public function test_pick_order() {
-		$this->assertSame( 'forgery', Reasons::pick( $this->row( array( 'flag' => 'forgery', 'reason' => 'closed_order' ) ) )['code'] );
-		$this->assertSame( 'closed_order', Reasons::pick( $this->row( array( 'reason' => 'closed_order', 'risk_reasons' => array( 'no_baseline' ) ) ) )['code'] );
+	public function test_pick_order(): void {
+		$this->assertSame(
+			'forgery',
+			Reasons::pick(
+				$this->row(
+					array(
+						'flag'   => 'forgery',
+						'reason' => 'closed_order',
+					)
+				)
+			)['code']
+		);
+		$this->assertSame(
+			'closed_order',
+			Reasons::pick(
+				$this->row(
+					array(
+						'reason'       => 'closed_order',
+						'risk_reasons' => array( 'no_baseline' ),
+					)
+				)
+			)['code']
+		);
 		$this->assertSame( 'no_baseline', Reasons::pick( $this->row( array( 'risk_reasons' => array( 'amount_over_limit', 'no_baseline' ) ) ) )['code'] );
 		$this->assertSame( 'forgery', Reasons::pick( $this->row( array( 'risk_reasons' => array( 'no_baseline', 'suspected_forgery' ) ) ) )['code'] );
-		$this->assertSame( 'merchant_confirmed', Reasons::pick( $this->row( array( 'balance_chain' => 'merchant_confirmed', 'risk_reasons' => array( 'no_baseline' ) ) ) )['code'] );
+		$this->assertSame(
+			'merchant_confirmed',
+			Reasons::pick(
+				$this->row(
+					array(
+						'balance_chain' => 'merchant_confirmed',
+						'risk_reasons'  => array( 'no_baseline' ),
+					)
+				)
+			)['code']
+		);
 		$this->assertSame( '', Reasons::pick( $this->row( array( 'outcome' => 'matched' ) ) )['code'] );
 	}
 
 	/** balance_unavailable reads differently on the InstaPay notification channel and on a text message. */
-	public function test_pick_balance_unavailable() {
-		$sms = Reasons::pick( $this->row( array( 'provider' => 'bank_cib', 'risk_reasons' => array( 'balance_unavailable' ) ) ) );
+	public function test_pick_balance_unavailable(): void {
+		$sms = Reasons::pick(
+			$this->row(
+				array(
+					'provider'     => 'bank_cib',
+					'risk_reasons' => array( 'balance_unavailable' ),
+				)
+			)
+		);
 		$this->assertSame( array( 'balance_unavailable', 'sms' ), array( $sms['code'], $sms['variant'] ) );
-		$ipn = Reasons::pick( $this->row( array( 'provider' => 'instapay_app', 'risk_reasons' => array( 'balance_unavailable' ) ) ) );
+		$ipn = Reasons::pick(
+			$this->row(
+				array(
+					'provider'     => 'instapay_app',
+					'risk_reasons' => array( 'balance_unavailable' ),
+				)
+			)
+		);
 		$this->assertSame( 'notification', $ipn['variant'] );
-		$both = Reasons::pick( $this->row( array( 'provider' => 'bank_nbe', 'risk_reasons' => array( 'balance_unavailable', 'notification_only' ) ) ) );
+		$both = Reasons::pick(
+			$this->row(
+				array(
+					'provider'     => 'bank_nbe',
+					'risk_reasons' => array( 'balance_unavailable', 'notification_only' ),
+				)
+			)
+		);
 		$this->assertSame( 'notification_only', $both['code'] );
 	}
 
 	/** no_payer: Orange's own sentence, and a failed evaluation of a customer's id shown instead. */
-	public function test_pick_no_payer() {
+	public function test_pick_no_payer(): void {
 		$this->assertSame( '', Reasons::pick( $this->row( array( 'reason' => 'no_payer' ) ) )['variant'] );
-		$this->assertSame( 'orange', Reasons::pick( $this->row( array( 'reason' => 'no_payer', 'provider' => 'orange_cash' ) ) )['variant'] );
-		$eval = Reasons::pick( $this->row( array( 'reason' => 'no_payer', 'provider' => 'orange_cash', 'claim_eval' => 'txn_amount' ) ) );
+		$this->assertSame(
+			'orange',
+			Reasons::pick(
+				$this->row(
+					array(
+						'reason'   => 'no_payer',
+						'provider' => 'orange_cash',
+					)
+				)
+			)['variant']
+		);
+		$eval = Reasons::pick(
+			$this->row(
+				array(
+					'reason'     => 'no_payer',
+					'provider'   => 'orange_cash',
+					'claim_eval' => 'txn_amount',
+				)
+			)
+		);
 		$this->assertSame( array( 'txn_amount', 'claim_eval' ), array( $eval['code'], $eval['variant'] ) );
 	}
 
 	/** Unknown codes, and known risk reasons without a sentence. */
-	public function test_pick_unknown() {
+	public function test_pick_unknown(): void {
 		$this->assertSame( array( 'unknown', 'new_code' ), array_values( array_intersect_key( Reasons::pick( $this->row( array( 'reason' => 'new_code' ) ) ), array_flip( array( 'code', 'detail' ) ) ) ) );
 		$other = Reasons::pick( $this->row( array( 'risk_reasons' => array( 'sim_mismatch' ) ) ) );
 		$this->assertSame( array( 'risk_other', 'sim_mismatch' ), array( $other['code'], $other['detail'] ) );
 		$new = Reasons::pick( $this->row( array( 'risk_reasons' => array( 'brand_new_reason' ) ) ) );
 		$this->assertSame( array( 'unknown', 'brand_new_reason' ), array( $new['code'], $new['detail'] ) );
-		$this->assertSame( 'personal', Reasons::pick( $this->row( array( 'outcome' => 'unmatched', 'reason' => 'personal' ) ) )['code'] );
+		$this->assertSame(
+			'personal',
+			Reasons::pick(
+				$this->row(
+					array(
+						'outcome' => 'unmatched',
+						'reason'  => 'personal',
+					)
+				)
+			)['code']
+		);
 	}
 
 	/** txn_window: before the order existed, or typed before the operator's message. */
-	public function test_window_variant() {
+	public function test_window_variant(): void {
 		$row = $this->row( array( 'sms_at' => 1792000000 - 600 ) );
-		$this->assertSame( 'created', Reasons::window_variant( $row, array( 'created_at' => 1792000100, 'claim_at' => 1792000200 ), 7200 ) );
-		$this->assertSame( 'early', Reasons::window_variant( $row, array( 'created_at' => 1791990000, 'claim_at' => 1792000000 - 1200 ), 7200 ) );
-		$this->assertSame( 'created', Reasons::window_variant( $row, array( 'created_at' => 1791990000, 'claim_at' => 1792000000 - 300 ), 7200 ) );
+		$this->assertSame(
+			'created',
+			Reasons::window_variant(
+				$row,
+				array(
+					'created_at' => 1792000100,
+					'claim_at'   => 1792000200,
+				),
+				7200
+			)
+		);
+		$this->assertSame(
+			'early',
+			Reasons::window_variant(
+				$row,
+				array(
+					'created_at' => 1791990000,
+					'claim_at'   => 1792000000 - 1200,
+				),
+				7200
+			)
+		);
+		$this->assertSame(
+			'created',
+			Reasons::window_variant(
+				$row,
+				array(
+					'created_at' => 1791990000,
+					'claim_at'   => 1792000000 - 300,
+				),
+				7200
+			)
+		);
 		$this->assertSame( 'created', Reasons::window_variant( $row, null, 7200 ) );
 	}
 
 	/** What is left to pay, rounded up to the pound when the store does. */
-	public function test_remainder() {
+	public function test_remainder(): void {
 		$order = array(
 			'price_minor' => 13950,
 			'paid_minor'  => 0,
 		);
 		$this->assertSame( 14000, Reasons::remainder( $order, true ) );
 		$this->assertSame( 13950, Reasons::remainder( $order, false ) );
-		$this->assertSame( 0, Reasons::remainder( array( 'price_minor' => 100, 'paid_minor' => 500 ), true ) );
+		$this->assertSame(
+			0,
+			Reasons::remainder(
+				array(
+					'price_minor' => 100,
+					'paid_minor'  => 500,
+				),
+				true
+			)
+		);
 	}
 
 	/** The wallet a pasted link names, in the three address forms. */
-	public function test_wallet_of_url() {
+	public function test_wallet_of_url(): void {
 		$this->assertSame( 'k7q2m9x4p1rz', Wallets::wallet_of_url( 'https://shop.example/wp-json/qersh/v1/webhook/k7q2m9x4p1rz' ) );
 		$this->assertSame( 'k7q2m9x4p1rz', Wallets::wallet_of_url( 'https://shop.example/index.php?rest_route=%2Fqersh%2Fv1%2Fwebhook%2Fk7q2m9x4p1rz' ) );
 		$this->assertSame( 'k7q2m9x4p1rz', Wallets::wallet_of_url( 'https://shop.example/?wc-api=qersh&qw=k7q2m9x4p1rz' ) );
@@ -122,7 +240,7 @@ final class AdminHelpersTest extends TestCase {
 	}
 
 	/** Suggestions of Orders::suggestions() in the screen's shape. */
-	public function test_normalize_suggestion() {
+	public function test_normalize_suggestion(): void {
 		$ready = Transfers::normalize_suggestion(
 			array(
 				'order_id'  => 1042,
@@ -176,14 +294,14 @@ final class AdminHelpersTest extends TestCase {
 	}
 
 	/** Transfer ids as stored. */
-	public function test_clean_transfer_id() {
+	public function test_clean_transfer_id(): void {
 		$this->assertSame( 'trf_01JA2Y4X5M7Q9R0S1T2U3V4W5Z', Transfers::clean_transfer_id( 'trf_01JA2Y4X5M7Q9R0S1T2U3V4W5Z' ) );
 		$this->assertSame( '', Transfers::clean_transfer_id( 'trf 1' ) );
 		$this->assertSame( '', Transfers::clean_transfer_id( str_repeat( 'a', 41 ) ) );
 	}
 
 	/** Pounds in the settings fields. */
-	public function test_settings_amounts() {
+	public function test_settings_amounts(): void {
 		$this->assertSame( '', Settings::pounds( null ) );
 		$this->assertSame( '100', Settings::pounds( 10000 ) );
 		$this->assertSame( '99.50', Settings::pounds( 9950 ) );
@@ -202,7 +320,7 @@ final class AdminHelpersTest extends TestCase {
 	}
 
 	/** The data goes only when asked; the constant decides instead of the setting when defined. */
-	public function test_uninstall_should_remove() {
+	public function test_uninstall_should_remove(): void {
 		$on  = array( 'store' => array( 'remove_data_on_uninstall' => true ) );
 		$off = array( 'store' => array( 'remove_data_on_uninstall' => false ) );
 		$this->assertTrue( Uninstall::should_remove( $on, false, null ) );

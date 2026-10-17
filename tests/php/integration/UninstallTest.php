@@ -21,7 +21,7 @@ class UninstallTest extends TestCase {
 	/**
 	 * Runs uninstall.php as WordPress does.
 	 */
-	private function uninstall() {
+	private function uninstall(): void {
 		if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 			define( 'WP_UNINSTALL_PLUGIN', 'qersh-for-woocommerce/qersh-for-woocommerce.php' );
 		}
@@ -37,7 +37,7 @@ class UninstallTest extends TestCase {
 		global $wpdb;
 		$out = array();
 		foreach ( Schema::table_names( $wpdb->prefix ) as $name ) {
-			$out[ $name ] = $name === $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $name ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$out[ $name ] = $name === $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $name ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- a test reads or sets up the plugin's tables directly.
 		}
 		return $out;
 	}
@@ -58,7 +58,7 @@ class UninstallTest extends TestCase {
 	/**
 	 * Without the setting: the actions go, everything else stays.
 	 */
-	public function test_uninstall_keeps_the_data_by_default() {
+	public function test_uninstall_keeps_the_data_by_default(): void {
 		$wallet   = $this->vodafone_wallet();
 		$order_id = $this->waiting_order( $wallet );
 
@@ -78,7 +78,7 @@ class UninstallTest extends TestCase {
 	 */
 	private static function last_action_id() {
 		global $wpdb;
-		return (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COALESCE( MAX( action_id ), 0 ) FROM %i', $wpdb->prefix . 'actionscheduler_actions' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		return (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COALESCE( MAX( action_id ), 0 ) FROM %i', $wpdb->prefix . 'actionscheduler_actions' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- a test reads or sets up the plugin's tables directly.
 	}
 
 	/**
@@ -90,7 +90,7 @@ class UninstallTest extends TestCase {
 	 * @param int $order_id Order id.
 	 * @param int $after    last_action_id() before the test wrote anything.
 	 */
-	private function remove_committed( $order_id, $after ) {
+	private function remove_committed( $order_id, $after ): void {
 		global $wpdb;
 		$order = wc_get_order( $order_id );
 		if ( $order instanceof \WC_Order ) {
@@ -108,7 +108,7 @@ class UninstallTest extends TestCase {
 				}
 			}
 		}
-		$ids = $wpdb->get_col( $wpdb->prepare( 'SELECT action_id FROM %i WHERE action_id > %d', $wpdb->prefix . 'actionscheduler_actions', $after ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$ids = $wpdb->get_col( $wpdb->prepare( 'SELECT action_id FROM %i WHERE action_id > %d', $wpdb->prefix . 'actionscheduler_actions', $after ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- a test reads or sets up the plugin's tables directly.
 		foreach ( $ids as $action_id ) {
 			try {
 				\ActionScheduler::store()->delete_action( (int) $action_id );
@@ -121,7 +121,7 @@ class UninstallTest extends TestCase {
 	/**
 	 * With the setting: tables, options and keys go too. Orders and their meta stay (they are the store's records).
 	 */
-	public function test_uninstall_removes_the_data_when_asked() {
+	public function test_uninstall_removes_the_data_when_asked(): void {
 		$after    = self::last_action_id();
 		$entries  = $this->configure(
 			array(
@@ -157,7 +157,7 @@ class UninstallTest extends TestCase {
 			remove_filter( 'query', array( $this, 'savepoints' ), 0 );
 			Schema::install();
 			$this->remove_committed( $order_id, $after );
-			$wpdb->query( 'COMMIT' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->query( 'COMMIT' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- a test reads or sets up the plugin's tables directly.
 			add_filter( 'query', array( $this, 'savepoints' ), 0 );
 			$this->plugin->forget_config();
 		}

@@ -23,7 +23,7 @@ defined( 'ABSPATH' ) || exit;
 		echo wp_kses(
 			sprintf(
 				/* translators: 1: date and time, 2: how many orders wait for a transfer to this wallet. */
-				esc_html__( 'This wallet disappears from checkout in your store, and the store refuses what the phone sends for it. For 72 hours (until %1$s Cairo time) the phone resends every transfer and says “Your store refuses transfers”; if you click “Restore wallet” within that time, every transfer arrives on its own, and sooner if you tap “Test connection” on the phone. After 72 hours the phone stops retrying: every new transfer for this wallet is sent once, then stays in “Not delivered to your store” on the phone for 90 days, and can be sent again after a restore. %2$s If you want the phone to stop sending, pause the wallet or delete it in the Qersh app too. If you only want to hide it from checkout, turn it off instead of deleting it.', 'qersh-for-woocommerce' ),
+				esc_html__( 'This wallet disappears from checkout in your store, and the store refuses what the phone sends for it. For 72 hours (until %1$s Cairo time) the phone resends every transfer and says “Your store refuses transfers”; if you click “Restore wallet” within that time, every transfer arrives on its own, and sooner if you tap “Test connection” on the phone. After 72 hours the phone stops retrying: every new transfer for this wallet is sent once, then stays in “Not delivered” on the phone for 90 days, and can be sent again after a restore. %2$s If you want the phone to stop sending, pause the wallet or delete it in the Qersh app too. If you only want to hide it from checkout, turn it off instead of deleting it.', 'qersh-for-woocommerce' ),
 				$args['until'],
 				$args['orders']
 			),

@@ -7,6 +7,7 @@
 
 namespace QershPay\WooCommerce;
 
+use QershPay\WooCommerce\Admin\Reasons;
 use QershPay\WooCommerce\Store\Db;
 use QershPay\WooCommerce\Store\LockTimeout;
 
@@ -85,9 +86,9 @@ final class Completion {
 	const PAYING_OUTCOMES = array( 'matched', 'overpaid', 'partial', 'attached' );
 
 	/**
-	 * payment_complete() is called at most this many times for an order that stays unpaid after it (an error before
-	 * WooCommerce saved the order, or a request that died in it); then the completion is left to the merchant, so a
-	 * broken hook of another plugin can never repeat its side effects every 15 minutes.
+	 * The most calls of payment_complete() for an order that stays unpaid after it (an error before WooCommerce saved
+	 * the order, or a request that died in it); then the completion is left to the merchant, so a broken hook of
+	 * another plugin can never repeat its side effects every 15 minutes.
 	 */
 	const MAX_ATTEMPTS = 3;
 
@@ -155,7 +156,7 @@ final class Completion {
 	 *
 	 * @param int $order_id Order id.
 	 */
-	public function request( int $order_id ) {
+	public function request( int $order_id ): void {
 		if ( $order_id <= 0 ) {
 			return;
 		}
@@ -190,7 +191,7 @@ final class Completion {
 	 *
 	 * @param int $order_id Order id.
 	 */
-	public function run( int $order_id ) {
+	public function run( int $order_id ): void {
 		if ( $order_id <= 0 || ! $this->plugin->wc_ready() || ! $this->plugin->tables_ready() ) {
 			return;
 		}
@@ -225,7 +226,7 @@ final class Completion {
 	 * or running for longer than the claim allows, whatever the WooCommerce status; run() never completes an on-hold
 	 * order. Never throws.
 	 */
-	public function sweep() {
+	public function sweep(): void {
 		if ( ! $this->plugin->wc_ready() || ! $this->plugin->tables_ready() ) {
 			return;
 		}
@@ -248,7 +249,7 @@ final class Completion {
 	 * The after-reply callback (shutdown, priority 5): flushes the output buffers, finishes the response so the
 	 * phone has its answer, then runs the claimed path for each queued order. Never throws.
 	 */
-	public static function on_shutdown() {
+	public static function on_shutdown(): void {
 		$ids          = array_keys( self::$queued );
 		self::$queued = array();
 		if ( empty( $ids ) ) {
@@ -657,7 +658,7 @@ final class Completion {
 	 * @param array $plan       decide_phase() result.
 	 * @param int   $claimed_at The claim's time.
 	 */
-	private function call_phase( int $order_id, array $plan, int $claimed_at ) {
+	private function call_phase( int $order_id, array $plan, int $claimed_at ): void {
 		$order     = $plan['order'];
 		$attempts  = $this->count_attempt( $order_id );
 		$succeeded = false;
@@ -766,13 +767,13 @@ final class Completion {
 	 *
 	 * @param int $order_id Order id.
 	 */
-	private function stop_paid_order( int $order_id ) {
+	private function stop_paid_order( int $order_id ): void {
 		try {
 			$order = wc_get_order( $order_id );
 			if ( ! $order instanceof \WC_Order || ! in_array( $order->get_status(), self::PAID_STATUSES, true ) ) {
 				return;
 			}
-			$order->update_status( 'on-hold', __( 'This transfer’s message is suspected to be forged. Do not deliver the order until you have checked that the money arrived in the wallet app.', 'qersh-for-woocommerce' ) );
+			$order->update_status( 'on-hold', Reasons::forgery_warning() );
 			$this->log_line( 'warning', 'qersh: the order was put on hold after its completion: its transfer was flagged as forged meanwhile', $order_id );
 		} catch ( \Throwable $e ) {
 			$this->log_failure( 'forgery stop', $order_id, $e );
@@ -785,7 +786,7 @@ final class Completion {
 	 *
 	 * @param int $order_id Order id.
 	 */
-	private function gave_up( int $order_id ) {
+	private function gave_up( int $order_id ): void {
 		try {
 			$order = wc_get_order( $order_id );
 			if ( $order instanceof \WC_Order ) {
@@ -806,7 +807,7 @@ final class Completion {
 	 * @param string  $reason    Reason code.
 	 * @param int     $now       UTC seconds.
 	 */
-	private function review_transfers( int $order_id, array $transfers, string $reason, int $now ) {
+	private function review_transfers( int $order_id, array $transfers, string $reason, int $now ): void {
 		$store = $this->plugin->transfers();
 		$note  = self::reason_note( $reason, $order_id );
 		foreach ( $transfers as $transfer ) {
@@ -868,7 +869,7 @@ final class Completion {
 	 * @param int $order_id   Order id.
 	 * @param int $claimed_at The claim's time.
 	 */
-	private function back_to_due( int $order_id, int $claimed_at ) {
+	private function back_to_due( int $order_id, int $claimed_at ): void {
 		try {
 			$this->settle_row( $order_id, $claimed_at, array( 'completion' => 'due' ) );
 		} catch ( \Throwable $e ) {
@@ -877,7 +878,7 @@ final class Completion {
 	}
 
 	/**
-	 * payment_complete() calls already made for the order's paid decision.
+	 * The calls of payment_complete() already made for the order's paid decision.
 	 *
 	 * @param int $order_id Order id.
 	 * @return int
@@ -908,7 +909,7 @@ final class Completion {
 	 *
 	 * @param int $order_id Order id.
 	 */
-	private function forget_attempts( int $order_id ) {
+	private function forget_attempts( int $order_id ): void {
 		try {
 			delete_transient( self::ATTEMPTS_TRANSIENT . $order_id );
 		} catch ( \Throwable $e ) {
@@ -965,7 +966,7 @@ final class Completion {
 	 *
 	 * @param int $order_id Order id.
 	 */
-	private function enqueue( int $order_id ) {
+	private function enqueue( int $order_id ): void {
 		if ( ! function_exists( 'as_enqueue_async_action' ) ) {
 			return;
 		}
@@ -983,7 +984,7 @@ final class Completion {
 	 *
 	 * @param int $order_id Order id.
 	 */
-	private function retry_later( int $order_id ) {
+	private function retry_later( int $order_id ): void {
 		if ( ! doing_action( self::ACTION ) ) {
 			$this->enqueue( $order_id );
 			return;
@@ -1013,7 +1014,7 @@ final class Completion {
 	 *
 	 * @param int $order_id Order id.
 	 */
-	private static function queue_after_reply( int $order_id ) {
+	private static function queue_after_reply( int $order_id ): void {
 		self::$queued[ $order_id ] = true;
 		if ( ! self::$hooked ) {
 			self::$hooked = true;
@@ -1024,7 +1025,7 @@ final class Completion {
 	/**
 	 * Sends what is buffered and ends the response, so the phone has its reply before the order is completed.
 	 */
-	private static function finish_response() {
+	private static function finish_response(): void {
 		while ( ob_get_level() > 0 ) {
 			$status = ob_get_status();
 			if ( empty( $status ) || ! ( (int) $status['flags'] & PHP_OUTPUT_HANDLER_REMOVABLE ) ) {
@@ -1115,7 +1116,7 @@ final class Completion {
 	 * @param int    $order_id Order id.
 	 * @param array  $context  More context (statuses, reason codes, counts only).
 	 */
-	private function log_line( string $level, string $message, int $order_id, array $context = array() ) {
+	private function log_line( string $level, string $message, int $order_id, array $context = array() ): void {
 		try {
 			$logger  = $this->plugin->logger();
 			$context = array_merge( array( 'order' => $order_id ), $context );
@@ -1138,7 +1139,7 @@ final class Completion {
 	 * @param int        $order_id Order id.
 	 * @param \Throwable $e        Error.
 	 */
-	private function log_failure( string $where, int $order_id, \Throwable $e ) {
+	private function log_failure( string $where, int $order_id, \Throwable $e ): void {
 		$this->log_line( 'error', 'qersh: completion ' . $where . ' failed: ' . get_class( $e ) . ' at ' . basename( $e->getFile() ) . ':' . $e->getLine(), $order_id );
 	}
 }

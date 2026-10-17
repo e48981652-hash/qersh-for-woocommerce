@@ -35,7 +35,7 @@ final class OrdersIndexTest extends TestCase {
 	 */
 	protected function set_up() {
 		parent::set_up();
-		$this->wpdb       = new FakeWpdb();
+		$this->wpdb      = new FakeWpdb();
 		$GLOBALS['wpdb'] = $this->wpdb;
 	}
 
@@ -48,7 +48,7 @@ final class OrdersIndexTest extends TestCase {
 	}
 
 	/** On an existing row the upsert never touches created_at, the claim columns or the money received. */
-	public function test_upsert_keeps_columns() {
+	public function test_upsert_keeps_columns(): void {
 		( new OrdersIndex() )->upsert(
 			array(
 				'order_id'    => 42,
@@ -70,7 +70,7 @@ final class OrdersIndexTest extends TestCase {
 	}
 
 	/** A new row needs its required columns. */
-	public function test_upsert_requires() {
+	public function test_upsert_requires(): void {
 		$this->expectException( \InvalidArgumentException::class );
 		( new OrdersIndex() )->upsert(
 			array(
@@ -81,17 +81,17 @@ final class OrdersIndexTest extends TestCase {
 	}
 
 	/** The counter of docs/17 §4.10 step 5, literally. */
-	public function test_bump_claim_ok() {
+	public function test_bump_claim_ok(): void {
 		$this->wpdb->on( '/^UPDATE `wp_qersh_orders` SET claim_tries/', 1 );
 		$this->assertSame( 'ok', ( new OrdersIndex() )->bump_claim( 42, '12345678901234', self::NOW ) );
 		$this->assertSame(
-			"UPDATE `wp_qersh_orders` SET claim_tries = claim_tries + 1, claim_at = " . self::NOW . ", claim_txn = '12345678901234' WHERE order_id = 42 AND claim_tries < 5 AND ( claim_tries < 3 OR claim_at IS NULL OR claim_at < " . ( self::NOW - 600 ) . ' )',
+			'UPDATE `wp_qersh_orders` SET claim_tries = claim_tries + 1, claim_at = ' . self::NOW . ", claim_txn = '12345678901234' WHERE order_id = 42 AND claim_tries < 5 AND ( claim_tries < 3 OR claim_at IS NULL OR claim_at < " . ( self::NOW - 600 ) . ' )',
 			$this->wpdb->queries[0]
 		);
 	}
 
 	/** Zero rows: locked after five, otherwise the seconds left of the ten minutes. */
-	public function test_bump_claim_refusals() {
+	public function test_bump_claim_refusals(): void {
 		$this->wpdb->on( '/^UPDATE/', 0 );
 		$this->wpdb->on(
 			'/^SELECT \* FROM `wp_qersh_orders` WHERE order_id = 42$/',
@@ -103,13 +103,31 @@ final class OrdersIndexTest extends TestCase {
 		);
 		$this->assertSame( 'wait:500', ( new OrdersIndex() )->bump_claim( 42, '12345678901234', self::NOW ) );
 
-		$this->assertSame( 'locked', OrdersIndex::claim_verdict( array( 'claim_tries' => 5, 'claim_at' => self::NOW ), self::NOW ) );
+		$this->assertSame(
+			'locked',
+			OrdersIndex::claim_verdict(
+				array(
+					'claim_tries' => 5,
+					'claim_at'    => self::NOW,
+				),
+				self::NOW
+			)
+		);
 		$this->assertSame( 'locked', OrdersIndex::claim_verdict( null, self::NOW ) );
-		$this->assertSame( 'wait:1', OrdersIndex::claim_verdict( array( 'claim_tries' => 4, 'claim_at' => self::NOW - 600 ), self::NOW ) );
+		$this->assertSame(
+			'wait:1',
+			OrdersIndex::claim_verdict(
+				array(
+					'claim_tries' => 4,
+					'claim_at'    => self::NOW - 600,
+				),
+				self::NOW
+			)
+		);
 	}
 
 	/** The second fence of rule 4a writes state paid and keeps all its conditions. */
-	public function test_fence_claimant() {
+	public function test_fence_claimant(): void {
 		$this->wpdb->on( '/^UPDATE/', 1 );
 		$ok = ( new OrdersIndex() )->fence_claimant(
 			42,
@@ -130,7 +148,7 @@ final class OrdersIndexTest extends TestCase {
 	}
 
 	/** The completion claim of docs/17 §4.7. */
-	public function test_claim_completion() {
+	public function test_claim_completion(): void {
 		$this->wpdb->on( '/^UPDATE/', 0 );
 		$this->assertFalse( ( new OrdersIndex() )->claim_completion( 42, self::NOW ) );
 		$this->assertSame(
@@ -140,8 +158,17 @@ final class OrdersIndexTest extends TestCase {
 	}
 
 	/** The candidate window is an overlap: created by the end, not expired before the start. */
-	public function test_for_payer_window() {
-		$this->wpdb->on( '/^SELECT/', array( array( 'order_id' => '42', 'price_minor' => '15000', 'claim_txn' => null ) ) );
+	public function test_for_payer_window(): void {
+		$this->wpdb->on(
+			'/^SELECT/',
+			array(
+				array(
+					'order_id'    => '42',
+					'price_minor' => '15000',
+					'claim_txn'   => null,
+				),
+			)
+		);
 		$rows = ( new OrdersIndex() )->for_payer( '01001234567', self::NOW - 7200, self::NOW );
 		$this->assertSame( 42, $rows[0]['order_id'] );
 		$this->assertSame( 15000, $rows[0]['price_minor'] );
@@ -153,7 +180,7 @@ final class OrdersIndexTest extends TestCase {
 	 * The expiry sweep takes the late window in seconds: due open/partial rows first, then expired rows of the last
 	 * day (cut-short cancellations), newest first, with what is left of the 200.
 	 */
-	public function test_due_expiries() {
+	public function test_due_expiries(): void {
 		$this->wpdb->on( "/^SELECT order_id FROM `wp_qersh_orders` WHERE state IN \\('open','partial'\\)/", array( array( 'order_id' => '7' ), array( 'order_id' => '9' ) ) );
 		$this->wpdb->on( "/^SELECT order_id FROM `wp_qersh_orders` WHERE state = 'expired'/", array( array( 'order_id' => '30' ), array( 'order_id' => '9' ), array( 'order_id' => '4' ) ) );
 		$this->assertSame( array( 7, 9, 30, 4 ), ( new OrdersIndex() )->due_expiries( self::NOW, 7200 ), 'a row that expired between the reads comes once' );
@@ -163,7 +190,7 @@ final class OrdersIndexTest extends TestCase {
 	}
 
 	/** Many expired rows of the last day never push a due order out: with 200 due rows the recheck waits. */
-	public function test_due_expiries_due_rows_first() {
+	public function test_due_expiries_due_rows_first(): void {
 		$due = array();
 		for ( $i = 1; $i <= 200; $i++ ) {
 			$due[] = array( 'order_id' => (string) $i );

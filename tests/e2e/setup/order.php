@@ -16,9 +16,12 @@
  * @package QershPay\WooCommerce\Tests
  */
 
+// phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fwrite -- a command-line script: its errors go to STDERR, which WP_Filesystem cannot write.
+
 if ( ! defined( 'ABSPATH' ) ) {
 	require dirname( __DIR__, 2 ) . '/local/lib/bootstrap.php';
-	$args = $qersh_local_args; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
+	/** @var string[] $qersh_local_args Set by tests/local/lib/bootstrap.php. */
+	$args = $qersh_local_args; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- the name wp eval-file gives the arguments.
 }
 defined( 'ABSPATH' ) || exit;
 
@@ -76,10 +79,10 @@ if ( ! is_array( $qersh_e2e_result ) || ! isset( $qersh_e2e_result['result'] ) |
 global $wpdb;
 $qersh_e2e_table = $wpdb->prefix . 'qersh_orders';
 if ( (int) $qersh_e2e_opts['shift'] > 0 ) {
-	$wpdb->query( $wpdb->prepare( 'UPDATE %i SET created_at = created_at - %d, expires_at = expires_at - %d WHERE order_id = %d', $qersh_e2e_table, (int) $qersh_e2e_opts['shift'], (int) $qersh_e2e_opts['shift'], $qersh_e2e_order->get_id() ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	$wpdb->query( $wpdb->prepare( 'UPDATE %i SET created_at = created_at - %d, expires_at = expires_at - %d WHERE order_id = %d', $qersh_e2e_table, (int) $qersh_e2e_opts['shift'], (int) $qersh_e2e_opts['shift'], $qersh_e2e_order->get_id() ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- a test reads or sets up the plugin's tables directly.
 }
 if ( (int) $qersh_e2e_opts['backdate'] > 0 ) {
-	$wpdb->query( $wpdb->prepare( 'UPDATE %i SET created_at = created_at - %d WHERE order_id = %d', $qersh_e2e_table, (int) $qersh_e2e_opts['backdate'], $qersh_e2e_order->get_id() ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	$wpdb->query( $wpdb->prepare( 'UPDATE %i SET created_at = created_at - %d WHERE order_id = %d', $qersh_e2e_table, (int) $qersh_e2e_opts['backdate'], $qersh_e2e_order->get_id() ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- a test reads or sets up the plugin's tables directly.
 }
 
 echo 'QERSH_JSON=' . wp_json_encode(

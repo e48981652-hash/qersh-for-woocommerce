@@ -22,7 +22,7 @@ defined( 'ABSPATH' ) || exit;
 final class ModuleTest extends TestCase {
 
 	/** The webhook route and the plugin's routes, as WP_REST_Request::get_route() gives them. */
-	public function test_routes() {
+	public function test_routes(): void {
 		$this->assertTrue( Module::is_webhook_route( '/qersh/v1/webhook/k7q2m9x4p1rz' ) );
 		$this->assertFalse( Module::is_webhook_route( '/qersh/v1/order-status' ) );
 		$this->assertFalse( Module::is_webhook_route( '/wc/v3/orders' ) );
@@ -39,20 +39,26 @@ final class ModuleTest extends TestCase {
 	}
 
 	/** 64 KB is accepted, one byte more is 413. */
-	public function test_size_limit() {
+	public function test_size_limit(): void {
 		$this->assertFalse( Module::too_large( 65536 ) );
 		$this->assertTrue( Module::too_large( 65537 ) );
 		$this->assertFalse( Module::too_large( 0 ) );
 	}
 
 	/** The intervals of the recurring actions (CONTRACTS §9). */
-	public function test_recurring() {
-		$this->assertSame( array( 'qersh_wc_sweep' => 900, 'qersh_wc_daily' => 86400 ), Module::RECURRING );
+	public function test_recurring(): void {
+		$this->assertSame(
+			array(
+				'qersh_wc_sweep' => 900,
+				'qersh_wc_daily' => 86400,
+			),
+			Module::RECURRING
+		);
 		$this->assertSame( 'qersh', Module::GROUP );
 	}
 
 	/** Action Scheduler passes arguments by position; both shapes of arguments give the order id. */
-	public function test_order_id_of() {
+	public function test_order_id_of(): void {
 		$this->assertSame( 42, Module::order_id_of( 42 ) );
 		$this->assertSame( 42, Module::order_id_of( '42' ) );
 		$this->assertSame( 42, Module::order_id_of( array( 'order_id' => 42 ) ) );
@@ -64,7 +70,7 @@ final class ModuleTest extends TestCase {
 	}
 
 	/** Retention days from the configuration, with the defaults for anything else. */
-	public function test_days() {
+	public function test_days(): void {
 		$this->assertSame( 30, Module::days( 30, 180 ) );
 		$this->assertSame( 30, Module::days( 30.0, 180 ) );
 		$this->assertSame( 180, Module::days( 0, 180 ) );
@@ -74,11 +80,35 @@ final class ModuleTest extends TestCase {
 	}
 
 	/** qw wins; an id outside the pattern becomes the unknown wallet; qo=status|txn; anything else no route. */
-	public function test_fallback_target() {
-		$this->assertSame( array( 'kind' => 'webhook', 'wallet' => 'k7q2m9x4p1rz' ), Fallback::target( 'k7q2m9x4p1rz', '' ) );
-		$this->assertSame( array( 'kind' => 'webhook', 'wallet' => 'k7q2m9x4p1rz' ), Fallback::target( 'k7q2m9x4p1rz', 'status' ) );
-		$this->assertSame( array( 'kind' => 'webhook', 'wallet' => '' ), Fallback::target( 'k7q2m9x4p1', '' ) );
-		$this->assertSame( array( 'kind' => 'webhook', 'wallet' => '' ), Fallback::target( 'k7q2m9x4p1rz-', '' ) );
+	public function test_fallback_target(): void {
+		$this->assertSame(
+			array(
+				'kind'   => 'webhook',
+				'wallet' => 'k7q2m9x4p1rz',
+			),
+			Fallback::target( 'k7q2m9x4p1rz', '' )
+		);
+		$this->assertSame(
+			array(
+				'kind'   => 'webhook',
+				'wallet' => 'k7q2m9x4p1rz',
+			),
+			Fallback::target( 'k7q2m9x4p1rz', 'status' )
+		);
+		$this->assertSame(
+			array(
+				'kind'   => 'webhook',
+				'wallet' => '',
+			),
+			Fallback::target( 'k7q2m9x4p1', '' )
+		);
+		$this->assertSame(
+			array(
+				'kind'   => 'webhook',
+				'wallet' => '',
+			),
+			Fallback::target( 'k7q2m9x4p1rz-', '' )
+		);
 		$this->assertSame( array( 'kind' => 'status' ), Fallback::target( '', 'status' ) );
 		$this->assertSame( array( 'kind' => 'txn' ), Fallback::target( '', 'txn' ) );
 		$this->assertSame( array( 'kind' => 'none' ), Fallback::target( '', 'other' ) );
@@ -86,7 +116,7 @@ final class ModuleTest extends TestCase {
 	}
 
 	/** Only the X-Qersh-* headers, with lower-case names, values untouched. */
-	public function test_fallback_headers() {
+	public function test_fallback_headers(): void {
 		$headers = Fallback::qersh_headers(
 			array(
 				'HTTP_X_QERSH_SIGNATURE'  => 't=1760000000, v1=abc',

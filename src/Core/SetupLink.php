@@ -929,7 +929,7 @@ final class SetupLink {
 			if ( ':' !== $at( $p + 1 ) ) {
 				return false;
 			}
-			$p       += 2;
+			$p += 2;
 			++$piece;
 			$compress = $piece;
 		}

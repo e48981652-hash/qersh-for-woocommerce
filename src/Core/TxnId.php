@@ -113,7 +113,8 @@ final class TxnId {
 		if ( '' === $compact ) {
 			return self::error( 'qersh_txn_empty' );
 		}
-		if ( ! array_key_exists( $provider, self::PATTERNS ) || ! array_key_exists( $provider, self::LENGTHS ) || ! array_key_exists( $provider, self::CLASSES ) ) {
+		// LENGTHS and CLASSES share the keys of PATTERNS (TxnIdTest checks all three against the fixture).
+		if ( ! array_key_exists( $provider, self::PATTERNS ) ) {
 			return self::error( 'qersh_txn_format' );
 		}
 

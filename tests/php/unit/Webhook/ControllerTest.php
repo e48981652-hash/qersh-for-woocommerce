@@ -21,7 +21,7 @@ defined( 'ABSPATH' ) || exit;
 final class ControllerTest extends TestCase {
 
 	/** 404 then 410 for a deleted wallet, 404 for an unknown one, with the Arabic bodies of docs/17 §4.4 step 3. */
-	public function test_wallet_refusals() {
+	public function test_wallet_refusals(): void {
 		$recent = Controller::wallet_refusal( 'deleted_recent' );
 		$this->assertSame( 404, $recent['http'] );
 		$this->assertSame( 'qersh_wallet_deleted', $recent['body']['code'] );
@@ -41,12 +41,12 @@ final class ControllerTest extends TestCase {
 	}
 
 	/** The note of the webhook.test reply, as the phone shows it (docs/17 §4.4 step 7). */
-	public function test_test_note() {
+	public function test_test_note(): void {
 		$this->assertSame( 'متجر WooCommerce متصل', Controller::TEST_NOTE );
 	}
 
 	/** webhook.test, transfer.received and transfer.updated when configured; everything else is ignored. */
-	public function test_event_kind() {
+	public function test_event_kind(): void {
 		$events = array( 'transfer.received', 'transfer.updated', 'webhook.test' );
 		$this->assertSame( 'test', Controller::event_kind( 'webhook.test', $events ) );
 		$this->assertSame( 'received', Controller::event_kind( 'transfer.received', $events ) );
@@ -60,11 +60,25 @@ final class ControllerTest extends TestCase {
 	}
 
 	/** A status update keeps transfer_id, a known status, and reference and note cut to 64 and 200 characters. */
-	public function test_clean_update() {
+	public function test_clean_update(): void {
 		$this->assertNull( Controller::clean_update( null ) );
 		$this->assertNull( Controller::clean_update( array( 'status' => 'matched' ) ) );
-		$this->assertNull( Controller::clean_update( array( 'transfer_id' => 'trf_1', 'status' => 'attached' ) ) );
-		$this->assertNull( Controller::clean_update( array( 'transfer_id' => '', 'status' => 'matched' ) ) );
+		$this->assertNull(
+			Controller::clean_update(
+				array(
+					'transfer_id' => 'trf_1',
+					'status'      => 'attached',
+				)
+			)
+		);
+		$this->assertNull(
+			Controller::clean_update(
+				array(
+					'transfer_id' => '',
+					'status'      => 'matched',
+				)
+			)
+		);
 
 		$item = Controller::clean_update(
 			array(
@@ -79,19 +93,42 @@ final class ControllerTest extends TestCase {
 		$this->assertSame( 64, strlen( $item['reference'] ) );
 		$this->assertSame( 200, mb_strlen( $item['note'], 'UTF-8' ) );
 
-		$ignored = Controller::clean_update( array( 'transfer_id' => 'trf_2', 'status' => 'ignored', 'reference' => '' ) );
-		$this->assertSame( array( 'transfer_id' => 'trf_2', 'status' => 'ignored' ), $ignored );
+		$ignored = Controller::clean_update(
+			array(
+				'transfer_id' => 'trf_2',
+				'status'      => 'ignored',
+				'reference'   => '',
+			)
+		);
+		$this->assertSame(
+			array(
+				'transfer_id' => 'trf_2',
+				'status'      => 'ignored',
+			),
+			$ignored
+		);
 
-		$numeric = Controller::clean_update( array( 'transfer_id' => 'trf_3', 'status' => 'partial', 'reference' => 1042 ) );
+		$numeric = Controller::clean_update(
+			array(
+				'transfer_id' => 'trf_3',
+				'status'      => 'partial',
+				'reference'   => 1042,
+			)
+		);
 		$this->assertSame( '1042', $numeric['reference'] );
 	}
 
 	/** Updates ride on the reply in order, each transfer once, and the JSON stays within the limit. */
-	public function test_cap_updates_within_limit() {
+	public function test_cap_updates_within_limit(): void {
 		$reply = array(
 			'status'         => 'matched',
 			'reference'      => '1042',
-			'status_updates' => array( array( 'transfer_id' => 'old', 'status' => 'review' ) ),
+			'status_updates' => array(
+				array(
+					'transfer_id' => 'old',
+					'status'      => 'review',
+				),
+			),
 		);
 		$items = array();
 		for ( $i = 0; $i < 50; $i++ ) {
@@ -116,7 +153,7 @@ final class ControllerTest extends TestCase {
 	}
 
 	/** No updates: no status_updates key at all (and a stored one is not repeated). */
-	public function test_cap_updates_without_items() {
+	public function test_cap_updates_without_items(): void {
 		$out = Controller::cap_updates(
 			array(
 				'status'         => 'ok',
@@ -129,10 +166,18 @@ final class ControllerTest extends TestCase {
 	}
 
 	/** Small sets fit whole, in order. */
-	public function test_cap_updates_small() {
+	public function test_cap_updates_small(): void {
 		$items = array(
-			array( 'transfer_id' => 'trf_a', 'status' => 'matched', 'reference' => '7', 'note' => 'طابق برقم العملية الذي كتبه العميل' ),
-			array( 'transfer_id' => 'trf_b', 'status' => 'ignored' ),
+			array(
+				'transfer_id' => 'trf_a',
+				'status'      => 'matched',
+				'reference'   => '7',
+				'note'        => 'طابق برقم العملية الذي كتبه العميل',
+			),
+			array(
+				'transfer_id' => 'trf_b',
+				'status'      => 'ignored',
+			),
 		);
 		$out   = Controller::cap_updates( array( 'status' => 'ignored' ), $items );
 		$this->assertSame( array( 'trf_a', 'trf_b' ), $out['ids'] );
@@ -140,7 +185,7 @@ final class ControllerTest extends TestCase {
 	}
 
 	/** Error bodies have the WP_Error shape of the REST API; the plain ones just a code. */
-	public function test_answer_shapes() {
+	public function test_answer_shapes(): void {
 		$this->assertSame(
 			array(
 				'http'    => 401,
@@ -169,7 +214,7 @@ final class ControllerTest extends TestCase {
 	}
 
 	/** A fence that hits no row (the stale claim was taken over) answers busy with Retry-After 30, never our reply. */
-	public function test_fenced_out_is_busy() {
+	public function test_fenced_out_is_busy(): void {
 		$this->assertSame(
 			array(
 				'http'        => 429,
@@ -182,7 +227,7 @@ final class ControllerTest extends TestCase {
 	}
 
 	/** The log line of an error names the step, the class and the place, never the message (it may carry data). */
-	public function test_error_line_has_no_message() {
+	public function test_error_line_has_no_message(): void {
 		$e    = new \RuntimeException( 'SELECT * FROM wp_qersh_transfers WHERE payer_key = 01001234567' );
 		$line = Controller::error_line( 'permission check', $e );
 		$this->assertStringStartsWith( 'qersh: webhook permission check failed: RuntimeException at ControllerTest.php:', $line );
@@ -191,7 +236,7 @@ final class ControllerTest extends TestCase {
 	}
 
 	/** The dead "newer key" option is gone: Diagnostics reads the v1 position from record_delivery(). */
-	public function test_no_newer_key_option() {
+	public function test_no_newer_key_option(): void {
 		$this->assertFalse( defined( Controller::class . '::NEWER_KEY_OPTION' ) );
 	}
 }

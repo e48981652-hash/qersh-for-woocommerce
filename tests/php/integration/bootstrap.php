@@ -13,6 +13,8 @@
  * @package QershPay\WooCommerce\Tests
  */
 
+// phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fwrite -- the test run's own messages, to STDOUT and STDERR, which WP_Filesystem cannot write.
+
 $qersh_wc_root      = dirname( __DIR__, 3 );
 $qersh_wc_tests_dir = getenv( 'WP_TESTS_DIR' );
 if ( false === $qersh_wc_tests_dir || '' === $qersh_wc_tests_dir ) {
@@ -49,7 +51,7 @@ tests_add_filter(
 		WC_Install::install();
 
 		// The roles were read before WooCommerce added its capabilities (core ticket 28374).
-		$GLOBALS['wp_roles'] = null; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
+		$GLOBALS['wp_roles'] = null; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- WordPress rebuilds it in wp_roles().
 		wp_roles();
 
 		$sync = wc_get_container()->get( \Automattic\WooCommerce\Internal\DataStores\Orders\DataSynchronizer::class );
@@ -81,8 +83,8 @@ if ( QERSH_WC_TESTS_HPOS !== $qersh_wc_hpos ) {
 			"HPOS is %s, but DISABLE_HPOS asked for it %s (woocommerce_custom_orders_table_enabled = %s, woocommerce_custom_orders_table_created = %s).\n",
 			$qersh_wc_hpos ? 'on' : 'off',
 			QERSH_WC_TESTS_HPOS ? 'on' : 'off',
-			var_export( get_option( 'woocommerce_custom_orders_table_enabled' ), true ), // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_var_export
-			var_export( get_option( 'woocommerce_custom_orders_table_created' ), true ) // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_var_export
+			var_export( get_option( 'woocommerce_custom_orders_table_enabled' ), true ), // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_var_export -- the option's exact value in the failure message.
+			var_export( get_option( 'woocommerce_custom_orders_table_created' ), true ) // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_var_export -- the option's exact value in the failure message.
 		)
 	);
 	exit( 1 );

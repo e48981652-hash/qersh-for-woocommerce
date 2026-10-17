@@ -135,7 +135,7 @@ final class Schema {
 	 * Runs on plugins_loaded: installs or upgrades the tables when the stored version is behind. The activation hook
 	 * does not run on updates, so this check is what upgrades an updated plugin.
 	 */
-	public static function maybe_upgrade() {
+	public static function maybe_upgrade(): void {
 		if ( (int) get_option( self::VERSION_OPTION, 0 ) >= self::target_version() ) {
 			return;
 		}
@@ -149,7 +149,7 @@ final class Schema {
 	 * Creates or upgrades the five tables, then records the schema version, but only once every table exists, so
 	 * Plugin::tables_ready() stays false (and the routes answer 503) while they are missing.
 	 */
-	public static function install() {
+	public static function install(): void {
 		global $wpdb;
 		if ( ! function_exists( 'dbDelta' ) ) {
 			require_once ABSPATH . 'wp-admin/includes/upgrade.php';
@@ -393,7 +393,7 @@ PRIMARY KEY  (name)
 	 * @param string $level   Level.
 	 * @param string $message Message.
 	 */
-	private static function log( string $level, string $message ) {
+	private static function log( string $level, string $message ): void {
 		$logger = new \QershPay\WooCommerce\Logger();
 		if ( 'warning' === $level ) {
 			$logger->warning( $message );

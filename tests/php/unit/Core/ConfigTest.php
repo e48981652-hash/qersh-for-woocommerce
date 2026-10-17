@@ -117,7 +117,13 @@ final class ConfigTest extends TestCase {
 		$this->assertSame( array( 'transfer.received' ), Config::with_defaults( array( 'receiver' => array( 'events' => array( 'transfer.received', 7, null ) ) ) )['receiver']['events'] );
 		// A non-object receiver takes the defaults (withDefaults of config.ts); a wallets or store of the wrong type is
 		// kept so that validate() names it.
-		$odd = Config::with_defaults( array( 'receiver' => 'x', 'wallets' => 'x', 'store' => 'x' ) );
+		$odd = Config::with_defaults(
+			array(
+				'receiver' => 'x',
+				'wallets'  => 'x',
+				'store'    => 'x',
+			)
+		);
 		$this->assertSame( Config::DEFAULTS['receiver'], $odd['receiver'] );
 		$this->assertSame( 'x', $odd['wallets'] );
 		$this->assertSame( 'x', $odd['store'] );
@@ -172,7 +178,7 @@ final class ConfigTest extends TestCase {
 	}
 
 	public function test_whole_numbers_beyond_the_int_range_are_refused_not_wrapped(): void {
-		$beyond = -(float) PHP_INT_MIN; // 2^63 on 64-bit PHP, 2^31 on 32-bit PHP: the first whole float (int) cannot hold
+		$beyond = - (float) PHP_INT_MIN; // 2^63 on 64-bit PHP, 2^31 on 32-bit PHP: the first whole float (int) cannot hold
 		$last   = (float) PHP_INT_MIN; // exactly PHP_INT_MIN as a float
 		foreach ( array( 1e300, $beyond, $beyond * 4 ) as $big ) {
 			$c = Config::with_defaults(
@@ -201,7 +207,7 @@ final class ConfigTest extends TestCase {
 		}
 		// The receiver rule itself is Number.isInteger(): a huge whole number is an integer, a huge fraction-less
 		// negative is still "non-negative" wrong, and tolerance_sec keeps its 3600 bound.
-		$c                                            = Config::DEFAULTS;
+		$c = Config::DEFAULTS;
 		$c['receiver']['matching']['late_window_min'] = -1e300;
 		$c['receiver']['tolerance_sec']               = 1e300;
 		$this->assertSame(
@@ -228,7 +234,7 @@ final class ConfigTest extends TestCase {
 	}
 
 	public function test_validate_names_every_receiver_problem(): void {
-		$bad = Config::DEFAULTS;
+		$bad             = Config::DEFAULTS;
 		$bad['receiver'] = array(
 			'endpoint'      => array( 'path' => '/qersh' ),
 			'keys'          => array( 'short' ),
@@ -267,15 +273,15 @@ final class ConfigTest extends TestCase {
 			$c['receiver']['tolerance_sec'] = $bad;
 			$this->assertSame( array( 'receiver.tolerance_sec' ), self::paths( $c ), var_export( $bad, true ) );
 		}
-		$c                                         = Config::DEFAULTS;
-		$c['receiver']['matching']['skew_min']     = 10;
+		$c                                     = Config::DEFAULTS;
+		$c['receiver']['matching']['skew_min'] = 10;
 		$c['receiver']['matching']['late_window_min'] = 0;
 		$this->assertSame( array(), Config::validate( $c ) );
 	}
 
 	public function test_plugin_receiver_rules(): void {
-		$c                                     = Config::DEFAULTS;
-		$c['receiver']['endpoint']['path']     = 'qersh';
+		$c                                 = Config::DEFAULTS;
+		$c['receiver']['endpoint']['path'] = 'qersh';
 		$this->assertSame( array( 'receiver.endpoint.path' ), self::paths( $c ) );
 		$this->assertStringContainsString( 'qersh/v1/webhook', Config::validate( $c )[0]['message'] );
 
@@ -297,12 +303,12 @@ final class ConfigTest extends TestCase {
 	public function test_wallet_rules(): void {
 		$this->assertSame( array(), Config::validate( self::valid() ) );
 
-		$c                 = self::valid();
-		$c['wallets'][]    = $c['wallets'][0];
+		$c              = self::valid();
+		$c['wallets'][] = $c['wallets'][0];
 		$this->assertSame( array( 'wallets[1].id' ), self::paths( $c ) );
 
-		$c                         = self::valid();
-		$c['wallets'][0]['id']     = 'K7Q2M9X4P1RZ';
+		$c                     = self::valid();
+		$c['wallets'][0]['id'] = 'K7Q2M9X4P1RZ';
 		$this->assertSame( array( 'wallets[0].id' ), self::paths( $c ) );
 		foreach ( array( 'k7q2m9x4p1r', 'k7q2m9x4p1rzz', "k7q2m9x4p1rz\n", 'k7q2m9x4p1r_', 12 ) as $id ) {
 			$c                     = self::valid();
@@ -322,8 +328,8 @@ final class ConfigTest extends TestCase {
 		$c['wallets'][0]['receive_address'] = 'shop@instapay';
 		$this->assertSame( array( 'wallets[0].receive_address' ), self::paths( $c ) ); // a handle on a number wallet
 
-		$c                                  = self::valid();
-		$c['wallets'][0]['provider']        = 'instapay_app';
+		$c                           = self::valid();
+		$c['wallets'][0]['provider'] = 'instapay_app';
 		$this->assertSame( array( 'wallets[0].receive_address' ), self::paths( $c ) ); // a number on an InstaPay wallet
 		$c['wallets'][0]['receive_address'] = 'Shop.Cairo@InstaPay';
 		$this->assertSame( array(), Config::validate( $c ) );
@@ -391,8 +397,8 @@ final class ConfigTest extends TestCase {
 		);
 		foreach ( $cases as $case ) {
 			list( $key, $value, $ok ) = $case;
-			$c                 = Config::DEFAULTS;
-			$c['store'][ $key ] = $value;
+			$c                        = Config::DEFAULTS;
+			$c['store'][ $key ]       = $value;
 			$this->assertSame( $ok ? array() : array( 'store.' . $key ), self::paths( $c ), $key . ' = ' . var_export( $value, true ) );
 		}
 		$c                             = Config::DEFAULTS;

@@ -50,6 +50,8 @@ final class Deliveries {
 	 *   60 seconds is busy (429 with Retry-After: 30), and an older one is taken over with
 	 *   `UPDATE … WHERE claimed_at < now − 60`, which only one request can win.
 	 *
+	 * Throws LockTimeout when the row stays locked by a request that is writing its result.
+	 *
 	 * @param string      $delivery_id Envelope delivery_id (a UUID; anything longer than 36 characters is refused,
 	 *                                 never cut, because a cut id would collide with another delivery).
 	 * @param string      $wallet      Wallet id.
@@ -58,7 +60,7 @@ final class Deliveries {
 	 * @param int         $now         UTC seconds.
 	 * @return array `[ 'state' => 'claimed', 'token' => string ]`, `[ 'state' => 'done', 'http_status' => int,
 	 *               'reply' => array ]` or `[ 'state' => 'busy' ]`.
-	 * @throws LockTimeout When the row stays locked by a request that is writing its result.
+	 * @throws \InvalidArgumentException For a delivery id the table cannot hold.
 	 */
 	public function claim( string $delivery_id, string $wallet, string $event, ?string $redelivery, int $now ): array {
 		if ( ! self::valid_id( $delivery_id ) ) {
@@ -156,7 +158,7 @@ final class Deliveries {
 	 * @param array  $reply       Reply body.
 	 * @param int    $now         UTC seconds.
 	 */
-	public function store_reply( string $delivery_id, string $token, int $http_status, array $reply, int $now ) {
+	public function store_reply( string $delivery_id, string $token, int $http_status, array $reply, int $now ): void {
 		unset( $reply['status_updates'] );
 		$db = $this->db();
 		$db->exec(
@@ -172,7 +174,7 @@ final class Deliveries {
 	 * @param string $delivery_id Delivery id.
 	 * @param string $token       Our claim token.
 	 */
-	public function release( string $delivery_id, string $token ) {
+	public function release( string $delivery_id, string $token ): void {
 		try {
 			$db = $this->db();
 			$db->query(
@@ -239,7 +241,7 @@ final class Deliveries {
 		$reply = isset( $row['reply_json'] ) && is_string( $row['reply_json'] ) ? json_decode( $row['reply_json'], true ) : null;
 		return array(
 			'state'       => 'done',
-			'http_status' => isset( $row['http_status'] ) && null !== $row['http_status'] ? (int) $row['http_status'] : 200,
+			'http_status' => isset( $row['http_status'] ) ? (int) $row['http_status'] : 200,
 			'reply'       => is_array( $reply ) ? $reply : array(),
 		);
 	}

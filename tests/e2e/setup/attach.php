@@ -15,7 +15,8 @@
 
 if ( ! defined( 'ABSPATH' ) ) {
 	require dirname( __DIR__, 2 ) . '/local/lib/bootstrap.php';
-	$args = $qersh_local_args; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
+	/** @var string[] $qersh_local_args Set by tests/local/lib/bootstrap.php. */
+	$args = $qersh_local_args; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- the name wp eval-file gives the arguments.
 }
 defined( 'ABSPATH' ) || exit;
 

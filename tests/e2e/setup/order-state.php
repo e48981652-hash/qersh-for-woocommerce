@@ -16,7 +16,8 @@
 
 if ( ! defined( 'ABSPATH' ) ) {
 	require dirname( __DIR__, 2 ) . '/local/lib/bootstrap.php';
-	$args = $qersh_local_args; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
+	/** @var string[] $qersh_local_args Set by tests/local/lib/bootstrap.php. */
+	$args = $qersh_local_args; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- the name wp eval-file gives the arguments.
 }
 defined( 'ABSPATH' ) || exit;
 
@@ -37,10 +38,10 @@ $qersh_e2e_id = (int) $qersh_e2e_opts['order'];
 global $wpdb;
 $qersh_e2e_rows = $wpdb->prefix . 'qersh_orders';
 if ( (int) $qersh_e2e_opts['shift'] > 0 ) {
-	$wpdb->query( $wpdb->prepare( 'UPDATE %i SET created_at = created_at - %d, expires_at = expires_at - %d WHERE order_id = %d', $qersh_e2e_rows, (int) $qersh_e2e_opts['shift'], (int) $qersh_e2e_opts['shift'], $qersh_e2e_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	$wpdb->query( $wpdb->prepare( 'UPDATE %i SET created_at = created_at - %d, expires_at = expires_at - %d WHERE order_id = %d', $qersh_e2e_rows, (int) $qersh_e2e_opts['shift'], (int) $qersh_e2e_opts['shift'], $qersh_e2e_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- a test reads or sets up the plugin's tables directly.
 }
 if ( (int) $qersh_e2e_opts['backdate'] > 0 ) {
-	$wpdb->query( $wpdb->prepare( 'UPDATE %i SET created_at = created_at - %d WHERE order_id = %d', $qersh_e2e_rows, (int) $qersh_e2e_opts['backdate'], $qersh_e2e_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	$wpdb->query( $wpdb->prepare( 'UPDATE %i SET created_at = created_at - %d WHERE order_id = %d', $qersh_e2e_rows, (int) $qersh_e2e_opts['backdate'], $qersh_e2e_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- a test reads or sets up the plugin's tables directly.
 }
 if ( '1' === $qersh_e2e_opts['cron'] && class_exists( 'ActionScheduler_QueueRunner' ) ) {
 	ActionScheduler_QueueRunner::instance()->run( 'qersh-e2e' );
@@ -64,7 +65,7 @@ if ( $qersh_e2e_order ) {
 		$qersh_e2e_notes[] = wp_strip_all_tags( (string) $qersh_e2e_note->content );
 	}
 }
-$qersh_e2e_transfers = $wpdb->get_results( $wpdb->prepare( 'SELECT transfer_id, outcome, reason, amount_minor, payer_key, provider_txn_id, flag FROM %i WHERE order_id = %d ORDER BY id', $wpdb->prefix . 'qersh_transfers', $qersh_e2e_id ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+$qersh_e2e_transfers = $wpdb->get_results( $wpdb->prepare( 'SELECT transfer_id, outcome, reason, amount_minor, payer_key, provider_txn_id, flag FROM %i WHERE order_id = %d ORDER BY id', $wpdb->prefix . 'qersh_transfers', $qersh_e2e_id ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- a test reads or sets up the plugin's tables directly.
 echo 'QERSH_JSON=' . wp_json_encode(
 	array(
 		'order_id'  => $qersh_e2e_id,

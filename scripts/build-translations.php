@@ -25,6 +25,11 @@
  * @package QershPay\WooCommerce\Scripts
  */
 
+// A command-line tool that WordPress never loads: WordPress's functions (WP_Filesystem, wp_json_encode(), the
+// escaping functions) do not exist here, its output goes to a terminal or to files of this repository, and its global
+// names cannot meet those of WordPress or of a plugin.
+// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals, WordPress.WP.GlobalVariablesOverride, WordPress.WP.AlternativeFunctions -- a command-line tool (above).
+
 if ( 'cli' !== PHP_SAPI ) {
 	exit( 1 );
 }
@@ -81,8 +86,8 @@ function qersh_build_usable( array $po, $nplural ) {
 		if ( $empty ) {
 			continue;
 		}
-		$key           = qersh_i18n_key( $e );
-		$out[ $key ]   = array(
+		$key         = qersh_i18n_key( $e );
+		$out[ $key ] = array(
 			'entry'  => $e,
 			'mo_key' => null === $e['msgid_plural'] ? $key : $key . "\0" . $e['msgid_plural'],
 			'value'  => implode( "\0", $forms ),

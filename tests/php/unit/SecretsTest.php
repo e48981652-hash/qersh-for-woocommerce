@@ -30,7 +30,7 @@ final class SecretsTest extends TestCase {
 	 * @runInSeparateProcess
 	 * @preserveGlobalState disabled
 	 */
-	public function test_erase_leaves_nothing() {
+	public function test_erase_leaves_nothing(): void {
 		require_once __DIR__ . '/FakeWpSecrets.php';
 		$s = new Secrets();
 		$s->set_current( self::WALLET, Config::new_key(), self::NOW );
@@ -48,7 +48,7 @@ final class SecretsTest extends TestCase {
 	 * @runInSeparateProcess
 	 * @preserveGlobalState disabled
 	 */
-	public function test_erase_overwrites_a_copy_that_survived() {
+	public function test_erase_overwrites_a_copy_that_survived(): void {
 		require_once __DIR__ . '/FakeWpSecrets.php';
 		$old = Config::new_key();
 		$new = Config::new_key();
@@ -78,7 +78,7 @@ final class SecretsTest extends TestCase {
 	 * @runInSeparateProcess
 	 * @preserveGlobalState disabled
 	 */
-	public function test_erase_falls_back_to_the_option() {
+	public function test_erase_falls_back_to_the_option(): void {
 		require_once __DIR__ . '/FakeWpSecrets.php';
 		$old = Config::new_key();
 		$new = Config::new_key();
@@ -101,12 +101,12 @@ final class SecretsTest extends TestCase {
 	}
 
 	/** The wp-config constant of a wallet. */
-	public function test_constant_name() {
+	public function test_constant_name(): void {
 		$this->assertSame( 'QERSH_WC_KEY_K7Q2M9X4P1RZ', Secrets::constant_name( 'k7q2m9x4p1rz' ) );
 	}
 
 	/** A value kept inside the WordPress secrets store is read as it is; an empty one is no key. */
-	public function test_plain_values() {
+	public function test_plain_values(): void {
 		$this->assertSame( 'qsk_abcdefghijklmnopqrstuvwxyz', Secrets::open_value( 'pt1:qsk_abcdefghijklmnopqrstuvwxyz', null ) );
 		$this->assertNull( Secrets::open_value( 'pt1:', null ) );
 		$this->assertNull( Secrets::open_value( 'qsk_plain_text_is_never_read_as_a_key', null ) );
@@ -117,7 +117,7 @@ final class SecretsTest extends TestCase {
 	 * The secretbox round trip; another site key or a changed byte opens nothing. Without sodium (this PHP may not
 	 * load it; WordPress ships sodium_compat) a sealed value is simply unreadable.
 	 */
-	public function test_envelope() {
+	public function test_envelope(): void {
 		$box = str_repeat( "\x01", 32 );
 		if ( ! function_exists( 'sodium_crypto_secretbox' ) ) {
 			$this->assertNull( Secrets::open_value( 'sb1:' . str_repeat( 'ab', 60 ), $box ) );

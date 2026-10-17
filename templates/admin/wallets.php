@@ -69,7 +69,7 @@ defined( 'ABSPATH' ) || exit;
 <details class="qersh-wc-help">
 	<summary><?php esc_html_e( 'How to link the phone', 'qersh-for-woocommerce' ); ?></summary>
 	<ol>
-		<li><?php esc_html_e( 'In the Qersh app, first complete the “Get Qersh ready” list on the home screen (“Activate Qersh”, then “Prepare the phone”).', 'qersh-for-woocommerce' ); ?></li>
+		<li><?php esc_html_e( 'In the Qersh app, first complete the “Set up Qersh” list on the home screen (“Activate Qersh”, then “Set up the phone”).', 'qersh-for-woocommerce' ); ?></li>
 		<li><?php esc_html_e( 'With the link with the connection key: open it on the wallet\'s phone (scan its code, tap “Open in Qersh” on the phone itself, or copy it into “Have a link from your developer?”), and save the wallet, or tap “Update wallet” if it is on the phone already. Nothing to paste in the store.', 'qersh-for-woocommerce' ); ?></li>
 		<li><?php esc_html_e( 'With the link without a key: in the app open “More → Wallets → Add wallet”, paste it in “Have a link from your developer?” and save. Qersh makes the connection key and opens “Send this link to your developer”, the only time it shows the key: share or copy the message to yourself (WhatsApp Web, email), then paste it, as it arrived, in the box of the wallet card here.', 'qersh-for-woocommerce' ); ?></li>
 		<li><?php esc_html_e( 'If the wallet was on the phone before (linked to n8n or another server), the app offers to update it so it sends to this store: each wallet on the phone sends to one address.', 'qersh-for-woocommerce' ); ?></li>

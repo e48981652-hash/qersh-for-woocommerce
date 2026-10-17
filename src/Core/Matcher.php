@@ -106,7 +106,7 @@ final class Matcher {
 			return self::verdict( 'review', 'no transfer data', $base );
 		}
 		if ( ! $t['auto_ok'] ) {
-			return self::verdict( 'review', null, $base ); // risk != low → a human looks
+			return self::verdict( 'review', null, $base ); // risk != low → a human looks.
 		}
 		if ( null === $t['amount_minor'] || $t['amount_minor'] < 0 ) {
 			return self::verdict( 'review', 'no amount in the message', $base );
@@ -118,8 +118,8 @@ final class Matcher {
 		$late  = self::minutes( array_key_exists( 'late_window_min', $options ) ? $options['late_window_min'] : null, self::LATE_WINDOW_MIN );
 		$skew  = self::minutes( array_key_exists( 'skew_min', $options ) ? $options['skew_min'] : null, self::SKEW_MIN );
 		$got   = self::to_sec( $t['received_at'] );
-		$at    = null !== $got && $got < $now ? $got : $now; // when the money arrived; a clock ahead counts as "now"
-		$stale = $now - $at > $late; // a retry, a manual resend or a backfill
+		$at    = null !== $got && $got < $now ? $got : $now; // when the money arrived; a clock ahead counts as "now".
+		$stale = $now - $at > $late; // a retry, a manual resend or a backfill.
 
 		$unreadable = 0;
 		$readable   = array();
@@ -134,14 +134,14 @@ final class Matcher {
 		}
 		$in_window = array();
 		foreach ( $readable as $c ) {
-			if ( $c['expires'] >= $at - $late && $c['created'] <= $at + $skew ) { // incl. just-expired; never an order opened after the money
+			if ( $c['expires'] >= $at - $late && $c['created'] <= $at + $skew ) { // incl. just-expired; never an order opened after the money.
 				$in_window[] = $c;
 			}
 		}
 		usort(
 			$in_window,
 			static function ( array $a, array $b ): int {
-				$by_created = $b['created'] <=> $a['created']; // newest first
+				$by_created = $b['created'] <=> $a['created']; // newest first.
 				return 0 !== $by_created ? $by_created : $a['index'] <=> $b['index'];
 			}
 		);
@@ -158,12 +158,12 @@ final class Matcher {
 		$chosen = null;
 		foreach ( $in_window as $c ) {
 			if ( $c['price'] - $c['paid'] === $amount ) {
-				$chosen = $c; // amount decides
+				$chosen = $c; // amount decides.
 				break;
 			}
 		}
 		if ( null === $chosen && 1 === count( $in_window ) && 0 === $unreadable ) {
-			$chosen = $in_window[0]; // else the only one
+			$chosen = $in_window[0]; // else the only one.
 		}
 		if ( null === $chosen ) {
 			$note = $unreadable > 0 ? 'another order of this payer could not be read' : 'several open orders for this payer, none matches the amount';

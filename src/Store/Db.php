@@ -32,13 +32,6 @@ final class Db {
 	const LOCK_NAME_MAX = 100;
 
 	/**
-	 * The plugin, if any.
-	 *
-	 * @var \QershPay\WooCommerce\Plugin|null
-	 */
-	private $plugin;
-
-	/**
 	 * True between begin() and commit() or rollback().
 	 *
 	 * @var bool
@@ -60,12 +53,12 @@ final class Db {
 	private $held = array();
 
 	/**
-	 * Builds the service.
+	 * Builds the service. It needs nothing from the plugin; the parameter is the container's `new X( $plugin )`.
 	 *
-	 * @param \QershPay\WooCommerce\Plugin|null $plugin The plugin.
+	 * @param \QershPay\WooCommerce\Plugin|null $plugin The plugin (not used).
 	 */
 	public function __construct( $plugin = null ) {
-		$this->plugin = $plugin;
+		unset( $plugin );
 	}
 
 	/**
@@ -83,13 +76,16 @@ final class Db {
 	 *
 	 * @param string $short `deliveries`, `transfers`, `orders`, `wallets` or `locks` (a leading `qersh_` is accepted).
 	 * @return string
+	 * @throws \InvalidArgumentException For any other name.
 	 */
 	public function table( string $short ): string {
 		if ( 0 === strpos( $short, 'qersh_' ) ) {
 			$short = substr( $short, 6 );
 		}
 		if ( ! in_array( $short, Schema::TABLES, true ) ) {
-			throw new \InvalidArgumentException( 'qersh: unknown table ' . $short );
+			// rawurlencode() escapes without WordPress (the unit tests load the Store without it); a table or column
+			// name, made of [a-z_], comes out as it is.
+			throw new \InvalidArgumentException( 'qersh: unknown table ' . rawurlencode( $short ) );
 		}
 		return $this->wpdb()->prefix . 'qersh_' . $short;
 	}
@@ -123,9 +119,11 @@ final class Db {
 	 * where a second writer waits (PDO's busy timeout) and fails with "database is locked", so a lock error here is a
 	 * LockTimeout like a lock wait on MySQL (retry once, then 429, docs/17 §4.4 step 8).
 	 *
+	 * @throws \LogicException When a transaction is already open.
 	 * @throws LockTimeout When the transaction could not get the database's write lock in time (SQLite).
+	 * @throws \RuntimeException When the transaction could not be started for another reason.
 	 */
-	public function begin() {
+	public function begin(): void {
 		if ( $this->in_txn ) {
 			throw new \LogicException( 'qersh: a transaction is already open' );
 		}
@@ -154,8 +152,12 @@ final class Db {
 	/**
 	 * Commits. A deadlock reported at commit (how Galera reports a certification conflict) throws LockTimeout; any
 	 * other failure throws RuntimeException, because the writes did not happen.
+	 *
+	 * @throws \LogicException Without an open transaction.
+	 * @throws LockTimeout On a deadlock reported at commit.
+	 * @throws \RuntimeException When the commit failed for another reason.
 	 */
-	public function commit() {
+	public function commit(): void {
 		if ( ! $this->in_txn ) {
 			throw new \LogicException( 'qersh: commit() without begin()' );
 		}
@@ -174,7 +176,7 @@ final class Db {
 	/**
 	 * Rolls back. Never throws, so it is safe in every catch block; does nothing without an open transaction.
 	 */
-	public function rollback() {
+	public function rollback(): void {
 		if ( ! $this->in_txn ) {
 			return;
 		}
@@ -196,10 +198,11 @@ final class Db {
 	 * another path. Roll back and take all the names in one call instead.
 	 *
 	 * @param string[] $names Lock names such as `payer:01001234567`, `txn:orange_cash:12345678901234`, `trf:trf_…`.
-	 * @throws LockTimeout When a lock could not be had in time.
 	 * @throws \LogicException Outside a transaction, or for names that break the order of the locks already held.
+	 * @throws \RuntimeException LockTimeout (a RuntimeException) when a lock could not be had in time; a plain
+	 *                           RuntimeException when a lock statement failed for another reason.
 	 */
-	public function lock( array $names ) {
+	public function lock( array $names ): void {
 		if ( ! $this->in_txn ) {
 			throw new \LogicException( 'qersh: lock() needs an open transaction' );
 		}
@@ -342,7 +345,8 @@ final class Db {
 	 * @param string $sql  SQL with placeholders.
 	 * @param array  $args Values.
 	 * @return int Rows affected.
-	 * @throws LockTimeout On a lock wait timeout or deadlock.
+	 * @throws \RuntimeException LockTimeout (a RuntimeException) on a lock wait timeout or deadlock; a plain
+	 *                           RuntimeException when the statement failed for another reason.
 	 */
 	public function exec( string $sql, array $args = array() ): int {
 		$out = $this->run( 'query', $sql, $args );
@@ -359,7 +363,8 @@ final class Db {
 	 * @param string $sql  SQL with placeholders.
 	 * @param array  $args Values.
 	 * @return array|null
-	 * @throws LockTimeout On a lock wait timeout or deadlock.
+	 * @throws \RuntimeException LockTimeout (a RuntimeException) on a lock wait timeout or deadlock; a plain
+	 *                           RuntimeException when the read failed for another reason.
 	 */
 	public function row( string $sql, array $args = array() ): ?array {
 		$out = $this->run( 'row', $sql, $args );
@@ -375,7 +380,8 @@ final class Db {
 	 * @param string $sql  SQL with placeholders.
 	 * @param array  $args Values.
 	 * @return array[]
-	 * @throws LockTimeout On a lock wait timeout or deadlock.
+	 * @throws \RuntimeException LockTimeout (a RuntimeException) on a lock wait timeout or deadlock; a plain
+	 *                           RuntimeException when the read failed for another reason.
 	 */
 	public function rows( string $sql, array $args = array() ): array {
 		$out = $this->run( 'rows', $sql, $args );
@@ -391,7 +397,8 @@ final class Db {
 	 * @param string $sql  SQL with placeholders.
 	 * @param array  $args Values.
 	 * @return string|null
-	 * @throws LockTimeout On a lock wait timeout or deadlock.
+	 * @throws \RuntimeException LockTimeout (a RuntimeException) on a lock wait timeout or deadlock; a plain
+	 *                           RuntimeException when the read failed for another reason.
 	 */
 	public function var( string $sql, array $args = array() ): ?string {
 		$out = $this->run( 'var', $sql, $args );
@@ -408,6 +415,7 @@ final class Db {
 	 * @param array  $row   Column => value (validated against Schema::COLUMNS).
 	 * @param string $verb  `INSERT` or `INSERT IGNORE`.
 	 * @return array{0: string, 1: array} SQL and arguments, the table name first.
+	 * @throws \InvalidArgumentException For another verb, an empty row, or a value its column cannot hold.
 	 */
 	public function insert_sql( string $short, array $row, string $verb = 'INSERT' ): array {
 		if ( 'INSERT' !== $verb && 'INSERT IGNORE' !== $verb ) {
@@ -478,7 +486,7 @@ final class Db {
 	 */
 	public static function value( string $short, string $column, $value ): array {
 		if ( ! isset( Schema::COLUMNS[ $short ][ $column ] ) ) {
-			throw new \InvalidArgumentException( 'qersh: unknown column ' . $short . '.' . $column );
+			throw new \InvalidArgumentException( 'qersh: unknown column ' . rawurlencode( $short . '.' . $column ) );
 		}
 		list( $type, $len, $nullable ) = Schema::parse_spec( Schema::COLUMNS[ $short ][ $column ] );
 		if ( ( 'key' === $type || 'nul' === $type ) && '' === $value && $nullable ) {
@@ -486,7 +494,7 @@ final class Db {
 		}
 		if ( null === $value ) {
 			if ( ! $nullable ) {
-				throw new \InvalidArgumentException( 'qersh: ' . $short . '.' . $column . ' cannot be NULL' );
+				throw new \InvalidArgumentException( 'qersh: ' . rawurlencode( $short . '.' . $column ) . ' cannot be NULL' );
 			}
 			return array( 'NULL', null );
 		}
@@ -503,7 +511,7 @@ final class Db {
 			if ( is_float( $value ) && is_finite( $value ) && floor( $value ) === $value && abs( $value ) < PHP_INT_MAX ) {
 				return array( '%d', (int) $value );
 			}
-			throw new \InvalidArgumentException( 'qersh: ' . $short . '.' . $column . ' must be an integer' );
+			throw new \InvalidArgumentException( 'qersh: ' . rawurlencode( $short . '.' . $column ) . ' must be an integer' );
 		}
 		if ( 'json' === $type ) {
 			$text = is_string( $value ) ? $value : self::json( $value );
@@ -512,17 +520,17 @@ final class Db {
 				if ( $nullable ) {
 					return array( 'NULL', null );
 				}
-				throw new \InvalidArgumentException( 'qersh: ' . $short . '.' . $column . ' is too long' );
+				throw new \InvalidArgumentException( 'qersh: ' . rawurlencode( $short . '.' . $column ) . ' is too long' );
 			}
 			return array( '%s', $text );
 		}
 		if ( ! is_scalar( $value ) ) {
-			throw new \InvalidArgumentException( 'qersh: ' . $short . '.' . $column . ' must be a string' );
+			throw new \InvalidArgumentException( 'qersh: ' . rawurlencode( $short . '.' . $column ) . ' must be a string' );
 		}
 		$text = is_bool( $value ) ? ( $value ? '1' : '0' ) : (string) $value;
 		if ( 'key' === $type ) {
 			if ( '' === $text || self::length( $text ) > $len ) {
-				throw new \InvalidArgumentException( 'qersh: ' . $short . '.' . $column . ' is empty or longer than ' . $len . ' characters' );
+				throw new \InvalidArgumentException( 'qersh: ' . rawurlencode( $short . '.' . $column ) . ' is empty or longer than ' . (int) $len . ' characters' );
 			}
 			return array( '%s', $text );
 		}
@@ -531,7 +539,7 @@ final class Db {
 				return array( '%s', $text );
 			}
 			if ( ! $nullable ) {
-				throw new \InvalidArgumentException( 'qersh: ' . $short . '.' . $column . ' is empty or longer than ' . $len . ' characters' );
+				throw new \InvalidArgumentException( 'qersh: ' . rawurlencode( $short . '.' . $column ) . ' is empty or longer than ' . (int) $len . ' characters' );
 			}
 			return array( 'NULL', null );
 		}
@@ -648,6 +656,7 @@ final class Db {
 	 * @param string $sql    SQL with placeholders.
 	 * @param array  $args   Values.
 	 * @return array{result: mixed, error: string, errno: int}
+	 * @throws \InvalidArgumentException When wpdb::prepare() refuses the query.
 	 * @throws LockTimeout On a lock wait timeout or deadlock.
 	 */
 	private function run( string $method, string $sql, array $args ): array {
@@ -707,7 +716,7 @@ final class Db {
 	/**
 	 * Puts back the session's lock wait timeout after commit() or rollback().
 	 */
-	private function restore_timeout() {
+	private function restore_timeout(): void {
 		if ( null === $this->saved_timeout ) {
 			return;
 		}

@@ -55,7 +55,7 @@ final class PayerFieldTest extends TestCase {
 	}
 
 	/** One enabled wallet: no choice needed; numbers in any spelling normalise. */
-	public function test_single_wallet_accepts_any_spelling() {
+	public function test_single_wallet_accepts_any_spelling(): void {
 		$wallets = $this->wallets();
 		foreach ( array( '01112233445', '+20 111 223 3445', '00201112233445', '1112233445', '٠١١١٢٢٣٣٤٤٥', '0111-223-3445' ) as $raw ) {
 			$this->assertSame(
@@ -71,7 +71,7 @@ final class PayerFieldTest extends TestCase {
 	}
 
 	/** Invalid values. */
-	public function test_invalid_numbers() {
+	public function test_invalid_numbers(): void {
 		$wallets = $this->wallets();
 		foreach ( array( '', '   ', '0111223344', '0111***3445', '12345', 'ahmed@instapay', 'ahmed' ) as $raw ) {
 			$this->assertSame(
@@ -88,7 +88,7 @@ final class PayerFieldTest extends TestCase {
 	}
 
 	/** The store's own numbers are refused, enabled or not, in any spelling. */
-	public function test_store_numbers_are_refused() {
+	public function test_store_numbers_are_refused(): void {
 		$wallets = $this->wallets( true );
 		foreach ( array( '01001234567', '+20 100 123 4567', '01212345678', '1212345678', 'shop@instapay', 'SHOP@InstaPay', 'shop' ) as $raw ) {
 			$this->assertSame( 'payer_store', PayerField::check( $raw, 'aaaaaaaaaaa1', $wallets )['error'], $raw );
@@ -96,14 +96,14 @@ final class PayerFieldTest extends TestCase {
 	}
 
 	/** InstaPay addresses only while an InstaPay wallet is enabled. */
-	public function test_instapay_addresses() {
+	public function test_instapay_addresses(): void {
 		$this->assertSame( 'ahmed@instapay', PayerField::check( 'Ahmed@InstaPay', 'ccccccccccc3', $this->wallets( true ) )['payer'] );
 		$this->assertSame( 'ahmed@instapay', PayerField::check( 'ahmed', 'aaaaaaaaaaa1', $this->wallets( true ) )['payer'] );
 		$this->assertSame( '01112233445', PayerField::check( '01112233445', 'ccccccccccc3', $this->wallets( true ) )['payer'] );
 	}
 
 	/** With several enabled wallets the choice is required and must be an enabled wallet. */
-	public function test_wallet_choice() {
+	public function test_wallet_choice(): void {
 		$wallets = $this->wallets( true );
 		$this->assertSame( 'wallet_choice', PayerField::check( '01112233445', '', $wallets )['error'] );
 		$this->assertSame( 'wallet_choice', PayerField::check( '01112233445', 'zzzzzzzzzzzz', $wallets )['error'] );
@@ -112,7 +112,7 @@ final class PayerFieldTest extends TestCase {
 	}
 
 	/** No enabled wallet at all. */
-	public function test_no_wallet() {
+	public function test_no_wallet(): void {
 		$this->assertSame( 'no_wallet', PayerField::check( '01112233445', '', array() )['error'] );
 		$wallets               = $this->wallets();
 		$wallets[0]['enabled'] = false;
@@ -120,7 +120,7 @@ final class PayerFieldTest extends TestCase {
 	}
 
 	/** Helpers. */
-	public function test_helpers() {
+	public function test_helpers(): void {
 		$wallets = $this->wallets( true );
 		$this->assertSame( array( 'aaaaaaaaaaa1', 'ccccccccccc3' ), array_column( PayerField::enabled_wallets( $wallets ), 'id' ) );
 		$this->assertTrue( PayerField::has_instapay( $wallets ) );
@@ -132,7 +132,7 @@ final class PayerFieldTest extends TestCase {
 	}
 
 	/** The page source carries the enabled wallets' numbers only, plus the order's own wallet on the order page. */
-	public function test_browser_numbers() {
+	public function test_browser_numbers(): void {
 		$wallets = $this->wallets( true );
 		$this->assertSame( array( '01001234567', 'shop@instapay' ), PayerField::browser_numbers( $wallets ), 'the turned-off line stays on the server' );
 		$this->assertSame( array( '01001234567', '01212345678', 'shop@instapay' ), PayerField::browser_numbers( $wallets, 'bbbbbbbbbbb2' ), 'the order page shows its own wallet anyway' );

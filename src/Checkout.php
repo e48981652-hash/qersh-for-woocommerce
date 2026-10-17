@@ -81,7 +81,7 @@ final class Checkout {
 	/**
 	 * The two storefront routes (POST only, not in the index).
 	 */
-	public static function register_routes() {
+	public static function register_routes(): void {
 		register_rest_route(
 			'qersh/v1',
 			'/order-status',
@@ -121,7 +121,7 @@ final class Checkout {
 	 *
 	 * @param object $registry PaymentMethodRegistry.
 	 */
-	public static function register_blocks( $registry ) {
+	public static function register_blocks( $registry ): void {
 		if ( is_object( $registry ) && method_exists( $registry, 'register' ) && class_exists( '\Automattic\WooCommerce\Blocks\Payments\Integrations\AbstractPaymentMethodType' ) ) {
 			$registry->register( new BlocksIntegration() );
 		}
@@ -158,7 +158,7 @@ final class Checkout {
 	/**
 	 * Registers the front scripts and the style (enqueued only where they are needed).
 	 */
-	public static function register_assets() {
+	public static function register_assets(): void {
 		if ( wp_script_is( self::H_NORMALIZE, 'registered' ) ) {
 			return;
 		}
@@ -173,7 +173,7 @@ final class Checkout {
 	 * The classic checkout and "Pay for order": the payer field script and the style. The Blocks checkout gets its
 	 * own script through BlocksIntegration; the thank-you page enqueues when it prints the box.
 	 */
-	public static function enqueue_checkout() {
+	public static function enqueue_checkout(): void {
 		if ( ! function_exists( 'is_checkout' ) || ! is_checkout() || is_order_received_page() ) {
 			return;
 		}
@@ -196,7 +196,7 @@ final class Checkout {
 	 *
 	 * @param int $order_id Order id.
 	 */
-	public static function thankyou( $order_id ) {
+	public static function thankyou( $order_id ): void {
 		$order = function_exists( 'wc_get_order' ) ? wc_get_order( absint( $order_id ) ) : null;
 		if ( ! $order instanceof \WC_Order || self::METHOD !== $order->get_payment_method() ) {
 			return;
@@ -312,7 +312,7 @@ final class Checkout {
 	 * @return bool
 	 */
 	public static function txn_accepted( \WC_Order $order, ?array $row, int $now ): bool {
-		if ( null === $row || ! class_exists( Claims::class ) || ! method_exists( Claims::class, 'accepts' ) ) {
+		if ( null === $row || ! class_exists( Claims::class ) ) {
 			return false;
 		}
 		try {
@@ -686,10 +686,10 @@ final class Checkout {
 	 * @return array
 	 */
 	public static function thankyou_script_data( Plugin $plugin, \WC_Order $order, array $box, int $now ): array {
-		$config  = $plugin->config();
-		$wallets = isset( $config['wallets'] ) && is_array( $config['wallets'] ) ? $config['wallets'] : array();
-		$placed  = null === $box['placed_at'] ? $now : (int) $box['placed_at'];
-		$stop    = null === $box['stop_at'] ? $now + self::POLL_FAST_UNTIL : (int) $box['stop_at'];
+		$config   = $plugin->config();
+		$wallets  = isset( $config['wallets'] ) && is_array( $config['wallets'] ) ? $config['wallets'] : array();
+		$placed   = null === $box['placed_at'] ? $now : (int) $box['placed_at'];
+		$stop     = null === $box['stop_at'] ? $now + self::POLL_FAST_UNTIL : (int) $box['stop_at'];
 		$fallback = home_url( '/' );
 		return array(
 			'order_id'  => $order->get_id(),
@@ -733,13 +733,15 @@ final class Checkout {
 			),
 			'lines'     => self::status_lines(),
 			'strings'   => array(
-				'copy'          => __( 'Copy', 'qersh-for-woocommerce' ),
-				'copied'        => __( 'Copied', 'qersh-for-woocommerce' ),
-				'sending'       => __( 'Sending…', 'qersh-for-woocommerce' ),
-				'nudge_other'   => __( 'Transferred from another number? Contact the store with your order number so it can attach your transfer.', 'qersh-for-woocommerce' ),
-				'nudge_txn'     => __( 'Transferred? Enter the transaction id above so the store finds your transfer.', 'qersh-for-woocommerce' ),
-				'txn_errors'    => self::txn_error_texts( $order ),
-				'txn_saved'     => self::status_lines()['saved'],
+				'copy'        => __( 'Copy', 'qersh-for-woocommerce' ),
+				'copied'      => __( 'Copied', 'qersh-for-woocommerce' ),
+				'sending'     => __( 'Sending…', 'qersh-for-woocommerce' ),
+				'nudge_other' => __( 'Transferred from another number? Contact the store with your order number so it can attach your transfer.', 'qersh-for-woocommerce' ),
+				'nudge_txn'   => __( 'Transferred? Enter the transaction id above so the store finds your transfer.', 'qersh-for-woocommerce' ),
+				'txn_errors'  => self::txn_error_texts( $order ),
+				'txn_saved'   => self::status_lines()['saved'],
+				/* translators: %s: the transaction id read from what the customer entered or pasted. */
+				'will_send'   => __( 'We will send: %s', 'qersh-for-woocommerce' ),
 			),
 		);
 	}
@@ -791,7 +793,7 @@ final class Checkout {
 	 * @param bool      $plain_text    Plain-text email.
 	 * @param object    $email         WC_Email.
 	 */
-	public static function email_confirmed_line( $order, $sent_to_admin = false, $plain_text = false, $email = null ) {
+	public static function email_confirmed_line( $order, $sent_to_admin = false, $plain_text = false, $email = null ): void {
 		if ( $sent_to_admin || ! $order instanceof \WC_Order || self::METHOD !== $order->get_payment_method() ) {
 			return;
 		}

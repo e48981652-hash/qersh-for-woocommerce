@@ -42,7 +42,7 @@ final class EnvelopeTest extends TestCase {
 				return $case;
 			}
 		}
-		throw new \RuntimeException( 'no vector ' . $name );
+		throw new \RuntimeException( 'no vector ' . $name ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- unit test without WordPress (no esc_html()): the message only reaches the PHPUnit report.
 	}
 
 	/**
@@ -72,25 +72,52 @@ final class EnvelopeTest extends TestCase {
 	/**
 	 * Vectors.test.ts: the valid bodies parse as qersh.v1 envelopes; the webhook.test sample sits under data.sample.
 	 */
-	public function test_the_valid_bodies_parse() {
+	public function test_the_valid_bodies_parse(): void {
 		$received = $this->parsed( self::vector( 'valid_transfer_received' )['body'] );
 		$this->assertSame( 'transfer.received', $received['event'] );
 		$this->assertSame( json_decode( self::vector( 'valid_transfer_received' )['body'], true ), $received );
 		$test = $this->parsed( self::vector( 'valid_webhook_test' )['body'] );
 		$this->assertTrue( $test['test'] );
 		$this->assertTrue( Envelope::is_record( $test['data']['sample'] ) );
-		$this->assertSame( array( 'ok' => false, 'reason' => 'invalid_json' ), Envelope::parse( 'not json' ) );
-		$this->assertSame( array( 'ok' => false, 'reason' => 'not_an_object' ), Envelope::parse( '[]' ) );
-		$this->assertSame( array( 'ok' => false, 'reason' => 'not_qersh_v1' ), Envelope::parse( '{"schema":"other"}' ) );
+		$this->assertSame(
+			array(
+				'ok'     => false,
+				'reason' => 'invalid_json',
+			),
+			Envelope::parse( 'not json' )
+		);
+		$this->assertSame(
+			array(
+				'ok'     => false,
+				'reason' => 'not_an_object',
+			),
+			Envelope::parse( '[]' )
+		);
+		$this->assertSame(
+			array(
+				'ok'     => false,
+				'reason' => 'not_qersh_v1',
+			),
+			Envelope::parse( '{"schema":"other"}' )
+		);
 	}
 
 	/**
 	 * ParseEnvelope: what counts as invalid JSON, as not an object, and as not qersh.v1.
 	 */
-	public function test_refusals_follow_the_json_types() {
-		$invalid = array( 'ok' => false, 'reason' => 'invalid_json' );
-		$object  = array( 'ok' => false, 'reason' => 'not_an_object' );
-		$schema  = array( 'ok' => false, 'reason' => 'not_qersh_v1' );
+	public function test_refusals_follow_the_json_types(): void {
+		$invalid = array(
+			'ok'     => false,
+			'reason' => 'invalid_json',
+		);
+		$object  = array(
+			'ok'     => false,
+			'reason' => 'not_an_object',
+		);
+		$schema  = array(
+			'ok'     => false,
+			'reason' => 'not_qersh_v1',
+		);
 		$this->assertSame( $invalid, Envelope::parse( null ) );
 		$this->assertSame( $invalid, Envelope::parse( '' ) );
 		$this->assertSame( $invalid, Envelope::parse( '   ' ) );
@@ -125,20 +152,32 @@ final class EnvelopeTest extends TestCase {
 	/**
 	 * ParseEnvelope on bytes: the UTF-8 decoder drops one byte order mark, parseEnvelope one more U+FEFF.
 	 */
-	public function test_byte_order_marks() {
+	public function test_byte_order_marks(): void {
 		$body = self::vector( 'valid_transfer_received' )['body'];
 		$bom  = "\xEF\xBB\xBF";
 		$this->assertSame( $this->parsed( $body ), $this->parsed( $bom . $body ) );
 		$this->assertSame( $this->parsed( $body ), $this->parsed( $bom . $bom . $body ) );
-		$this->assertSame( array( 'ok' => false, 'reason' => 'invalid_json' ), Envelope::parse( $bom . $bom . $bom . $body ) );
-		$this->assertSame( array( 'ok' => false, 'reason' => 'invalid_json' ), Envelope::parse( ' ' . $bom . $body ) );
+		$this->assertSame(
+			array(
+				'ok'     => false,
+				'reason' => 'invalid_json',
+			),
+			Envelope::parse( $bom . $bom . $bom . $body )
+		);
+		$this->assertSame(
+			array(
+				'ok'     => false,
+				'reason' => 'invalid_json',
+			),
+			Envelope::parse( ' ' . $bom . $body )
+		);
 	}
 
 	/**
 	 * Invalid UTF-8 inside a string becomes U+FFFD, as the core's TextDecoder makes it: one U+FFFD per maximal
 	 * subpart (WHATWG), not one per byte. Outside strings it stays a syntax error.
 	 */
-	public function test_invalid_utf8_inside_a_string_is_replaced() {
+	public function test_invalid_utf8_inside_a_string_is_replaced(): void {
 		$fffd = "\xEF\xBF\xBD";
 		$note = function ( string $bytes ): string {
 			return $this->parsed( self::body( 'transfer.received', '{"note":"a' . $bytes . 'b"}' ) )['data']['note'];
@@ -157,18 +196,36 @@ final class EnvelopeTest extends TestCase {
 		// The name of a field is repaired the same way.
 		$this->assertSame( array( 'n' . $fffd => 1 ), $this->parsed( self::body( 'transfer.received', "{\"n\xF0\x9F\x98\":1}" ) )['data'] );
 		// Outside strings, a U+FFFD is no JSON token.
-		$this->assertSame( array( 'ok' => false, 'reason' => 'invalid_json' ), Envelope::parse( "\xFF" . self::body( 'transfer.received', '{}' ) ) );
-		$this->assertSame( array( 'ok' => false, 'reason' => 'invalid_json' ), Envelope::parse( self::body( 'transfer.received', "{\"a\":1\xF0\x9F\x98}" ) ) );
+		$this->assertSame(
+			array(
+				'ok'     => false,
+				'reason' => 'invalid_json',
+			),
+			Envelope::parse( "\xFF" . self::body( 'transfer.received', '{}' ) )
+		);
+		$this->assertSame(
+			array(
+				'ok'     => false,
+				'reason' => 'invalid_json',
+			),
+			Envelope::parse( self::body( 'transfer.received', "{\"a\":1\xF0\x9F\x98}" ) )
+		);
 		// A byte order mark, then invalid UTF-8.
 		$this->assertSame( 'a' . $fffd . 'b', $this->parsed( "\xEF\xBB\xBF" . self::body( 'transfer.received', "{\"note\":\"a\xE2\x82b\"}" ) )['data']['note'] );
-		$this->assertSame( array( 'ok' => false, 'reason' => 'invalid_json' ), Envelope::parse( "\xEF\xBB" . self::body( 'transfer.received', '{}' ) ) );
+		$this->assertSame(
+			array(
+				'ok'     => false,
+				'reason' => 'invalid_json',
+			),
+			Envelope::parse( "\xEF\xBB" . self::body( 'transfer.received', '{}' ) )
+		);
 	}
 
 	/**
 	 * JSON.parse accepts a lone surrogate escape; PHP's decoder refuses it (JSON_ERROR_UTF16). It reads as U+FFFD,
 	 * the UTF-8 form of the core's string, and a pair stays one character.
 	 */
-	public function test_lone_surrogate_escapes() {
+	public function test_lone_surrogate_escapes(): void {
 		$fffd = "\xEF\xBF\xBD";
 		$note = function ( string $escaped ): string {
 			return $this->parsed( self::body( 'transfer.received', '{"note":"a' . $escaped . 'b"}' ) )['data']['note'];
@@ -177,8 +234,9 @@ final class EnvelopeTest extends TestCase {
 		$this->assertSame( 'a' . $fffd . 'b', $note( '\udfff' ) );
 		$this->assertSame( 'a' . $fffd . 'b', $note( '\uD83D' ) );
 		$this->assertSame( 'a' . $fffd . $fffd . 'b', $note( '\ude00\ud83d' ) ); // low then high: two lone surrogates
+		$this->assertSame( "a\xF0\x9F\x98\x80b", $note( '\ud83d\ude00' ) ); // an escaped pair: one character
 		$this->assertSame( "a\xF0\x9F\x98\x80b", $note( '😀' ) );
-		$this->assertSame( "a\xF0\x9F\x98\x80b", $note( '😀' ) );
+		$this->assertSame( 'a' . $fffd . "\xF0\x9F\x98\x80b", $note( '\ud83d\ud83d\ude00' ) );
 		$this->assertSame( 'a' . $fffd . "\xF0\x9F\x98\x80b", $note( '\ud83d😀' ) );
 		$this->assertSame( 'a' . $fffd . 'xb', $note( '\ud83dx' ) );
 		$this->assertSame( 'a' . $fffd . '\\b', $note( '\ud83d\\\\' ) );
@@ -191,18 +249,42 @@ final class EnvelopeTest extends TestCase {
 		$summary = Envelope::summarize( $this->parsed( self::body( 'transfer.received', '{"counterparty":{"name":"Ahmed \ud800","number":"01012345678"}}' ) ) );
 		$this->assertSame( 'Ahmed ' . $fffd, $summary['transfer']['payer']['name'] );
 		$this->assertSame( '01012345678', $summary['transfer']['payer']['key'] );
-		$this->assertSame( array( 'ok' => false, 'reason' => 'not_qersh_v1' ), Envelope::parse( '{"schema":"qersh.v1","event":"e\ud800","delivery_id":"d","created_at":"c","wallet":{"id":"w","provider":"p"},"data":[]}' ) );
-		$this->assertSame( array( 'ok' => false, 'reason' => 'not_an_object' ), Envelope::parse( '["\ud800"]' ) );
+		$this->assertSame(
+			array(
+				'ok'     => false,
+				'reason' => 'not_qersh_v1',
+			),
+			Envelope::parse( '{"schema":"qersh.v1","event":"e\ud800","delivery_id":"d","created_at":"c","wallet":{"id":"w","provider":"p"},"data":[]}' )
+		);
+		$this->assertSame(
+			array(
+				'ok'     => false,
+				'reason' => 'not_an_object',
+			),
+			Envelope::parse( '["\ud800"]' )
+		);
 		// Outside strings an escape stays a syntax error.
-		$this->assertSame( array( 'ok' => false, 'reason' => 'invalid_json' ), Envelope::parse( '{"a":\ud800}' ) );
-		$this->assertSame( array( 'ok' => false, 'reason' => 'invalid_json' ), Envelope::parse( self::body( 'transfer.received', '{"a":"\ud80"}' ) ) );
+		$this->assertSame(
+			array(
+				'ok'     => false,
+				'reason' => 'invalid_json',
+			),
+			Envelope::parse( '{"a":\ud800}' )
+		);
+		$this->assertSame(
+			array(
+				'ok'     => false,
+				'reason' => 'invalid_json',
+			),
+			Envelope::parse( self::body( 'transfer.received', '{"a":"\ud80"}' ) )
+		);
 	}
 
 	/**
 	 * JSON.parse accepts a name that starts with NUL; a PHP object cannot hold one (JSON_ERROR_INVALID_PROPERTY_NAME),
 	 * so the shape checks read it differently, and the envelope keeps the real name.
 	 */
-	public function test_names_that_start_with_nul() {
+	public function test_names_that_start_with_nul(): void {
 		$envelope = $this->parsed( self::body( 'transfer.received', '{"\u0000a":1,"\u0001a":2,"x":{"\u0000":"\u0000"}}' ) );
 		$this->assertSame(
 			array(
@@ -215,10 +297,34 @@ final class EnvelopeTest extends TestCase {
 		$top = $this->parsed( '{"\u0000":5,' . substr( self::body( 'e', '{}' ), 1 ) );
 		$this->assertSame( 5, $top["\0"] );
 		$this->assertSame( 'qersh.v1', $top['schema'] );
-		$this->assertSame( array( 'ok' => false, 'reason' => 'not_qersh_v1' ), Envelope::parse( '{"\u0000":1,"schema":"qersh.v1","event":"e","delivery_id":"d","created_at":"c","wallet":{"id":"w","provider":"p"},"data":[]}' ) );
-		$this->assertSame( array( 'ok' => false, 'reason' => 'not_qersh_v1' ), Envelope::parse( '{"schema":"qersh.v1\u0000","event":"e","delivery_id":"d","created_at":"c","wallet":{"id":"w","provider":"p","\u0000":1},"data":{}}' ) );
-		$this->assertSame( array( 'ok' => false, 'reason' => 'not_an_object' ), Envelope::parse( '[{"\u0000":1}]' ) );
-		$this->assertSame( array( 'ok' => false, 'reason' => 'invalid_json' ), Envelope::parse( '{"\u0000":1,}' ) );
+		$this->assertSame(
+			array(
+				'ok'     => false,
+				'reason' => 'not_qersh_v1',
+			),
+			Envelope::parse( '{"\u0000":1,"schema":"qersh.v1","event":"e","delivery_id":"d","created_at":"c","wallet":{"id":"w","provider":"p"},"data":[]}' )
+		);
+		$this->assertSame(
+			array(
+				'ok'     => false,
+				'reason' => 'not_qersh_v1',
+			),
+			Envelope::parse( '{"schema":"qersh.v1\u0000","event":"e","delivery_id":"d","created_at":"c","wallet":{"id":"w","provider":"p","\u0000":1},"data":{}}' )
+		);
+		$this->assertSame(
+			array(
+				'ok'     => false,
+				'reason' => 'not_an_object',
+			),
+			Envelope::parse( '[{"\u0000":1}]' )
+		);
+		$this->assertSame(
+			array(
+				'ok'     => false,
+				'reason' => 'invalid_json',
+			),
+			Envelope::parse( '{"\u0000":1,}' )
+		);
 		// An escaped backslash before "u0000" is text.
 		$this->assertSame( array( '\\u0000' => 1 ), $this->parsed( self::body( 'transfer.received', '{"\\\\u0000":1}' ) )['data'] );
 	}
@@ -226,20 +332,26 @@ final class EnvelopeTest extends TestCase {
 	/**
 	 * JSON.parse has no nesting limit; json_decode is allowed far more than its default 512 levels.
 	 */
-	public function test_deep_nesting() {
+	public function test_deep_nesting(): void {
 		$deep     = str_repeat( '[', 600 ) . '1' . str_repeat( ']', 600 );
 		$envelope = $this->parsed( self::body( 'transfer.received', '{"deep":' . $deep . ',"amount_minor":5}' ) );
 		$this->assertSame( json_decode( $deep, true, 1000 ), $envelope['data']['deep'] );
 		$this->assertSame( 5, Envelope::summarize( $envelope )['transfer']['amount_minor'] );
 		$objects = str_repeat( '{"a":', 1000 ) . '1' . str_repeat( '}', 1000 );
 		$this->assertTrue( Envelope::parse( self::body( 'transfer.received', '{"deep":' . $objects . '}' ) )['ok'] );
-		$this->assertSame( array( 'ok' => false, 'reason' => 'not_qersh_v1' ), Envelope::parse( self::body( 'transfer.received', '[' . $deep . ']' ) ) );
+		$this->assertSame(
+			array(
+				'ok'     => false,
+				'reason' => 'not_qersh_v1',
+			),
+			Envelope::parse( self::body( 'transfer.received', '[' . $deep . ']' ) )
+		);
 	}
 
 	/**
 	 * Summarize.test.ts: transfer.received becomes one item with the contract names plus payer.key.
 	 */
-	public function test_summarize_transfer_received() {
+	public function test_summarize_transfer_received(): void {
 		$case     = self::vector( 'valid_transfer_received' );
 		$envelope = $this->parsed( $case['body'] );
 		$lower    = array();
@@ -291,7 +403,7 @@ final class EnvelopeTest extends TestCase {
 	/**
 	 * Summarize.test.ts: webhook.test takes its transfer from data.sample and is flagged as a test.
 	 */
-	public function test_summarize_webhook_test() {
+	public function test_summarize_webhook_test(): void {
 		$item = Envelope::summarize( $this->parsed( self::vector( 'valid_webhook_test' )['body'] ), null, null );
 		$this->assertTrue( $item['test'] );
 		$this->assertSame( 100, $item['transfer']['amount_minor'] );
@@ -305,7 +417,7 @@ final class EnvelopeTest extends TestCase {
 	/**
 	 * Summarize.test.ts: transfer.updated keeps what arrived and raises suspected_forgery.
 	 */
-	public function test_summarize_transfer_updated() {
+	public function test_summarize_transfer_updated(): void {
 		$envelope = $this->parsed( self::body( 'transfer.updated', '{"transfer_id":"trf_1","updated_fields":["checks.balance_chain"],"checks":{"balance_chain":"refuted"},"risk":"high","risk_reasons":["balance_inconsistent","suspected_forgery"],"auto_confirm_ok":false}' ) );
 		$item     = Envelope::summarize(
 			$envelope,
@@ -348,7 +460,7 @@ final class EnvelopeTest extends TestCase {
 	/**
 	 * Summarize.test.ts: other events have no transfer; headers are read case-insensitively and bad values become null.
 	 */
-	public function test_summarize_other_events_and_bad_header_values() {
+	public function test_summarize_other_events_and_bad_header_values(): void {
 		$envelope = $this->parsed( '{"schema":"qersh.v1","event":"device.heartbeat","delivery_id":"d2","created_at":"2026-10-11T16:40:00+03:00","wallet":{"id":"wlt_x","provider":"instapay_app","number_masked":"0100****776"},"data":{"seq":4}}' );
 		$item     = Envelope::summarize(
 			$envelope,
@@ -369,7 +481,7 @@ final class EnvelopeTest extends TestCase {
 	/**
 	 * Summarize.test.ts: the kit spellings of a payer number or handle reach `payer.key` (normalizePayer).
 	 */
-	public function test_payer_key_spellings() {
+	public function test_payer_key_spellings(): void {
 		$key_of = function ( $number, $handle = null ) {
 			$cp = array( 'number' => $number );
 			if ( null !== $handle ) {
@@ -396,7 +508,7 @@ final class EnvelopeTest extends TestCase {
 	/**
 	 * DeliveryHeaders: names in any case, with dashes or WordPress's underscores, values as strings or lists.
 	 */
-	public function test_delivery_headers() {
+	public function test_delivery_headers(): void {
 		$empty = array(
 			'delivery'    => null,
 			'attempt'     => null,
@@ -426,10 +538,40 @@ final class EnvelopeTest extends TestCase {
 		$this->assertSame( 'abc', Envelope::delivery_headers( array( 'X_Qersh_Delivery' => 'abc' ) )['delivery'] );
 		$this->assertSame( 'abc', Envelope::delivery_headers( array( 'X-QERSH-DELIVERY' => 'abc' ) )['delivery'] );
 		// A null value falls through to the scan, where the first name that matches decides (as in the core).
-		$this->assertNull( Envelope::delivery_headers( array( 'x-qersh-delivery' => null, 'X-Qersh-Delivery' => 'abc' ) )['delivery'] );
-		$this->assertNull( Envelope::delivery_headers( array( 'X-Qersh-Delivery' => null, 'x-Qersh-Delivery' => 'abc' ) )['delivery'] );
-		$this->assertSame( 'abc', Envelope::delivery_headers( array( 'X-Qersh-Delivery' => 'x', 'x-qersh-delivery' => 'abc' ) )['delivery'] );
-		$this->assertSame( 'abc', Envelope::delivery_headers( array( 'x_qersh_delivery' => 'abc', 'X-Qersh-Delivery' => 'x' ) )['delivery'] );
+		$this->assertNull(
+			Envelope::delivery_headers(
+				array(
+					'x-qersh-delivery' => null,
+					'X-Qersh-Delivery' => 'abc',
+				)
+			)['delivery']
+		);
+		$this->assertNull(
+			Envelope::delivery_headers(
+				array(
+					'X-Qersh-Delivery' => null,
+					'x-Qersh-Delivery' => 'abc',
+				)
+			)['delivery']
+		);
+		$this->assertSame(
+			'abc',
+			Envelope::delivery_headers(
+				array(
+					'X-Qersh-Delivery' => 'x',
+					'x-qersh-delivery' => 'abc',
+				)
+			)['delivery']
+		);
+		$this->assertSame(
+			'abc',
+			Envelope::delivery_headers(
+				array(
+					'x_qersh_delivery' => 'abc',
+					'X-Qersh-Delivery' => 'x',
+				)
+			)['delivery']
+		);
 		$this->assertNull( Envelope::delivery_headers( array( 'x-qersh-delivery' => array( 5 ) ) )['delivery'] );
 		$this->assertNull( Envelope::delivery_headers( array( 'x-qersh-delivery' => array() ) )['delivery'] );
 		$this->assertNull( Envelope::delivery_headers( array( 'x-qersh-delivery' => 5 ) )['delivery'] );
@@ -463,7 +605,7 @@ final class EnvelopeTest extends TestCase {
 	/**
 	 * SummarizeTransfer: each field keeps its JSON type or becomes null.
 	 */
-	public function test_summarize_transfer_types() {
+	public function test_summarize_transfer_types(): void {
 		$this->assertNull( Envelope::summarize_transfer( null ) );
 		$this->assertNull( Envelope::summarize_transfer( 'x' ) );
 		$this->assertNull( Envelope::summarize_transfer( array( 1, 2 ) ) );
@@ -500,7 +642,7 @@ final class EnvelopeTest extends TestCase {
 	/**
 	 * Summarize: the event decides whether there is a transfer; test, webhook_url and missing fields.
 	 */
-	public function test_summarize_event_rules() {
+	public function test_summarize_event_rules(): void {
 		$sent = Envelope::summarize( $this->parsed( self::body( 'transfer.sent', '{"transfer_id":"trf_2","direction":"out"}' ) ) );
 		$this->assertSame( 'out', $sent['transfer']['direction'] );
 		$sample_string = Envelope::summarize( $this->parsed( self::body( 'webhook.test', '{"sample":"x"}' ) ) );
@@ -510,7 +652,7 @@ final class EnvelopeTest extends TestCase {
 		$this->assertNull( $no_sample['transfer'] );
 		$this->assertSame( array(), $no_sample['data'] );
 		$this->assertNull( Envelope::summarize( $this->parsed( self::body( 'transferX', '{"transfer_id":"t"}' ) ) )['transfer'] );
-		$flagged = $this->parsed( self::body( 'device.heartbeat', '{}' ) );
+		$flagged         = $this->parsed( self::body( 'device.heartbeat', '{}' ) );
 		$flagged['test'] = true;
 		$this->assertTrue( Envelope::summarize( $flagged )['test'] );
 		$flagged['test'] = 'true';
@@ -518,7 +660,12 @@ final class EnvelopeTest extends TestCase {
 		$this->assertNull( Envelope::summarize( $flagged, null, '' )['webhook_url'] );
 		$this->assertSame( 'https://shop.example/x', Envelope::summarize( $flagged, null, 'https://shop.example/x' )['webhook_url'] );
 		// A hand-built array without the required fields still summarises, with nulls.
-		$bare = Envelope::summarize( array( 'event' => 7, 'data' => 'x' ) );
+		$bare = Envelope::summarize(
+			array(
+				'event' => 7,
+				'data'  => 'x',
+			)
+		);
 		$this->assertSame( '', $bare['event'] );
 		$this->assertSame( array(), $bare['data'] );
 		$this->assertNull( $bare['delivery_id'] );
@@ -532,7 +679,7 @@ final class EnvelopeTest extends TestCase {
 	 * Summarize after parse(): `data` is a JSON object even when its names are "0".."n-1", which PHP decodes like a
 	 * list. Deeper down that cannot be told, and the accepted difference errs on the side that stops the order.
 	 */
-	public function test_summarize_objects_that_look_like_lists() {
+	public function test_summarize_objects_that_look_like_lists(): void {
 		$received = Envelope::summarize( $this->parsed( self::body( 'transfer.received', '{"0":"x"}' ) ) );
 		$this->assertSame( array( 'x' ), $received['data'] );
 		$this->assertNotNull( $received['transfer'] );
@@ -558,7 +705,7 @@ final class EnvelopeTest extends TestCase {
 	/**
 	 * Is_record and is_list: how decoded JSON objects and arrays are told apart.
 	 */
-	public function test_records_and_lists() {
+	public function test_records_and_lists(): void {
 		$this->assertTrue( Envelope::is_record( array() ) );
 		$this->assertTrue( Envelope::is_record( array( 'a' => 1 ) ) );
 		$this->assertTrue( Envelope::is_record( array( 1 => 'a' ) ) );
@@ -568,7 +715,14 @@ final class EnvelopeTest extends TestCase {
 		$this->assertTrue( Envelope::is_list( array() ) );
 		$this->assertTrue( Envelope::is_list( array( 'a', 'b' ) ) );
 		$this->assertFalse( Envelope::is_list( array( 1 => 'a' ) ) );
-		$this->assertFalse( Envelope::is_list( array( 1 => 'b', 0 => 'a' ) ) );
+		$this->assertFalse(
+			Envelope::is_list(
+				array(
+					1 => 'b',
+					0 => 'a',
+				)
+			)
+		);
 		$this->assertFalse( Envelope::is_list( 'a' ) );
 	}
 }

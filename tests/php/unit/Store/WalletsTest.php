@@ -35,7 +35,7 @@ final class WalletsTest extends TestCase {
 	 */
 	protected function set_up() {
 		parent::set_up();
-		$this->wpdb       = new FakeWpdb();
+		$this->wpdb      = new FakeWpdb();
 		$GLOBALS['wpdb'] = $this->wpdb;
 	}
 
@@ -48,7 +48,7 @@ final class WalletsTest extends TestCase {
 	}
 
 	/** Unknown, active, deleted for less than 72 hours (404), then gone (410). */
-	public function test_gone_state() {
+	public function test_gone_state(): void {
 		$this->assertSame( 'unknown', Wallets::gone_state( null, self::NOW ) );
 		$this->assertSame( 'active', Wallets::gone_state( array( 'state' => 'active' ), self::NOW ) );
 		$deleted = array(
@@ -59,11 +59,21 @@ final class WalletsTest extends TestCase {
 		$this->assertSame( 'deleted_recent', Wallets::gone_state( $deleted, self::NOW ) );
 		$deleted['gone_at'] = self::NOW;
 		$this->assertSame( 'gone', Wallets::gone_state( $deleted, self::NOW ), 'at 72 hours exactly it is gone' );
-		$this->assertSame( 'deleted_recent', Wallets::gone_state( array( 'state' => 'deleted', 'deleted_at' => self::NOW - 10, 'gone_at' => null ), self::NOW ) );
+		$this->assertSame(
+			'deleted_recent',
+			Wallets::gone_state(
+				array(
+					'state'      => 'deleted',
+					'deleted_at' => self::NOW - 10,
+					'gone_at'    => null,
+				),
+				self::NOW
+			)
+		);
 	}
 
 	/** gone() reads the row. */
-	public function test_gone_reads_row() {
+	public function test_gone_reads_row(): void {
 		$this->wpdb->on(
 			'/^SELECT \* FROM `wp_qersh_wallets` WHERE wallet = /',
 			array(
@@ -77,7 +87,7 @@ final class WalletsTest extends TestCase {
 	}
 
 	/** touch() writes only runtime columns, in one UPDATE, with JSON for the device state. */
-	public function test_touch() {
+	public function test_touch(): void {
 		( new Wallets() )->touch(
 			'k7q2m9x4p1rz',
 			array(
@@ -88,14 +98,21 @@ final class WalletsTest extends TestCase {
 			)
 		);
 		$this->assertSame(
-			"UPDATE `wp_qersh_wallets` SET last_delivery_at = " . self::NOW . ", last_device_state = '{\\\"sms_permission\\\":true}', seen_form = 'rest_route' WHERE wallet = 'k7q2m9x4p1rz'",
+			'UPDATE `wp_qersh_wallets` SET last_delivery_at = ' . self::NOW . ", last_device_state = '{\\\"sms_permission\\\":true}', seen_form = 'rest_route' WHERE wallet = 'k7q2m9x4p1rz'",
 			$this->wpdb->queries[0]
 		);
 	}
 
 	/** Deleting keeps the first deletion time: only an active row changes. */
-	public function test_mark_deleted() {
-		( new Wallets() )->mark_deleted( 'k7q2m9x4p1rz', self::NOW, array( 'id' => 'k7q2m9x4p1rz', 'label' => 'فودافون' ) );
+	public function test_mark_deleted(): void {
+		( new Wallets() )->mark_deleted(
+			'k7q2m9x4p1rz',
+			self::NOW,
+			array(
+				'id'    => 'k7q2m9x4p1rz',
+				'label' => 'فودافون',
+			)
+		);
 		$this->assertSame( "INSERT IGNORE INTO `wp_qersh_wallets` (wallet, state) VALUES ('k7q2m9x4p1rz', 'active')", $this->wpdb->queries[0] );
 		$this->assertSame(
 			"UPDATE `wp_qersh_wallets` SET state = 'deleted', deleted_at = " . self::NOW . ', gone_at = ' . ( self::NOW + 259200 ) . ", key_erased_at = NULL, snapshot = '{\\\"id\\\":\\\"k7q2m9x4p1rz\\\",\\\"label\\\":\\\"فودافون\\\"}' WHERE wallet = 'k7q2m9x4p1rz' AND state = 'active'",
@@ -107,7 +124,7 @@ final class WalletsTest extends TestCase {
 	 * Each deletion starts a new seal period (docs/17 §4.4 step 3, §4.8): delete, the cleanup erases the key after 72
 	 * hours, restore, delete again, and the cleanup erases the second sealed key 72 hours after the second deletion.
 	 */
-	public function test_second_deletion_is_erased_again() {
+	public function test_second_deletion_is_erased_again(): void {
 		$row = $this->install_wallet_table();
 		$w   = new Wallets();
 		$id  = 'k7q2m9x4p1rz';
@@ -191,7 +208,7 @@ final class WalletsTest extends TestCase {
 					}
 					return 1;
 				}
-				throw new \LogicException( 'unexpected statement: ' . $sql );
+				throw new \LogicException( 'unexpected statement: ' . $sql ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- unit test without WordPress (no esc_html()): the message only reaches the PHPUnit report.
 			},
 			'',
 			true

@@ -40,4 +40,5 @@ add_filter( 'woocommerce_defer_transactional_emails', array( \QershPay\WooCommer
 
 add_action( 'before_woocommerce_init', array( \QershPay\WooCommerce\Plugin::class, 'declare_compatibility' ) );
 register_activation_hook( QERSH_WC_FILE, array( \QershPay\WooCommerce\Plugin::class, 'activate' ) );
+register_deactivation_hook( QERSH_WC_FILE, array( \QershPay\WooCommerce\Plugin::class, 'deactivate' ) );
 add_action( 'plugins_loaded', array( \QershPay\WooCommerce\Plugin::class, 'boot' ), 20 );

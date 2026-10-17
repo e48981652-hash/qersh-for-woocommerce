@@ -20,6 +20,8 @@
 
 declare( strict_types=1 );
 
+// phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fwrite -- a command-line filter without WordPress: it writes STDOUT and STDERR.
+
 use QershPay\WooCommerce\Core\Config;
 use QershPay\WooCommerce\Core\Envelope;
 use QershPay\WooCommerce\Core\Matcher;
@@ -227,7 +229,7 @@ set_error_handler(
 		if ( ! ( error_reporting() & $errno ) ) {
 			return false; // silenced with @ on purpose
 		}
-		throw new \ErrorException( $errstr, 0, $errno, $errfile, $errline );
+		throw new \ErrorException( $errstr, 0, $errno, $errfile, $errline ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- PHP's own warning, returned as the case's error in the JSON on stdout; no WordPress here.
 	}
 );
 

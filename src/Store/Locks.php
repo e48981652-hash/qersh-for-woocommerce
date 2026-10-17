@@ -44,6 +44,7 @@ final class Locks {
 	 *
 	 * @param int $before UTC seconds.
 	 * @return int Rows deleted.
+	 * @throws \LogicException Inside a transaction.
 	 */
 	public function purge( int $before ): int {
 		$db = $this->db();

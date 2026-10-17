@@ -23,7 +23,7 @@ class OrangeClaimTest extends TestCase {
 	 * @return array `[ 'raw' => string, 'txn' => string ]`
 	 */
 	private static function pasted_message() {
-		$vectors = json_decode( (string) file_get_contents( QERSH_WC_TESTS_ROOT . '/tests/vectors/txn-normalize.json' ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		$vectors = json_decode( (string) file_get_contents( QERSH_WC_TESTS_ROOT . '/tests/vectors/txn-normalize.json' ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- a fixture file of this repository.
 		foreach ( $vectors as $v ) {
 			if ( 0 === strpos( $v['name'], 'C1 ' ) && ! empty( $v['expect']['ok'] ) && self::ORANGE_PAYER === $v['payer_key'] ) {
 				$old = (string) $v['expect']['txn'];
@@ -70,7 +70,7 @@ class OrangeClaimTest extends TestCase {
 	/**
 	 * The customer pastes the whole message first; the delivery then matches the order by the id.
 	 */
-	public function test_claim_before_the_delivery_matches_by_the_id() {
+	public function test_claim_before_the_delivery_matches_by_the_id(): void {
 		$wallet  = $this->orange_wallet();
 		$message = self::pasted_message();
 		$order   = $this->order( $this->product( '140' ), self::ORANGE_PAYER );
@@ -99,7 +99,7 @@ class OrangeClaimTest extends TestCase {
 	 * The delivery first: review/no_payer; the id typed after it is evaluated outside the customer's request, the
 	 * order is paid, and the wallet's next reply carries the matched status update.
 	 */
-	public function test_claim_after_the_delivery_is_evaluated_and_reported_to_the_phone() {
+	public function test_claim_after_the_delivery_is_evaluated_and_reported_to_the_phone(): void {
 		$wallet  = $this->orange_wallet();
 		$message = self::pasted_message();
 		$order   = $this->order( $this->product( '140' ), self::ORANGE_PAYER );
@@ -144,7 +144,7 @@ class OrangeClaimTest extends TestCase {
 	/**
 	 * A Vodafone Cash order takes no transaction id: the route's one 404.
 	 */
-	public function test_a_vodafone_order_takes_no_id() {
+	public function test_a_vodafone_order_takes_no_id(): void {
 		$wallet = $this->vodafone_wallet();
 		$order  = $this->order( $this->product( '100' ) );
 		$this->assertSame( 'success', $this->pay( $order, '01122334411', $wallet['id'] )['result'] );

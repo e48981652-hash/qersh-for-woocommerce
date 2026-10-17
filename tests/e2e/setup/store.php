@@ -15,7 +15,8 @@
 
 if ( ! defined( 'ABSPATH' ) ) {
 	require dirname( __DIR__, 2 ) . '/local/lib/bootstrap.php';
-	$args = $qersh_local_args; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
+	/** @var string[] $qersh_local_args Set by tests/local/lib/bootstrap.php. */
+	$args = $qersh_local_args; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- the name wp eval-file gives the arguments.
 }
 defined( 'ABSPATH' ) || exit;
 
@@ -78,8 +79,8 @@ foreach ( $qersh_e2e_pages as $qersh_e2e_name => $qersh_e2e_page ) {
 
 $qersh_e2e_products = array();
 foreach ( array( '100', '139.50', '140', '1500' ) as $qersh_e2e_price ) {
-	$qersh_e2e_name  = 'Qersh e2e ' . $qersh_e2e_price;
-	$qersh_e2e_found = wc_get_products(
+	$qersh_e2e_name    = 'Qersh e2e ' . $qersh_e2e_price;
+	$qersh_e2e_found   = wc_get_products(
 		array(
 			'name'   => $qersh_e2e_name,
 			'limit'  => 1,

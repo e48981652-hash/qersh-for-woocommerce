@@ -50,13 +50,6 @@ final class Secrets {
 	const SLOTS = array( 'pending', 'current', 'previous' );
 
 	/**
-	 * The plugin, if any.
-	 *
-	 * @var Plugin|null
-	 */
-	private $plugin;
-
-	/**
 	 * Records read in this request, by wallet (false = none).
 	 *
 	 * @var array<string, array|false>
@@ -64,12 +57,12 @@ final class Secrets {
 	private $records = array();
 
 	/**
-	 * Builds the service.
+	 * Builds the service. It needs nothing from the plugin; the parameter is the container's `new X( $plugin )`.
 	 *
-	 * @param Plugin|null $plugin The plugin.
+	 * @param Plugin|null $plugin The plugin (not used).
 	 */
 	public function __construct( $plugin = null ) {
-		$this->plugin = $plugin;
+		unset( $plugin );
 	}
 
 	/**
@@ -110,8 +103,8 @@ final class Secrets {
 	}
 
 	/**
-	 * keys_for() with the slot of each key, so the caller knows that the key at Verifier's key_index was the pending
-	 * one (then promote_pending()).
+	 * The keys of keys_for() with the slot of each key, so the caller knows that the key at Verifier's key_index
+	 * was the pending one (then promote_pending()).
 	 *
 	 * @param string $wallet Wallet id.
 	 * @param int    $now    UTC seconds.
@@ -230,7 +223,7 @@ final class Secrets {
 	 * @param string $key    Key (trimmed; must pass Config::is_acceptable_key()).
 	 * @param int    $now    UTC seconds.
 	 */
-	public function set_current( string $wallet, string $key, int $now ) {
+	public function set_current( string $wallet, string $key, int $now ): void {
 		$key    = $this->checked( $wallet, $key );
 		$record = $this->read( $wallet );
 		$record = null === $record ? self::blank() : $record;
@@ -253,7 +246,7 @@ final class Secrets {
 	 * @param string $key    Key.
 	 * @param int    $now    UTC seconds.
 	 */
-	public function set_pending( string $wallet, string $key, int $now ) {
+	public function set_pending( string $wallet, string $key, int $now ): void {
 		$key    = $this->checked( $wallet, $key );
 		$record = $this->read( $wallet );
 		if ( null === $record || ! empty( $record['sealed_at'] ) || null === $this->reveal( $record, 'current' ) ) {
@@ -274,7 +267,7 @@ final class Secrets {
 	 * @param string $wallet Wallet id.
 	 * @param int    $now    UTC seconds.
 	 */
-	public function promote_pending( string $wallet, int $now ) {
+	public function promote_pending( string $wallet, int $now ): void {
 		$record = $this->read( $wallet );
 		if ( null === $record ) {
 			return;
@@ -297,7 +290,7 @@ final class Secrets {
 	 *
 	 * @param string $wallet Wallet id.
 	 */
-	public function cancel_pending( string $wallet ) {
+	public function cancel_pending( string $wallet ): void {
 		$record = $this->read( $wallet );
 		if ( null === $record || empty( $record['pending'] ) ) {
 			return;
@@ -313,7 +306,7 @@ final class Secrets {
 	 * @param string $wallet Wallet id.
 	 * @param int    $now    UTC seconds.
 	 */
-	public function seal( string $wallet, int $now ) {
+	public function seal( string $wallet, int $now ): void {
 		$record = $this->read( $wallet );
 		if ( null === $record ) {
 			return;
@@ -330,7 +323,7 @@ final class Secrets {
 	 *
 	 * @param string $wallet Wallet id.
 	 */
-	public function unseal( string $wallet ) {
+	public function unseal( string $wallet ): void {
 		$record = $this->read( $wallet );
 		if ( null === $record || empty( $record['sealed_at'] ) ) {
 			return;
@@ -350,7 +343,7 @@ final class Secrets {
 	 * @param string $wallet Wallet id.
 	 * @throws \RuntimeException When a surviving copy cannot be overwritten either (the caller may try again later).
 	 */
-	public function erase( string $wallet ) {
+	public function erase( string $wallet ): void {
 		unset( $this->records[ $wallet ] );
 		delete_option( self::option_name( $wallet ) );
 		if ( self::wp_store_available() ) {
@@ -449,6 +442,7 @@ final class Secrets {
 	 * @param string $wallet Wallet id.
 	 * @param string $key    Key.
 	 * @return string The trimmed key.
+	 * @throws \InvalidArgumentException For a malformed wallet id or a key that is not acceptable.
 	 */
 	private function checked( string $wallet, string $key ): string {
 		if ( 1 !== preg_match( '/^[a-z0-9]{12}$/', $wallet ) ) {
@@ -483,7 +477,7 @@ final class Secrets {
 	 * @param string $key    Key.
 	 * @param int    $now    UTC seconds.
 	 */
-	private static function put( array &$record, string $slot, string $key, int $now ) {
+	private static function put( array &$record, string $slot, string $key, int $now ): void {
 		$record[ $slot ]         = 'pt1:' . $key;
 		$record[ $slot . '_fp' ] = Config::fingerprint( $key );
 		$record[ $slot . '_at' ] = $now;
@@ -498,7 +492,7 @@ final class Secrets {
 	 * @param array  $record Record (by reference).
 	 * @param string $slot   Slot.
 	 */
-	private static function clear( array &$record, string $slot ) {
+	private static function clear( array &$record, string $slot ): void {
 		$record[ $slot ]         = null;
 		$record[ $slot . '_fp' ] = null;
 		$record[ $slot . '_at' ] = null;
@@ -573,7 +567,7 @@ final class Secrets {
 	 * @param array  $record Record (keys as `pt1:` or `sb1:`).
 	 * @throws \RuntimeException When no store can keep the key (no secrets API and no LOGGED_IN_* constants).
 	 */
-	private function write( string $wallet, array $record ) {
+	private function write( string $wallet, array $record ): void {
 		$record['v']   = 1;
 		$record['rev'] = (int) $record['rev'] + 1;
 		$box           = self::box_key();
@@ -677,7 +671,7 @@ final class Secrets {
 	 *
 	 * @param string $wallet Wallet id.
 	 */
-	private function wp_store_clear( string $wallet ) {
+	private function wp_store_clear( string $wallet ): void {
 		try {
 			if ( function_exists( 'wp_delete_secret' ) ) {
 				wp_delete_secret( self::WP_SECRET_PREFIX . $wallet );

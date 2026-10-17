@@ -25,7 +25,7 @@ if ( isset( $qersh_local_args[0] ) && is_file( rtrim( str_replace( '\\', '/', $q
 	$qersh_local_site = str_replace( '\\', '/', dirname( $qersh_local_repo ) ) . '/local-site';
 }
 if ( ! is_file( $qersh_local_site . '/wp-load.php' ) ) {
-	fwrite( STDERR, "No WordPress at {$qersh_local_site}. Set QERSH_SITE to the test site directory.\n" );
+	fwrite( STDERR, "No WordPress at {$qersh_local_site}. Set QERSH_SITE to the test site directory.\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite -- WordPress is not loaded yet; the message goes to STDERR.
 	exit( 2 );
 }
 

@@ -92,7 +92,7 @@ final class Payer {
 			return $d;
 		}
 		if ( preg_match( '/^[a-z0-9._-]{2,64}$/', $s ) && preg_match( '/[a-z]/', $s ) ) {
-			return $s . '@instapay'; // handle typed without the suffix
+			return $s . '@instapay'; // handle typed without the suffix.
 		}
 		return null;
 	}
@@ -145,7 +145,7 @@ final class Payer {
 		}
 		if ( is_array( $value ) && self::is_list( $value ) ) {
 			if ( $depth >= self::MAX_DEPTH ) {
-				return ''; // only an array that holds a reference to itself gets here; join() reads a cycle as ''
+				return ''; // only an array that holds a reference to itself gets here; join() reads a cycle as ''.
 			}
 			$parts = array();
 			foreach ( $value as $item ) {
@@ -292,7 +292,11 @@ final class Payer {
 		if ( false !== strpos( self::JS_SPACE_1, $s[ $leading ? $start : $end - 1 ] ) ) {
 			return 1;
 		}
-		foreach ( array( 2 => self::JS_SPACE_2, 3 => self::JS_SPACE_3 ) as $len => $set ) {
+		$sets = array(
+			2 => self::JS_SPACE_2,
+			3 => self::JS_SPACE_3,
+		);
+		foreach ( $sets as $len => $set ) {
 			if ( $end - $start < $len ) {
 				break;
 			}
@@ -321,8 +325,9 @@ final class Payer {
 	 * @return int
 	 */
 	private static function code_unit( string $ch ): int {
-		$bytes = array_values( unpack( 'C*', $ch ) ?: array() );
-		$n     = count( $bytes );
+		$unpacked = unpack( 'C*', $ch );
+		$bytes    = false === $unpacked ? array() : array_values( $unpacked );
+		$n        = count( $bytes );
 		if ( 1 === $n ) {
 			return $bytes[0];
 		}
@@ -332,6 +337,6 @@ final class Payer {
 		if ( 3 === $n ) {
 			return ( ( $bytes[0] & 0x0F ) << 12 ) | ( ( $bytes[1] & 0x3F ) << 6 ) | ( $bytes[2] & 0x3F );
 		}
-		return 0xD800; // astral: JavaScript sees a surrogate, never a digit
+		return 0xD800; // astral: JavaScript sees a surrogate, never a digit.
 	}
 }

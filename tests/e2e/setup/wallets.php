@@ -14,6 +14,8 @@
  * @package QershPay\WooCommerce\Tests
  */
 
+// phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fwrite -- a command-line script: its errors go to STDERR, which WP_Filesystem cannot write.
+
 if ( ! defined( 'ABSPATH' ) ) {
 	require dirname( __DIR__, 2 ) . '/local/lib/bootstrap.php';
 }
@@ -34,10 +36,10 @@ $qersh_e2e_want   = array(
 	),
 );
 
-$qersh_e2e_config['wallets']              = array();
-$qersh_e2e_config['store']['txn_entry']   = true;
+$qersh_e2e_config['wallets']                 = array();
+$qersh_e2e_config['store']['txn_entry']      = true;
 $qersh_e2e_config['store']['allow_key_link'] = true;
-$qersh_e2e_out                            = array( 'wallets' => array() );
+$qersh_e2e_out                               = array( 'wallets' => array() );
 foreach ( $qersh_e2e_want as $qersh_e2e_w ) {
 	$qersh_e2e_id                  = \QershPay\WooCommerce\Core\Config::new_wallet_id();
 	$qersh_e2e_config['wallets'][] = array(
@@ -47,8 +49,8 @@ foreach ( $qersh_e2e_want as $qersh_e2e_w ) {
 		'receive_address' => $qersh_e2e_w['receive_address'],
 		'enabled'         => true,
 	);
-	$qersh_e2e_key                  = \QershPay\WooCommerce\Core\Config::new_key();
-	$qersh_e2e_out['wallets'][]     = array(
+	$qersh_e2e_key                 = \QershPay\WooCommerce\Core\Config::new_key();
+	$qersh_e2e_out['wallets'][]    = array(
 		'id'              => $qersh_e2e_id,
 		'label'           => $qersh_e2e_w['label'],
 		'provider'        => $qersh_e2e_w['provider'],

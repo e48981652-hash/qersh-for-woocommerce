@@ -80,7 +80,7 @@ abstract class TestCase extends \WP_UnitTestCase {
 	/**
 	 * Per-test setup: the savepoint filter, mail capture, the REST server, a clean plugin cache.
 	 */
-	public function set_up() {
+	public function set_up(): void {
 		parent::set_up();
 		add_filter( 'query', array( $this, 'savepoints' ), 0 );
 		add_filter( 'pre_wp_mail', array( $this, 'capture_mail' ), 10, 2 );
@@ -94,10 +94,10 @@ abstract class TestCase extends \WP_UnitTestCase {
 		global $wp_rest_server;
 		if ( null === self::$rest ) {
 			self::$rest     = new \WP_REST_Server();
-			$wp_rest_server = self::$rest; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
+			$wp_rest_server = self::$rest; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- the REST server of the test, as the test library sets it.
 			do_action( 'rest_api_init', self::$rest );
 		}
-		$wp_rest_server = self::$rest; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
+		$wp_rest_server = self::$rest; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- the REST server of the test, as the test library sets it.
 		$this->server   = self::$rest;
 
 		unset( $_POST['qersh_payer'], $_POST['qersh_wallet'] );
@@ -106,10 +106,10 @@ abstract class TestCase extends \WP_UnitTestCase {
 	/**
 	 * Per-test teardown: the savepoint filter goes before the test library's ROLLBACK runs.
 	 */
-	public function tear_down() {
+	public function tear_down(): void {
 		remove_filter( 'query', array( $this, 'savepoints' ), 0 );
 		global $wp_rest_server;
-		$wp_rest_server = null; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
+		$wp_rest_server = null; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- the REST server of the test, as the test library sets it.
 		unset( $_POST['qersh_payer'], $_POST['qersh_wallet'] );
 		$this->plugin->forget_config();
 		parent::tear_down();
@@ -209,7 +209,7 @@ abstract class TestCase extends \WP_UnitTestCase {
 	 *
 	 * @param array $config Configuration.
 	 */
-	protected function save_config( array $config ) {
+	protected function save_config( array $config ): void {
 		$saved = $this->plugin->config_store()->save( $config );
 		$this->assertTrue( true === $saved, 'the configuration was refused: ' . ( is_wp_error( $saved ) ? $saved->get_error_message() : '' ) );
 		$this->plugin->forget_config();
@@ -303,8 +303,8 @@ abstract class TestCase extends \WP_UnitTestCase {
 	 * @return array The method's result.
 	 */
 	protected function pay( $order, $payer, $wallet, $backdate = true ) {
-		$_POST['qersh_payer']  = $payer; // phpcs:ignore WordPress.Security.NonceVerification.Missing
-		$_POST['qersh_wallet'] = $wallet; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$_POST['qersh_payer']  = $payer; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- what the checkout posts, set by the test itself.
+		$_POST['qersh_wallet'] = $wallet; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- what the checkout posts, set by the test itself.
 		$gateway               = new Gateway();
 		$result                = $gateway->process_payment( $order->get_id() );
 		unset( $_POST['qersh_payer'], $_POST['qersh_wallet'] );
@@ -320,9 +320,9 @@ abstract class TestCase extends \WP_UnitTestCase {
 	 * @param int $order_id Order id.
 	 * @param int $seconds  Seconds.
 	 */
-	protected function backdate( $order_id, $seconds ) {
+	protected function backdate( $order_id, $seconds ): void {
 		global $wpdb;
-		$wpdb->query( $wpdb->prepare( 'UPDATE %i SET created_at = created_at - %d WHERE order_id = %d', $wpdb->prefix . 'qersh_orders', $seconds, $order_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$wpdb->query( $wpdb->prepare( 'UPDATE %i SET created_at = created_at - %d WHERE order_id = %d', $wpdb->prefix . 'qersh_orders', $seconds, $order_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- a test reads or sets up the plugin's tables directly.
 	}
 
 	/**
@@ -330,12 +330,12 @@ abstract class TestCase extends \WP_UnitTestCase {
 	 *
 	 * @param int $order_id Order id.
 	 */
-	protected function expire_now( $order_id ) {
+	protected function expire_now( $order_id ): void {
 		global $wpdb;
 		$past = time() - 7 * HOUR_IN_SECONDS;
-		$wpdb->query( $wpdb->prepare( 'UPDATE %i SET expires_at = %d WHERE order_id = %d', $wpdb->prefix . 'qersh_orders', $past, $order_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$wpdb->query( $wpdb->prepare( 'UPDATE %i SET expires_at = %d WHERE order_id = %d', $wpdb->prefix . 'qersh_orders', $past, $order_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- a test reads or sets up the plugin's tables directly.
 		$order = wc_get_order( $order_id );
-		$order->update_meta_data( '_qersh_deadline', $past );
+		$order->update_meta_data( '_qersh_deadline', (string) $past );
 		$order->save();
 	}
 
@@ -391,7 +391,7 @@ abstract class TestCase extends \WP_UnitTestCase {
 	 */
 	protected static function vectors() {
 		if ( null === self::$vectors ) {
-			self::$vectors = json_decode( (string) file_get_contents( QERSH_WC_TESTS_ROOT . '/fixtures/test-vectors.json' ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+			self::$vectors = json_decode( (string) file_get_contents( QERSH_WC_TESTS_ROOT . '/fixtures/test-vectors.json' ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- a fixture file of this repository.
 		}
 		return self::$vectors;
 	}
@@ -408,7 +408,7 @@ abstract class TestCase extends \WP_UnitTestCase {
 				return json_decode( $case['body'], true );
 			}
 		}
-		throw new \RuntimeException( 'no vector ' . $name );
+		throw new \RuntimeException( 'no vector ' . esc_html( $name ) );
 	}
 
 	/**

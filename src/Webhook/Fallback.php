@@ -35,11 +35,11 @@ final class Fallback {
 	);
 
 	/**
-	 * parse_request (priority -1): answers our fallback address and exits; leaves every other request alone.
+	 * On parse_request (priority -1): answers our fallback address and exits; leaves every other request alone.
 	 *
 	 * @param \WP $wp The request.
 	 */
-	public static function maybe_handle( \WP $wp ) {
+	public static function maybe_handle( \WP $wp ): void {
 		unset( $wp );
 		// The webhook is signed (HMAC) and the storefront routes check the order key; there is no session for a nonce.
 		$wc_api = isset( $_GET['wc-api'] ) ? sanitize_key( wp_unslash( $_GET['wc-api'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- signed webhook or order-key route, see above.
@@ -131,8 +131,8 @@ final class Fallback {
 	}
 
 	/**
-	 * qo=status and qo=txn: the cores of the two storefront routes (package C), with the JSON body. They check the
-	 * order key first, then the 2 KB limit of their body, and ask page caches not to store the answer, exactly as
+	 * For qo=status and qo=txn: the cores of the two storefront routes (package C), with the JSON body. They check
+	 * the order key first, then the 2 KB limit of their body, and ask page caches not to store the answer, exactly as
 	 * their REST callbacks do; a body that is not a JSON object is an empty one (their one 404).
 	 *
 	 * @param string $kind `status` or `txn`.
@@ -210,7 +210,7 @@ final class Fallback {
 	 *
 	 * @param array $result A result.
 	 */
-	private static function send( array $result ) {
+	private static function send( array $result ): void {
 		if ( ! headers_sent() ) {
 			nocache_headers();
 			foreach ( $result['headers'] as $name => $value ) {

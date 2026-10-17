@@ -9,6 +9,7 @@
 namespace QershPay\WooCommerce\Emails;
 
 use QershPay\WooCommerce\Admin\Module;
+use QershPay\WooCommerce\Admin\Reasons;
 use QershPay\WooCommerce\Admin\View;
 use QershPay\WooCommerce\Plugin;
 
@@ -119,8 +120,8 @@ class AdminAlert extends \WC_Email {
 	public function get_subject() {
 		$saved   = $this->saved_setting( 'subject' );
 		$subject = '' !== $saved ? $saved : $this->get_default_subject();
-		// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.DynamicHooknameFound -- WooCommerce's own email filter.
-		return apply_filters( 'woocommerce_email_subject_' . $this->id, $this->format_string( $subject ), $this->object, $this );
+		/** This filter is documented in woocommerce/includes/emails/class-wc-email.php */
+		return apply_filters( 'woocommerce_email_subject_' . $this->id, $this->format_string( $subject ), $this->object, $this ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WooCommerce's own email filter, which WC_Email::get_subject() applies too.
 	}
 
 	/**
@@ -131,8 +132,8 @@ class AdminAlert extends \WC_Email {
 	public function get_heading() {
 		$saved   = $this->saved_setting( 'heading' );
 		$heading = '' !== $saved ? $saved : $this->get_default_heading();
-		// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.DynamicHooknameFound -- WooCommerce's own email filter.
-		return apply_filters( 'woocommerce_email_heading_' . $this->id, $this->format_string( $heading ), $this->object, $this );
+		/** This filter is documented in woocommerce/includes/emails/class-wc-email.php */
+		return apply_filters( 'woocommerce_email_heading_' . $this->id, $this->format_string( $heading ), $this->object, $this ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WooCommerce's own email filter, which WC_Email::get_heading() applies too.
 	}
 
 	/**
@@ -161,7 +162,7 @@ class AdminAlert extends \WC_Email {
 	 * @param string $kind Alert kind.
 	 * @param array  $args Its arguments.
 	 */
-	public function trigger( $kind = '', $args = array() ) {
+	public function trigger( $kind = '', $args = array() ): void {
 		$kind = 'silent' === $kind ? 'phone_silent' : (string) $kind;
 		if ( ! in_array( $kind, self::KINDS, true ) ) {
 			return;
@@ -169,11 +170,11 @@ class AdminAlert extends \WC_Email {
 		$this->setup_locale();
 		$this->kind   = $kind;
 		$this->alert  = is_array( $args ) ? $args : array();
-		$this->object = null;
+		$this->object = false; // No order yet; WC_Email::$object is an object or false.
 
 		$order_id = isset( $this->alert['order_id'] ) ? (int) $this->alert['order_id'] : 0;
 		$order    = $order_id > 0 ? wc_get_order( $order_id ) : null;
-		if ( $order ) {
+		if ( $order instanceof \WC_Order ) {
 			$this->object                         = $order;
 			$this->placeholders['{order_number}'] = $order->get_order_number();
 		}
@@ -204,15 +205,17 @@ class AdminAlert extends \WC_Email {
 		};
 		$a     = $this->alert;
 		$lines = array();
-		$order = $this->object;
-		$num   = $order ? $ltr( '#' . $order->get_order_number() ) : '';
+		$order = $this->object instanceof \WC_Order ? $this->object : null;
+		$num   = null !== $order ? $ltr( '#' . $order->get_order_number() ) : '';
 		switch ( $this->kind ) {
 			case 'forgery':
-				$lines[] = $text( __( 'This transfer\'s message is suspected to be forged. Do not deliver the order until you have checked that the money arrived in the wallet app.', 'qersh-for-woocommerce' ) );
+				$lines[] = $text( Reasons::forgery_warning() );
 				break;
 			case 'phone_silent':
 				/* translators: %s: date and time. */
-				$lines[] = sprintf( $text( __( 'The phone of this wallet is suspected to be offline since %s: orders will not be confirmed on their own until it is back.', 'qersh-for-woocommerce' ) ), $ltr( View::time( isset( $a['since'] ) ? (int) $a['since'] : 0 ) . ' ' . __( 'Cairo time', 'qersh-for-woocommerce' ) ) );
+				$when = sprintf( $text( __( '%s Cairo time', 'qersh-for-woocommerce' ) ), $ltr( View::time( isset( $a['since'] ) ? (int) $a['since'] : 0 ) ) );
+				/* translators: %s: date and time. */
+				$lines[] = sprintf( $text( __( 'The phone of this wallet seems to have been offline since %s: orders will not be confirmed on their own until it is back.', 'qersh-for-woocommerce' ) ), $when );
 				if ( ! empty( $a['orders'] ) ) {
 					/* translators: %s: number of orders. */
 					$lines[] = sprintf( $text( _n( '%s order waits for a transfer to this wallet.', '%s orders wait for a transfer to this wallet.', (int) $a['orders'], 'qersh-for-woocommerce' ) ), $ltr( (string) (int) $a['orders'] ) );
@@ -226,7 +229,7 @@ class AdminAlert extends \WC_Email {
 			case 'partial_overdue':
 				/* translators: %s: order number. */
 				$lines[] = sprintf( $text( __( 'Part of the amount of order %s arrived, and the rest did not arrive before the deadline.', 'qersh-for-woocommerce' ) ), $num );
-				if ( $order && function_exists( 'wc_get_order' ) ) {
+				if ( null !== $order ) {
 					try {
 						$row = Plugin::instance()->orders_index()->get( (int) $order->get_id() );
 					} catch ( \Throwable $e ) {
@@ -239,7 +242,7 @@ class AdminAlert extends \WC_Email {
 				}
 				break;
 		}
-		if ( $order && 'phone_silent' !== $this->kind && 'partial_overdue' !== $this->kind ) {
+		if ( null !== $order && 'phone_silent' !== $this->kind && 'partial_overdue' !== $this->kind ) {
 			/* translators: %s: order number. */
 			$lines[] = sprintf( $text( __( 'Order: %s', 'qersh-for-woocommerce' ) ), $num );
 		}
@@ -307,7 +310,7 @@ class AdminAlert extends \WC_Email {
 	/**
 	 * Settings fields: who receives it, and the usual subject, heading and format.
 	 */
-	public function init_form_fields() {
+	public function init_form_fields(): void {
 		/* translators: %s: list of placeholders. */
 		$placeholder_text  = sprintf( __( 'Available placeholders: %s', 'qersh-for-woocommerce' ), '<code>' . implode( '</code>, <code>', array_keys( $this->placeholders ) ) . '</code>' );
 		$this->form_fields = array(

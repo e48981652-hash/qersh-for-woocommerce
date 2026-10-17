@@ -9,6 +9,11 @@
  * @package QershPay\WooCommerce\Scripts
  */
 
+// A command-line tool that WordPress never loads: WordPress's functions (WP_Filesystem, wp_json_encode(), the
+// escaping functions) do not exist here, its output goes to a terminal or to files of this repository, and its global
+// names cannot meet those of WordPress or of a plugin.
+// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals, WordPress.WP.AlternativeFunctions, WordPress.Security.EscapeOutput -- a command-line tool (above).
+
 if ( 'cli' !== PHP_SAPI ) {
 	exit( 1 );
 }
@@ -50,10 +55,11 @@ function qersh_i18n_po_unescape( $s ) {
 	return preg_replace_callback(
 		'/\\\\(?:([0-7]{1,3})|x([0-9a-fA-F]{1,2})|(.))/s',
 		static function ( $m ) {
-			if ( isset( $m[1] ) && '' !== $m[1] ) {
+			// A group before the one that matched is present as ''; the ones after it are left out.
+			if ( '' !== $m[1] ) {
 				return chr( octdec( $m[1] ) );
 			}
-			if ( isset( $m[2] ) && '' !== $m[2] ) {
+			if ( '' !== $m[2] ) {
 				return chr( hexdec( $m[2] ) );
 			}
 			$map = array(
@@ -118,7 +124,8 @@ function qersh_i18n_po_parse( $content, $label = 'po' ) {
 	$entry   = qersh_i18n_entry();
 	$started = false;
 	$last    = null; // Field the next continuation line belongs to.
-	$flush   = static function () use ( &$entry, &$entries, &$started, &$last ) {
+	// Ends the entry being read: keeps it once it has a keyword, then starts a fresh one.
+	$flush = static function ( array &$entries, array &$entry, bool &$started, ?string &$last ): void {
 		if ( $started ) {
 			$entries[] = $entry;
 		}
@@ -137,12 +144,12 @@ function qersh_i18n_po_parse( $content, $label = 'po' ) {
 			}
 		}
 		if ( '' === $line ) {
-			$flush();
+			$flush( $entries, $entry, $started, $last );
 			continue;
 		}
 		if ( '#' === $line[0] && ! $obs ) {
 			if ( $started && null !== $last ) {
-				$flush();
+				$flush( $entries, $entry, $started, $last );
 			}
 			$kind = substr( $line, 0, 2 );
 			if ( '#.' === $kind ) {
@@ -172,7 +179,7 @@ function qersh_i18n_po_parse( $content, $label = 'po' ) {
 			$value = qersh_i18n_po_unescape( $m[3] );
 			if ( 'msgctxt' === $field || ( 'msgid' === $field && 'msgctxt' !== $last ) ) {
 				if ( $started && null !== $last && 0 === strncmp( $last, 'msgstr', 6 ) ) {
-					$flush();
+					$flush( $entries, $entry, $started, $last );
 				}
 			}
 			$started           = true;
@@ -187,7 +194,7 @@ function qersh_i18n_po_parse( $content, $label = 'po' ) {
 				$entry['msgid_plural'] = $value;
 				$last                  = 'msgid_plural';
 			} else {
-				$index = ( isset( $m[2] ) && '' !== $m[2] ) ? (int) $m[2] : 0;
+				$index = '' !== $m[2] ? (int) $m[2] : 0; // Group 3 always matches, so group 2 is there, '' without [n].
 				if ( 'msgstr' === $field ) {
 					$entry['msgstr'] = array( 0 => $value );
 				} else {
@@ -216,7 +223,7 @@ function qersh_i18n_po_parse( $content, $label = 'po' ) {
 		}
 		throw new RuntimeException( sprintf( '%s:%d: cannot read this line: %s', $label, $n + 1, $line ) );
 	}
-	$flush();
+	$flush( $entries, $entry, $started, $last );
 
 	$header       = array();
 	$header_entry = null;
@@ -245,7 +252,7 @@ function qersh_i18n_po_parse( $content, $label = 'po' ) {
 /**
  * One PO field, split after each \n so long multi-line texts stay readable.
  *
- * @param string $keyword msgid, msgstr[0], …
+ * @param string $keyword The keyword: msgid, msgstr[0] or another.
  * @param string $value   Raw value.
  * @param string $prefix  "#~ " for obsolete entries.
  * @return string

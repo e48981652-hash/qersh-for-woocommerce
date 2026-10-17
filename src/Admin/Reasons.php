@@ -16,8 +16,21 @@ use QershPay\WooCommerce\Plugin;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * pick() is pure: it chooses which reason a row shows. text() turns it into a sentence, and params() reads the
- * order numbers, amounts and wallets the sentence names from the store.
+ * The one English source of the reason sentences of docs/17 §4.6. MatchPolicy::reason_text() builds the phone's
+ * notes and the note column from text() (it turns the HTML into plain text), and keeps only the sentences of the
+ * codes this class does not name (several_orders, late_delivery, no_amount, bad_time, cancelled_paid,
+ * not_confirmed), which text() reads back from it for an `unknown` pick.
+ *
+ * Public API (other modules rely on it; keep it stable):
+ * - Constants: STORE_REASONS (the codes of qersh_transfers.reason), CLAIM_EVALS, RISK_ORDER (the risk reasons with
+ *   a sentence, in the order they are shown).
+ * - Pure: needs_decision( array $row ): bool, names_claimant( string $code ): bool,
+ *   pick( array $row ): array `[ 'code', 'variant', 'detail' ]`, window_variant( array $row, ?array $claimant,
+ *   int $late ): string, remainder( array $order, bool $round ): int.
+ * - Store reads: params( array $row, array $pick, Plugin $plugin ): array `[ 'n', 'm', 't', 'z', 'w', 'variant' ]`.
+ * - Texts: text( array $pick, array $params ): string (escaped HTML, values isolated with `<bdi>`),
+ *   for_row( array $row, Plugin $plugin ): string (pick, params and text in one call), and forgery_warning():
+ *   string (plain text, the warning a forged transfer's order carries).
  */
 final class Reasons {
 
@@ -108,7 +121,7 @@ final class Reasons {
 	 *               `unknown_risk` the detail is the risk reasons this version does not know, comma separated.
 	 */
 	public static function pick( array $row ): array {
-		$out = function ( $code, $variant = '', $detail = '' ) {
+		$out      = function ( $code, $variant = '', $detail = '' ) {
 			return array(
 				'code'    => $code,
 				'variant' => $variant,
@@ -120,6 +133,11 @@ final class Reasons {
 		$eval     = isset( $row['claim_eval'] ) && is_string( $row['claim_eval'] ) ? $row['claim_eval'] : '';
 		$reasons  = isset( $row['risk_reasons'] ) && is_array( $row['risk_reasons'] ) ? array_values( array_filter( $row['risk_reasons'], 'is_string' ) ) : array();
 		$outcome  = isset( $row['outcome'] ) && is_string( $row['outcome'] ) ? $row['outcome'] : '';
+		if ( 'decided' === $reason ) {
+			// "Mark as decided" (Orders::resolved_fields()) replaced an overdue reason: no reason is left, so the row
+			// shows its note ("Marked as decided by …").
+			$reason = '';
+		}
 
 		if ( isset( $row['flag'] ) && 'forgery' === $row['flag'] ) {
 			return $out( 'forgery' );
@@ -183,9 +201,9 @@ final class Reasons {
 		if ( isset( $claimant['created_at'] ) && (int) $claimant['created_at'] > $money ) {
 			return 'created';
 		}
-		$sms      = isset( $row['sms_at'] ) && null !== $row['sms_at'] ? (int) $row['sms_at'] : $money;
+		$sms      = isset( $row['sms_at'] ) ? (int) $row['sms_at'] : $money;
 		$operator = min( $money, max( $money - $late, $sms ) );
-		if ( isset( $claimant['claim_at'] ) && null !== $claimant['claim_at'] && (int) $claimant['claim_at'] < $operator ) {
+		if ( isset( $claimant['claim_at'] ) && (int) $claimant['claim_at'] < $operator ) {
 			return 'early';
 		}
 		return 'created';
@@ -308,8 +326,12 @@ final class Reasons {
 			case 'balance_stale':
 				return esc_html__( 'Qersh has not confirmed the wallet balance yet: confirm your balance with “Sync balance” on the phone.', 'qersh-for-woocommerce' );
 			case 'amount_over_limit':
+				return esc_html__( 'Larger than the “Auto-confirm limit (EGP)” in the wallet settings on the phone.', 'qersh-for-woocommerce' );
 			case 'amount_over_max':
-				return esc_html__( 'Larger than the “Maximum for automatic confirmation” in the wallet settings on the phone.', 'qersh-for-woocommerce' );
+				// Above the largest amount the app's message templates accept, not the merchant's limit: no setting
+				// on the phone changes it.
+				/* translators: %s: risk reason code. */
+				return sprintf( esc_html__( 'Qersh did not confirm this transfer on its own (%s): check that the money arrived in the wallet app.', 'qersh-for-woocommerce' ), View::ltr( 'amount_over_max' ) );
 			case 'notification_only':
 				return esc_html__( 'An InstaPay notification alone, with no bank message to confirm it; check that the money arrived in the InstaPay app.', 'qersh-for-woocommerce' );
 			case 'balance_unavailable':
@@ -382,14 +404,15 @@ final class Reasons {
 				/* translators: %s: risk reason code. */
 				return sprintf( esc_html__( 'Qersh did not confirm this transfer on its own (%s): check that the money arrived in the wallet app.', 'qersh-for-woocommerce' ), View::ltr( $pick['detail'] ) );
 		}
-		// A reason code the matching rules write beyond the table of docs/17 §4.6 has its sentence there.
-		if ( 'unknown' === $pick['code'] && '' !== $pick['detail'] && class_exists( MatchPolicy::class ) && method_exists( MatchPolicy::class, 'reason_text' ) ) {
+		// A reason code the matching rules write beyond the table of docs/17 §4.6 has its sentence there, and only
+		// there. MatchPolicy::reason_text() never sends an `unknown` pick back here, so this cannot loop.
+		if ( 'unknown' === $pick['code'] && '' !== $pick['detail'] ) {
 			try {
 				$text = MatchPolicy::reason_text( $pick['detail'], array( 'N' => $params['n'] ) );
 			} catch ( \Throwable $e ) {
 				$text = '';
 			}
-			if ( is_string( $text ) && '' !== $text ) {
+			if ( '' !== $text ) {
 				return esc_html( $text );
 			}
 		}
@@ -410,6 +433,16 @@ final class Reasons {
 			return '';
 		}
 		return self::text( $pick, self::params( $row, $pick, $plugin ) );
+	}
+
+	/**
+	 * The warning an order paid by a transfer suspected to be forged carries: the order box, the administrator's
+	 * alert email and the order note say the same sentence.
+	 *
+	 * @return string Plain text (escape it for its context).
+	 */
+	public static function forgery_warning(): string {
+		return __( 'This transfer\'s message is suspected to be forged. Do not deliver the order until you have checked that the money arrived in the wallet app.', 'qersh-for-woocommerce' );
 	}
 
 	/**

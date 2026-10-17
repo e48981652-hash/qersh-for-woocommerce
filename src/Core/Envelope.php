@@ -115,7 +115,7 @@ final class Envelope {
 		}
 		$envelope = json_decode( $text, true, self::MAX_DEPTH );
 		if ( ! is_array( $envelope ) ) {
-			return self::refusal( 'invalid_json' ); // cannot happen: the same text decoded above
+			return self::refusal( 'invalid_json' ); // Cannot happen: the same text decoded above.
 		}
 		return array(
 			'ok'       => true,
@@ -179,7 +179,7 @@ final class Envelope {
 	 * Builds the normalised item from a parsed envelope (summarize): one item per delivery, as the n8n trigger emits
 	 * it. `transfer` is present for transfer.* events and for webhook.test (from `data.sample`), null otherwise.
 	 *
-	 * parse() has checked that `data` is a JSON object, so any array `data` is taken as one, even with the names
+	 * As parse() has checked that `data` is a JSON object, any array `data` is taken as one, even with the names
 	 * "0".."n-1"; anything else (in an array built by hand) becomes an empty record, as in the core.
 	 *
 	 * @param array       $envelope    A parsed envelope (parse()['envelope']).
@@ -373,7 +373,7 @@ final class Envelope {
 				if ( isset( $m[1] ) && '' !== $m[1] ) {
 					return '\\ufffd';
 				}
-				if ( $nul && isset( $m[2] ) && '' !== $m[2] ) {
+				if ( $nul && isset( $m[2] ) ) { // The last group is in $m only when it matched.
 					return '\\u0001';
 				}
 				return $m[0];
@@ -446,7 +446,7 @@ final class Envelope {
 		if ( is_int( $v ) ) {
 			return $v;
 		}
-		$limit = -(float) PHP_INT_MIN;
+		$limit = -( (float) PHP_INT_MIN );
 		if ( is_float( $v ) && is_finite( $v ) && floor( $v ) === $v && $v >= -$limit && $v < $limit ) {
 			return (int) $v;
 		}

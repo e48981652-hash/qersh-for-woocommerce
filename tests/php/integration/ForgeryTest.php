@@ -42,7 +42,7 @@ class ForgeryTest extends TestCase {
 	/**
 	 * Processing → on-hold, with the flag and no email to the customer.
 	 */
-	public function test_forgery_after_completion_puts_the_order_on_hold_without_email() {
+	public function test_forgery_after_completion_puts_the_order_on_hold_without_email(): void {
 		$wallet   = $this->vodafone_wallet();
 		$product  = $this->product( '100', 10 );
 		$order    = $this->order( $product );
@@ -72,7 +72,7 @@ class ForgeryTest extends TestCase {
 	/**
 	 * Before the completion ran: the order stays pending with the flag, and a later completion does nothing.
 	 */
-	public function test_forgery_before_completion_flags_a_pending_order() {
+	public function test_forgery_before_completion_flags_a_pending_order(): void {
 		$wallet   = $this->vodafone_wallet();
 		$product  = $this->product( '100', 10 );
 		$order    = $this->order( $product );

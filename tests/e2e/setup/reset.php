@@ -17,7 +17,8 @@
 
 if ( ! defined( 'ABSPATH' ) ) {
 	require dirname( __DIR__, 2 ) . '/local/lib/bootstrap.php';
-	$args = $qersh_local_args; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
+	/** @var string[] $qersh_local_args Set by tests/local/lib/bootstrap.php. */
+	$args = $qersh_local_args; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- the name wp eval-file gives the arguments.
 }
 defined( 'ABSPATH' ) || exit;
 
@@ -35,7 +36,7 @@ foreach ( isset( $args ) && is_array( $args ) ? $args : array() as $qersh_e2e_ar
 global $wpdb;
 $qersh_e2e_orders = array();
 if ( '' !== $qersh_e2e_opts['payer'] ) {
-	$qersh_e2e_ids = $wpdb->get_col( $wpdb->prepare( 'SELECT order_id FROM %i WHERE payer_key = %s', $wpdb->prefix . 'qersh_orders', $qersh_e2e_opts['payer'] ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	$qersh_e2e_ids = $wpdb->get_col( $wpdb->prepare( 'SELECT order_id FROM %i WHERE payer_key = %s', $wpdb->prefix . 'qersh_orders', $qersh_e2e_opts['payer'] ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- a test reads or sets up the plugin's tables directly.
 	$qersh_e2e_ids = array_merge(
 		array_map( 'intval', $qersh_e2e_ids ),
 		wc_get_orders(
@@ -43,8 +44,8 @@ if ( '' !== $qersh_e2e_opts['payer'] ) {
 				'limit'      => -1,
 				'return'     => 'ids',
 				'status'     => 'any',
-				'meta_key'   => '_qersh_payer_key', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_query_meta_key
-				'meta_value' => $qersh_e2e_opts['payer'], // phpcs:ignore WordPress.DB.SlowDBQuery.slow_query_meta_value
+				'meta_key'   => '_qersh_payer_key', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_query_meta_key -- test cleanup, a handful of orders.
+				'meta_value' => $qersh_e2e_opts['payer'], // phpcs:ignore WordPress.DB.SlowDBQuery.slow_query_meta_value -- test cleanup, a handful of orders.
 			)
 		)
 	);
@@ -54,13 +55,13 @@ if ( '' !== $qersh_e2e_opts['payer'] ) {
 			$qersh_e2e_order->delete( true );
 			$qersh_e2e_orders[] = $qersh_e2e_id;
 		} else {
-			$wpdb->delete( $wpdb->prefix . 'qersh_orders', array( 'order_id' => $qersh_e2e_id ), array( '%d' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->delete( $wpdb->prefix . 'qersh_orders', array( 'order_id' => $qersh_e2e_id ), array( '%d' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- a test reads or sets up the plugin's tables directly.
 		}
 	}
 }
 $qersh_e2e_transfers = 0;
 if ( '' !== $qersh_e2e_opts['transfer'] ) {
-	$qersh_e2e_transfers = (int) $wpdb->delete( $wpdb->prefix . 'qersh_transfers', array( 'transfer_id' => $qersh_e2e_opts['transfer'] ), array( '%s' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	$qersh_e2e_transfers = (int) $wpdb->delete( $wpdb->prefix . 'qersh_transfers', array( 'transfer_id' => $qersh_e2e_opts['transfer'] ), array( '%s' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- a test reads or sets up the plugin's tables directly.
 }
 
 echo 'QERSH_JSON=' . wp_json_encode(

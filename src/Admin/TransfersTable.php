@@ -90,7 +90,7 @@ final class TransfersTable extends \WP_List_Table {
 	/**
 	 * Reads one page.
 	 */
-	public function prepare_items() {
+	public function prepare_items(): void {
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- list sorting.
 		$orderby = isset( $_GET['orderby'] ) ? sanitize_key( wp_unslash( $_GET['orderby'] ) ) : 'created_at';
 		$order   = isset( $_GET['order'] ) ? strtoupper( sanitize_key( wp_unslash( $_GET['order'] ) ) ) : 'DESC';
@@ -124,7 +124,7 @@ final class TransfersTable extends \WP_List_Table {
 	/**
 	 * Text of an empty list.
 	 */
-	public function no_items() {
+	public function no_items(): void {
 		switch ( $this->view ) {
 			case 'needs_decision':
 				esc_html_e( 'Nothing needs a decision.', 'qersh-for-woocommerce' );
@@ -313,10 +313,6 @@ final class TransfersTable extends \WP_List_Table {
 	 */
 	private function resolve_html( array $item ): string {
 		$order = View::order_link( (int) $item['order_id'] );
-		if ( ! Transfers::can_resolve() ) {
-			/* translators: %s: order number. */
-			return '<p class="qersh-wc-muted">' . sprintf( esc_html__( 'This transfer is already linked to order %s, so it cannot be attached or dismissed. Deal with it on the order, for example by refunding the customer from the wallet app.', 'qersh-for-woocommerce' ), $order ) . '</p>';
-		}
 		/* translators: %s: order number. */
 		$html  = '<p class="qersh-wc-muted">' . sprintf( esc_html__( 'This transfer is already linked to order %s, so it cannot be attached or dismissed. Deal with it on the order, for example by refunding the customer from the wallet app, then mark it as decided.', 'qersh-for-woocommerce' ), $order ) . '</p>';
 		$html .= $this->form_start( 'qersh_wc_transfer_resolve', $item ) . '<button type="submit" class="button button-secondary">' . esc_html__( 'Mark as decided', 'qersh-for-woocommerce' ) . '</button></form>';
@@ -357,13 +353,13 @@ final class TransfersTable extends \WP_List_Table {
 	/**
 	 * An attach form: a ready button for a suggestion, or the order field.
 	 *
-	 * @param array  $item     Row.
-	 * @param int    $order_id Suggested order, or 0 for the field.
-	 * @param string $label    Escaped button label.
-	 * @param string $class    Button class.
+	 * @param array  $item         Row.
+	 * @param int    $order_id     Suggested order, or 0 for the field.
+	 * @param string $label        Escaped button label.
+	 * @param string $button_class Button class.
 	 * @return string
 	 */
-	private function attach_form( array $item, int $order_id, string $label, string $class ): string {
+	private function attach_form( array $item, int $order_id, string $label, string $button_class ): string {
 		$html = $this->form_start( 'qersh_wc_transfer_attach', $item );
 		if ( $order_id > 0 ) {
 			$html .= '<input type="hidden" name="order_id" value="' . esc_attr( (string) $order_id ) . '">';
@@ -371,7 +367,7 @@ final class TransfersTable extends \WP_List_Table {
 			$html .= '<label class="screen-reader-text" for="qersh-order-' . esc_attr( (string) $item['id'] ) . '">' . esc_html__( 'Order number, or the number the customer transferred from', 'qersh-for-woocommerce' ) . '</label>';
 			$html .= '<input type="text" id="qersh-order-' . esc_attr( (string) $item['id'] ) . '" name="order" dir="ltr" class="qersh-wc-order-field" placeholder="' . esc_attr__( 'Order number or payer number', 'qersh-for-woocommerce' ) . '" required> ';
 		}
-		$html .= '<button type="submit" class="button ' . esc_attr( $class ) . '">' . $label . '</button></form>';
+		$html .= '<button type="submit" class="button ' . esc_attr( $button_class ) . '">' . $label . '</button></form>';
 		return $html;
 	}
 

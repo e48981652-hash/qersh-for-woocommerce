@@ -32,8 +32,8 @@ require_once ABSPATH . 'wp-admin/includes/plugin.php';
  * @param string $label Label.
  * @param mixed  $value Value.
  */
-function qersh_smoke_line( $label, $value ) {
-	echo str_pad( $label, 34 ) . ( is_string( $value ) ? $value : var_export( $value, true ) ) . "\n"; // phpcs:ignore WordPress.PHP.DevelopmentFunctions
+function qersh_smoke_line( $label, $value ): void {
+	echo str_pad( $label, 34 ) . ( is_string( $value ) ? $value : var_export( $value, true ) ) . "\n"; // phpcs:ignore WordPress.PHP.DevelopmentFunctions, WordPress.Security.EscapeOutput.OutputNotEscaped -- the report goes to a terminal, each value as PHP writes it.
 }
 
 $qersh_slug = 'qersh-for-woocommerce/qersh-for-woocommerce.php';
@@ -103,5 +103,5 @@ $qersh_ours_log = array_filter(
 );
 qersh_smoke_line( 'new debug.log lines (ours)', (string) count( $qersh_ours_log ) );
 foreach ( array_slice( $qersh_ours_log, 0, 20 ) as $qersh_l ) {
-	echo '   ' . substr( $qersh_l, 0, 400 ) . "\n";
+	echo '   ' . substr( $qersh_l, 0, 400 ) . "\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- a debug.log line, printed to a terminal.
 }

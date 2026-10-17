@@ -9,8 +9,6 @@
 namespace QershPay\WooCommerce\Admin;
 
 use QershPay\WooCommerce\Core\Payer;
-use QershPay\WooCommerce\Core\TxnId;
-use QershPay\WooCommerce\Orders;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -33,7 +31,7 @@ final class Transfers {
 	/**
 	 * Renders the tab.
 	 */
-	public static function render() {
+	public static function render(): void {
 		$plugin = Module::plugin();
 		if ( ! $plugin->tables_ready() ) {
 			echo '<p>' . esc_html__( 'The Qersh tables are missing, so there is nothing to show.', 'qersh-for-woocommerce' ) . '</p>';
@@ -160,15 +158,6 @@ final class Transfers {
 	}
 
 	/**
-	 * Whether this copy of the plugin can mark a linked transfer as decided (Orders::resolve() of package D2).
-	 *
-	 * @return bool
-	 */
-	public static function can_resolve(): bool {
-		return class_exists( Orders::class ) && method_exists( Orders::class, 'resolve' );
-	}
-
-	/**
 	 * Whether the transfer was matched by the transaction id its customer entered (the "By transaction id" badge).
 	 *
 	 * @param array $row Transfer row.
@@ -192,26 +181,19 @@ final class Transfers {
 	/**
 	 * The suggestions for a transfer, computed now (docs/17 §4.6): Orders::suggestions() of package D2, each item
 	 * normalised to `[ 'order_id' => int, 'ready' => bool, 'claimant' => bool, 'reason' => string, 'dead' => bool ]`.
-	 * Without D2 the customers who entered its transaction id and the payer's open orders are listed, never ready.
 	 *
 	 * @param array $row Transfer row.
 	 * @return array[]
 	 */
 	public static function suggestions( array $row ): array {
-		$plugin = Module::plugin();
-		$items  = array();
-		if ( class_exists( Orders::class ) && method_exists( Orders::class, 'suggestions' ) ) {
-			try {
-				$items = $plugin->orders()->suggestions( $row );
-			} catch ( \Throwable $e ) {
-				$items = array();
-			}
-		} else {
-			$items = self::fallback_suggestions( $row );
+		try {
+			$items = Module::plugin()->orders()->suggestions( $row );
+		} catch ( \Throwable $e ) {
+			$items = array();
 		}
 		$out  = array();
 		$seen = array();
-		foreach ( is_array( $items ) ? $items : array() as $item ) {
+		foreach ( $items as $item ) {
 			$norm = self::normalize_suggestion( $item );
 			if ( null === $norm || isset( $seen[ $norm['order_id'] ] ) ) {
 				continue;
@@ -286,40 +268,6 @@ final class Transfers {
 		);
 	}
 
-	/**
-	 * Suggestions without package D2: the customers who typed this transaction id, then the payer's orders that are
-	 * still waiting. Never ready: the gates are D2's.
-	 *
-	 * @param array $row Transfer row.
-	 * @return array[]
-	 */
-	private static function fallback_suggestions( array $row ): array {
-		$plugin = Module::plugin();
-		$out    = array();
-		try {
-			if ( ! empty( $row['provider_txn_id'] ) && in_array( (string) $row['provider'], TxnId::CLAIM_PROVIDERS, true ) ) {
-				foreach ( $plugin->orders_index()->claimants( (string) $row['provider_txn_id'] ) as $order ) {
-					$out[] = array(
-						'order_id' => (int) $order['order_id'],
-						'claimant' => true,
-						'dead'     => ! in_array( $order['state'], array( 'open', 'partial', 'expired' ), true ),
-					);
-				}
-			}
-			if ( ! empty( $row['payer_key'] ) ) {
-				$money = (int) $row['money_at'];
-				foreach ( $plugin->orders_index()->for_payer( (string) $row['payer_key'], $money - 86400, time() ) as $order ) {
-					if ( in_array( $order['state'], array( 'open', 'partial', 'expired' ), true ) ) {
-						$out[] = array( 'order_id' => (int) $order['order_id'] );
-					}
-				}
-			}
-		} catch ( \Throwable $e ) {
-			unset( $e );
-		}
-		return $out;
-	}
-
 	/*
 	 * ---------------------------------------------------------------------------------------------------------------
 	 * Actions.
@@ -331,7 +279,7 @@ final class Transfers {
 	 * (wc_order_search()), by the payer's number, or by a suggestion's button. A transaction id that already paid an
 	 * order, or a transfer that arrived before the order was created, needs an explicit confirmation first.
 	 */
-	public static function handle_attach() {
+	public static function handle_attach(): void {
 		Module::check_action( 'qersh_wc_transfer_attach' );
 		check_admin_referer( 'qersh_wc_transfer_attach' );
 		$plugin      = Module::plugin();
@@ -374,10 +322,6 @@ final class Transfers {
 				)
 			);
 		}
-		if ( ! class_exists( Orders::class ) || ! method_exists( Orders::class, 'apply_attach' ) ) {
-			Module::flash( 'error', esc_html__( 'Attaching transfers is not available in this copy of the plugin.', 'qersh-for-woocommerce' ) );
-			Module::redirect( 'transfers', $back );
-		}
 		try {
 			$result = $plugin->orders()->apply_attach( $transfer_id, (int) $order->get_id(), get_current_user_id() );
 		} catch ( \Throwable $e ) {
@@ -397,7 +341,7 @@ final class Transfers {
 	 * "Dismiss" (admin-post qersh_wc_transfer_dismiss): a transfer that is not for the store (a gift, a personal
 	 * transfer). The phone hears `ignored` with its next delivery.
 	 */
-	public static function handle_dismiss() {
+	public static function handle_dismiss(): void {
 		Module::check_action( 'qersh_wc_transfer_dismiss' );
 		check_admin_referer( 'qersh_wc_transfer_dismiss' );
 		$plugin      = Module::plugin();
@@ -406,10 +350,6 @@ final class Transfers {
 		$back        = array( 'view' => in_array( $view, self::VIEWS, true ) ? $view : 'needs_decision' );
 		if ( '' === $transfer_id || null === $plugin->transfers()->get( $transfer_id ) ) {
 			Module::flash( 'error', esc_html__( 'This transfer was not found.', 'qersh-for-woocommerce' ) );
-			Module::redirect( 'transfers', $back );
-		}
-		if ( ! class_exists( Orders::class ) || ! method_exists( Orders::class, 'dismiss' ) ) {
-			Module::flash( 'error', esc_html__( 'Dismissing transfers is not available in this copy of the plugin.', 'qersh-for-woocommerce' ) );
 			Module::redirect( 'transfers', $back );
 		}
 		try {
@@ -432,7 +372,7 @@ final class Transfers {
 	 * partial payment past its deadline) leaves "Needs a decision" once the merchant has dealt with it on the order.
 	 * The link to the order stays. Orders::resolve() of package D2 decides under the transfer lock.
 	 */
-	public static function handle_resolve() {
+	public static function handle_resolve(): void {
 		Module::check_action( 'qersh_wc_transfer_resolve' );
 		check_admin_referer( 'qersh_wc_transfer_resolve' );
 		$plugin      = Module::plugin();
@@ -446,10 +386,6 @@ final class Transfers {
 		}
 		if ( ! self::is_resolvable( $row ) ) {
 			Module::flash( 'info', esc_html__( 'This transfer does not need a decision any more.', 'qersh-for-woocommerce' ) );
-			Module::redirect( 'transfers', $back );
-		}
-		if ( ! self::can_resolve() ) {
-			Module::flash( 'error', esc_html__( 'Marking transfers as decided is not available in this copy of the plugin.', 'qersh-for-woocommerce' ) );
 			Module::redirect( 'transfers', $back );
 		}
 		try {

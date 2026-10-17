@@ -17,7 +17,7 @@ add_filter(
 		sleep( 5 );
 		$uploads = wp_upload_dir( null, false );
 		$line    = gmdate( 'c' ) . "\t" . ( isset( $atts['subject'] ) ? wp_strip_all_tags( (string) $atts['subject'] ) : '' ) . "\n";
-		file_put_contents( trailingslashit( $uploads['basedir'] ) . 'qersh-mail.log', $line, FILE_APPEND | LOCK_EX ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+		file_put_contents( trailingslashit( $uploads['basedir'] ) . 'qersh-mail.log', $line, FILE_APPEND | LOCK_EX ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- the test mail log, outside the plugin folder.
 		return true;
 	},
 	10,

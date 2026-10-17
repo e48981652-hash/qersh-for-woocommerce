@@ -36,7 +36,7 @@ final class TransfersTest extends TestCase {
 	 */
 	protected function set_up() {
 		parent::set_up();
-		$this->wpdb       = new FakeWpdb();
+		$this->wpdb      = new FakeWpdb();
 		$GLOBALS['wpdb'] = $this->wpdb;
 	}
 
@@ -71,7 +71,7 @@ final class TransfersTest extends TestCase {
 	}
 
 	/** INSERT IGNORE: true for a new row, false for one that exists. */
-	public function test_insert() {
+	public function test_insert(): void {
 		$this->wpdb->on( '/^INSERT IGNORE INTO `wp_qersh_transfers`/', 1 );
 		$this->wpdb->on( '/^INSERT IGNORE INTO `wp_qersh_transfers`/', 0 );
 		$store = new Transfers();
@@ -81,14 +81,14 @@ final class TransfersTest extends TestCase {
 	}
 
 	/** A database error is never read as "already there". */
-	public function test_insert_error_throws() {
+	public function test_insert_error_throws(): void {
 		$this->wpdb->on( '/^INSERT IGNORE/', false, "Table 'wp_qersh_transfers' doesn't exist" );
 		$this->expectException( \RuntimeException::class );
 		( new Transfers() )->insert( $this->row() );
 	}
 
 	/** A transfer id the column would cut is refused. */
-	public function test_insert_refuses_long_id() {
+	public function test_insert_refuses_long_id(): void {
 		$row                = $this->row();
 		$row['transfer_id'] = str_repeat( 'x', 41 );
 		$this->expectException( \InvalidArgumentException::class );
@@ -96,7 +96,7 @@ final class TransfersTest extends TestCase {
 	}
 
 	/** The first fence of rule 4a, with its exact conditions. */
-	public function test_fence_match() {
+	public function test_fence_match(): void {
 		$this->wpdb->on( '/^UPDATE/', 1 );
 		$this->assertTrue( ( new Transfers() )->fence_match( self::TRF, 42 ) );
 		$this->assertMatchesRegularExpression(
@@ -106,10 +106,10 @@ final class TransfersTest extends TestCase {
 	}
 
 	/** Three replies or seven days; the CASE reads the counter before it is raised. */
-	public function test_note_synced() {
+	public function test_note_synced(): void {
 		( new Transfers() )->note_synced( array( self::TRF, self::TRF, '' ), self::NOW );
 		$this->assertSame(
-			"UPDATE `wp_qersh_transfers` SET phone_sync = CASE WHEN phone_sync_count >= 2 OR phone_sync_since IS NULL OR phone_sync_since < " . ( self::NOW - 604800 ) . " THEN 'none' ELSE 'pending' END, phone_sync_count = phone_sync_count + 1 WHERE phone_sync = 'pending' AND transfer_id IN ('" . self::TRF . "')",
+			'UPDATE `wp_qersh_transfers` SET phone_sync = CASE WHEN phone_sync_count >= 2 OR phone_sync_since IS NULL OR phone_sync_since < ' . ( self::NOW - 604800 ) . " THEN 'none' ELSE 'pending' END, phone_sync_count = phone_sync_count + 1 WHERE phone_sync = 'pending' AND transfer_id IN ('" . self::TRF . "')",
 			$this->wpdb->queries[0]
 		);
 		( new Transfers() )->note_synced( array(), self::NOW );
@@ -117,7 +117,7 @@ final class TransfersTest extends TestCase {
 	}
 
 	/** An over-long raw transaction id is stored as NULL (never cut), so it never equals another row. */
-	public function test_long_txn_never_matches() {
+	public function test_long_txn_never_matches(): void {
 		$row                    = $this->row();
 		$row['provider']        = 'vodafone_cash';
 		$row['provider_txn_id'] = str_repeat( '1', 40 ) . '23456';
@@ -138,7 +138,7 @@ final class TransfersTest extends TestCase {
 	 * Retention (docs/17 §4.3): after the retention time, unlinked transfers and those whose order is gone lose the
 	 * payer number and name; forget_order() does it at once when the order is deleted.
 	 */
-	public function test_personal_data_follows_the_order() {
+	public function test_personal_data_follows_the_order(): void {
 		$this->wpdb->on( '/^UPDATE/', 4 );
 		$this->assertSame( 4, ( new Transfers() )->purge_personal( self::NOW - 90 * 86400 ) );
 		$this->assertSame(
@@ -157,7 +157,7 @@ final class TransfersTest extends TestCase {
 	}
 
 	/** The menu badge and the "Needs a decision" tab read the same rule. */
-	public function test_needs_decision_queries() {
+	public function test_needs_decision_queries(): void {
 		$this->wpdb->on( '/^SELECT COUNT/', '2' );
 		$this->assertSame( 2, ( new Transfers() )->count_needs_decision() );
 		$this->assertSame( 'SELECT COUNT(*) FROM `wp_qersh_transfers` WHERE ' . Transfers::NEEDS_DECISION_SQL, $this->wpdb->queries[0] );
@@ -171,7 +171,7 @@ final class TransfersTest extends TestCase {
 	 * The rule itself (docs/17 §4.6, §4.7), run on an in-memory SQLite table: an overdue reason counts until the row
 	 * is dismissed, whatever paid the order, so a partial order paid only by a merchant's attach shows at its deadline.
 	 */
-	public function test_needs_decision_rule() {
+	public function test_needs_decision_rule(): void {
 		if ( ! extension_loaded( 'pdo_sqlite' ) ) {
 			$this->markTestSkipped( 'pdo_sqlite is not available.' );
 		}
@@ -196,6 +196,7 @@ final class TransfersTest extends TestCase {
 			'claim_overdue_dismissed'  => array( 'dismissed', 'claim_overdue', null, false ),
 		);
 
+		// phpcs:disable WordPress.DB.RestrictedClasses.mysql__PDO -- unit test without WordPress: the clause runs on an in-memory SQLite database.
 		$pdo = new \PDO( 'sqlite::memory:' );
 		$pdo->setAttribute( \PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION );
 		$pdo->exec( 'CREATE TABLE t ( name TEXT NOT NULL, outcome TEXT NULL, reason TEXT NULL, flag TEXT NULL )' );
@@ -209,13 +210,22 @@ final class TransfersTest extends TestCase {
 		}
 
 		$found = $pdo->query( 'SELECT name FROM t WHERE ' . Transfers::NEEDS_DECISION_SQL . ' ORDER BY rowid' )->fetchAll( \PDO::FETCH_COLUMN );
+		// phpcs:enable WordPress.DB.RestrictedClasses.mysql__PDO
 		$this->assertSame( $expected, $found );
 	}
 
 	/** The admin list: filter, count and page. */
-	public function test_list_page() {
+	public function test_list_page(): void {
 		$this->wpdb->on( '/^SELECT COUNT/', '3' );
-		$this->wpdb->on( '/^SELECT \*/', array( array( 'id' => '9', 'transfer_id' => self::TRF ) ) );
+		$this->wpdb->on(
+			'/^SELECT \*/',
+			array(
+				array(
+					'id'          => '9',
+					'transfer_id' => self::TRF,
+				),
+			)
+		);
 		$page = ( new Transfers() )->list_page(
 			array(
 				'view'   => 'personal',

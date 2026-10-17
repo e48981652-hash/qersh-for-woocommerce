@@ -9,6 +9,8 @@
 
 namespace QershPay\WooCommerce;
 
+use QershPay\WooCommerce\Admin\Reasons;
+use QershPay\WooCommerce\Admin\View;
 use QershPay\WooCommerce\Core\Matcher;
 use QershPay\WooCommerce\Core\Money;
 use QershPay\WooCommerce\Core\Payer;
@@ -23,7 +25,8 @@ defined( 'ABSPATH' ) || exit;
  *
  * The decision logic is pure: static methods that take arrays (the transfer, the shaped orders, the claimants, the
  * competitors, the time and the configuration) and return the decision. Orders reads WordPress around them, under
- * the locks, and applies the result. Only the text methods at the end call WordPress.
+ * the locks, and applies the result. Only the text methods at the end call WordPress (and Admin\Reasons, whose
+ * sentences they are).
  *
  * The normalised transfer (read_transfer(), transfer_from_row()) has: transfer_id, wallet, provider, amount_minor
  * (int|null), currency, payer_key (string|null), payer_name, masked (bool: the sender number came with `*`), txn (the
@@ -59,19 +62,12 @@ final class MatchPolicy {
 	const MAX_CLAIM_LOCKS = 4;
 
 	/**
-	 * The plugin.
-	 *
-	 * @var Plugin|null
-	 */
-	private $plugin;
-
-	/**
-	 * Builds the service.
+	 * Builds the service. Every rule is a static method, so the plugin the service container passes is not kept.
 	 *
 	 * @param Plugin|null $plugin The plugin.
 	 */
 	public function __construct( $plugin = null ) {
-		$this->plugin = $plugin;
+		unset( $plugin );
 	}
 
 	/**
@@ -152,10 +148,10 @@ final class MatchPolicy {
 	 */
 	public static function transfer_from_row( array $row ): array {
 		$provider = isset( $row['provider'] ) ? (string) $row['provider'] : '';
-		$stored   = isset( $row['provider_txn_id'] ) && null !== $row['provider_txn_id'] ? (string) $row['provider_txn_id'] : null;
-		$payer    = isset( $row['payer_key'] ) && null !== $row['payer_key'] && '' !== $row['payer_key'] ? (string) $row['payer_key'] : null;
+		$stored   = isset( $row['provider_txn_id'] ) ? (string) $row['provider_txn_id'] : null;
+		$payer    = isset( $row['payer_key'] ) && '' !== $row['payer_key'] ? (string) $row['payer_key'] : null;
 		$money    = isset( $row['money_at'] ) ? (int) $row['money_at'] : 0;
-		$amount   = isset( $row['amount_minor'] ) && null !== $row['amount_minor'] ? (int) $row['amount_minor'] : null;
+		$amount   = isset( $row['amount_minor'] ) ? (int) $row['amount_minor'] : null;
 		$auto     = isset( $row['auto_confirm_ok'] ) && 1 === (int) $row['auto_confirm_ok'];
 		$reasons  = isset( $row['risk_reasons'] ) && is_array( $row['risk_reasons'] ) ? $row['risk_reasons'] : array();
 		$matcher  = array(
@@ -181,7 +177,7 @@ final class MatchPolicy {
 			'txn_stored'      => $stored,
 			'money_at'        => $money,
 			'time_ok'         => true,
-			'sms_at'          => isset( $row['sms_at'] ) && null !== $row['sms_at'] ? (int) $row['sms_at'] : null,
+			'sms_at'          => isset( $row['sms_at'] ) ? (int) $row['sms_at'] : null,
 			'risk'            => isset( $row['risk'] ) ? $row['risk'] : null,
 			'risk_reasons'    => $reasons,
 			'auto_confirm_ok' => $auto,
@@ -409,7 +405,7 @@ final class MatchPolicy {
 		if ( null !== $duplicate ) {
 			$args = array(
 				'T' => (string) $duplicate['transfer_id'],
-				'N' => isset( $duplicate['order_id'] ) && null !== $duplicate['order_id'] && in_array( $duplicate['outcome'], self::PAYING_OUTCOMES, true ) ? (int) $duplicate['order_id'] : null,
+				'N' => isset( $duplicate['order_id'] ) && in_array( $duplicate['outcome'], self::PAYING_OUTCOMES, true ) ? (int) $duplicate['order_id'] : null,
 			);
 			return self::review( 'duplicate_txn', $args, $flag );
 		}
@@ -524,7 +520,7 @@ final class MatchPolicy {
 			);
 		}
 		// Gate 4: the id was typed after the operator sent the message.
-		$claim_at = isset( $x['claim_at'] ) && null !== $x['claim_at'] ? (int) $x['claim_at'] : null;
+		$claim_at = isset( $x['claim_at'] ) ? (int) $x['claim_at'] : null;
 		if ( null === $claim_at || $claim_at < self::operator_at( $t['sms_at'], $at, $late ) ) {
 			return self::review(
 				'txn_window',
@@ -568,6 +564,7 @@ final class MatchPolicy {
 			'expires_at'   => (int) $x['expires_at'],
 			'status'       => $paid > 0 ? 'partial' : 'open',
 		);
+
 		$m = Matcher::match( $copy, array( $candidate ), $now, self::matcher_options( $cfg ) );
 		if ( 'matched' !== $m['status'] || (string) $xi !== (string) $m['order_number'] ) {
 			$code = in_array( $m['status'], array( 'partial', 'overpaid' ), true ) ? 'txn_amount' : 'txn_window';
@@ -585,7 +582,7 @@ final class MatchPolicy {
 			if ( (int) $y['order_id'] === $xi || (string) $y['wallet'] !== (string) $t['wallet'] ) {
 				continue;
 			}
-			$y_claim = isset( $y['claim_txn'] ) && null !== $y['claim_txn'] ? (string) $y['claim_txn'] : '';
+			$y_claim = isset( $y['claim_txn'] ) ? (string) $y['claim_txn'] : '';
 			if ( '' !== $y_claim ) {
 				continue; // The same id: counted above as a claimant; another well-formed id: it does not compete.
 			}
@@ -798,7 +795,7 @@ final class MatchPolicy {
 			if ( (string) $row['provider'] !== (string) $t['provider'] || (string) $row['provider_txn_id'] !== (string) $t['txn_stored'] ) {
 				continue;
 			}
-			if ( isset( $row['outcome'] ) && null !== $row['outcome'] ) {
+			if ( isset( $row['outcome'] ) ) {
 				return $row;
 			}
 		}
@@ -1103,7 +1100,7 @@ final class MatchPolicy {
 	private static function second_payment( array $paid, int $at, int $late ): ?array {
 		$found = null;
 		foreach ( $paid as $row ) {
-			$paid_at = isset( $row['paid_at'] ) && null !== $row['paid_at'] ? (int) $row['paid_at'] : null;
+			$paid_at = isset( $row['paid_at'] ) ? (int) $row['paid_at'] : null;
 			if ( null === $paid_at || $paid_at < $at - $late ) {
 				continue;
 			}
@@ -1291,12 +1288,16 @@ final class MatchPolicy {
 	/*
 	 * ------------------------------------------------------------------------------------------------------------
 	 * Texts (WordPress). Plain text with every number isolated by U+2066/U+2069, for the phone's notes, the transfer
-	 * list and the note column. Amounts there are plain text from wc_price().
+	 * list and the note column. Amounts there are plain text from wc_price(). The sentence of every reason the admin
+	 * screens name is Admin\Reasons::text(), the one English source of those texts: reason_text() takes it as plain
+	 * text, and writes here only the reasons that Admin\Reasons reads from this class.
 	 * ------------------------------------------------------------------------------------------------------------
 	 */
 
 	/**
-	 * The merchant's line of a reason (the reasons table of docs/17 §4.6), plain text.
+	 * The merchant's line of a reason (the reasons table of docs/17 §4.6), plain text: the sentence of
+	 * Admin\Reasons::text() for every reason it names, Completion::reason_note() for the two reasons Completion
+	 * writes, and the lines here for the others.
 	 *
 	 * @param string $code Reason code (or a risk reason).
 	 * @param array  $args `N`, `M` (order ids), `T` (transfer id), `Z` (piasters), `W` (wallet id), `form`, `values`,
@@ -1304,77 +1305,20 @@ final class MatchPolicy {
 	 * @return string
 	 */
 	public static function reason_text( string $code, array $args = array() ): string {
-		$n    = isset( $args['N'] ) && null !== $args['N'] ? self::order_ref( (int) $args['N'] ) : '';
-		$m    = isset( $args['M'] ) && null !== $args['M'] ? self::order_ref( (int) $args['M'] ) : '';
-		$form = isset( $args['form'] ) ? (string) $args['form'] : '';
+		$order = isset( $args['N'] ) ? (int) $args['N'] : null;
+		if ( Completion::REASON_ON_HOLD === $code || Completion::REASON_FAILED === $code ) {
+			return (string) Completion::reason_note( $code, null === $order ? 0 : $order );
+		}
+		$admin = self::admin_reason( $code );
+		if ( null !== $admin ) {
+			$text = self::admin_text( $admin, '', $args );
+			if ( 'duplicate_txn' === $admin && null !== $order ) {
+				/* translators: %s: order number. */
+				$text .= ' ' . sprintf( __( 'That transfer paid order %s.', 'qersh-for-woocommerce' ), self::order_tag( $order ) );
+			}
+			return $text;
+		}
 		switch ( $code ) {
-			case 'no_baseline':
-			case 'balance_stale':
-				return __( 'Qersh has not confirmed the wallet balance yet: confirm your balance in “Balance sync” on the phone.', 'qersh-for-woocommerce' );
-			case 'amount_over_limit':
-				return __( 'Larger than the “Auto-confirm limit” in the wallet settings on the phone.', 'qersh-for-woocommerce' );
-			case 'notification_only':
-				return __( 'An InstaPay notification alone, with no bank message to confirm it: check that the money arrived in the InstaPay app.', 'qersh-for-woocommerce' );
-			case 'balance_unavailable':
-				return __( 'This message does not show the balance, so Qersh cannot check it: check that the money arrived in the bank or wallet app.', 'qersh-for-woocommerce' );
-			case 'partial_template':
-			case 'unverified_template':
-				return __( 'Qersh reads this message with a template that is not fully verified yet: check that the money arrived in the bank or wallet app.', 'qersh-for-woocommerce' );
-			case 'no_payer':
-				if ( ! empty( $args['orange'] ) ) {
-					return __( 'The message does not show the sender’s number, and no customer has entered this transaction id yet.', 'qersh-for-woocommerce' );
-				}
-				return __( 'The message does not show the sender’s number.', 'qersh-for-woocommerce' );
-			case 'masked':
-				return __( 'The sender’s number arrived masked; set “Send sender details” to “Full name and number”.', 'qersh-for-woocommerce' );
-			case 'duplicate_txn':
-				/* translators: %s: transfer id. */
-				$text = sprintf( __( 'Duplicate transaction id: seen before in transfer %s.', 'qersh-for-woocommerce' ), self::iso( isset( $args['T'] ) ? (string) $args['T'] : '' ) );
-				if ( '' !== $n ) {
-					/* translators: %s: order number. */
-					$text .= ' ' . sprintf( __( 'That transfer paid order #%s.', 'qersh-for-woocommerce' ), $n );
-				}
-				return $text;
-			case 'closed_order':
-				/* translators: %s: order number. */
-				return sprintf( __( 'Arrived after order #%s was closed.', 'qersh-for-woocommerce' ), $n );
-			case 'stock_short':
-				/* translators: %s: order number. */
-				return sprintf( __( 'The stock is not enough to bring order #%s back.', 'qersh-for-woocommerce' ), $n );
-			case 'partial_overdue':
-				return __( 'Part of the amount arrived and the rest did not arrive before the deadline.', 'qersh-for-woocommerce' );
-			case 'claim_overdue':
-				/* translators: %s: order number. */
-				return sprintf( __( 'The customer of order #%s entered this transaction id and its deadline came before your decision; the order waits until you decide.', 'qersh-for-woocommerce' ), $n );
-			case 'txn_contested':
-				if ( 'competitor' === $form ) {
-					/* translators: 1: order number of the customer who entered the id, 2: order number waiting for the same amount. */
-					return sprintf( __( 'The customer of order #%1$s entered this transaction id, but order #%2$s waits for the same amount on this wallet. Check the sender’s name in the wallet app before you attach it.', 'qersh-for-woocommerce' ), $n, $m );
-				}
-				/* translators: 1: order number, 2: order number. */
-				return sprintf( __( 'This transaction id was entered on orders #%1$s and #%2$s.', 'qersh-for-woocommerce' ), $n, $m );
-			case 'txn_amount':
-				/* translators: 1: order number, 2: amount that remains. */
-				return sprintf( __( 'The customer of order #%1$s entered this transaction id, but the amount differs from what remains of the order (%2$s).', 'qersh-for-woocommerce' ), $n, self::plain_price( isset( $args['Z'] ) ? (int) $args['Z'] : 0 ) );
-			case 'txn_window':
-				if ( 'early' === $form ) {
-					/* translators: %s: order number. */
-					return sprintf( __( 'The transaction id was entered on order #%s before the operator sent the message of this transfer.', 'qersh-for-woocommerce' ), $n );
-				}
-				/* translators: %s: order number. */
-				return sprintf( __( 'The customer of order #%s entered this transaction id, but the money arrived before the order was created or outside its time.', 'qersh-for-woocommerce' ), $n );
-			case 'txn_wallet':
-				/* translators: 1: order number, 2: wallet name. */
-				return sprintf( __( 'The customer of order #%1$s entered this transaction id, but chose the wallet %2$s.', 'qersh-for-woocommerce' ), $n, self::wallet_name( isset( $args['W'] ) ? (string) $args['W'] : '' ) );
-			case 'forgery':
-				return __( 'This transfer’s message is suspected to be forged.', 'qersh-for-woocommerce' );
-			case 'merchant_confirmed':
-				return __( 'You confirmed the balance on the phone after the transfer arrived: attach it to its order.', 'qersh-for-woocommerce' );
-			case 'unknown_risk':
-				/* translators: %s: the risk reasons this version does not know. */
-				return sprintf( __( 'New risk reason: %s', 'qersh-for-woocommerce' ), self::iso( isset( $args['values'] ) ? (string) $args['values'] : '' ) );
-			case 'personal':
-				return __( 'Personal transfer: no open order for it in the store', 'qersh-for-woocommerce' );
 			case 'several_orders':
 				return __( 'Several open orders of this payer, and none matches the amount.', 'qersh-for-woocommerce' );
 			case 'late_delivery':
@@ -1382,23 +1326,20 @@ final class MatchPolicy {
 			case 'no_amount':
 				return __( 'The message does not show the amount.', 'qersh-for-woocommerce' );
 			case 'bad_time':
-				return __( 'The time of the money in the message cannot be read: check the transfer in the wallet app.', 'qersh-for-woocommerce' );
+				return __( 'The time the money arrived cannot be read from the message: check the transfer in the wallet app.', 'qersh-for-woocommerce' );
 			case 'cancelled_paid':
 				/* translators: %s: order number. */
-				return sprintf( __( 'Order #%s was cancelled or its payment method changed after money arrived for it: refund the customer from the wallet app.', 'qersh-for-woocommerce' ), $n );
+				return sprintf( __( 'Order %s was cancelled or its payment method changed after money arrived for it: refund the customer from the wallet app.', 'qersh-for-woocommerce' ), null === $order ? '…' : self::order_tag( $order ) );
 			case 'not_confirmed':
 				return __( 'Qersh did not confirm this transfer on its own: check that the money arrived in the wallet app.', 'qersh-for-woocommerce' );
 		}
-		if ( Risk::is_known( $code ) ) {
-			/* translators: %s: risk reason code. */
-			return sprintf( __( 'Qersh did not confirm this transfer on its own (%s): check that the money arrived in the wallet app.', 'qersh-for-woocommerce' ), self::iso( $code ) );
-		}
-		/* translators: %s: reason code. */
-		return sprintf( __( 'A reason this version does not know (%s): check the transfer in the wallet app.', 'qersh-for-woocommerce' ), self::iso( $code ) );
+		// A known risk reason without a sentence of its own, or a code this version does not know (docs/17 §4.6 rule 1).
+		return self::admin_text( Risk::is_known( $code ) ? 'risk_other' : 'unknown_risk', $code, array() );
 	}
 
 	/**
-	 * A note of the reply to the phone, or of a status update, plain text of at most 200 characters.
+	 * A note of the reply to the phone, or of a status update, plain text of at most 200 characters. The two notes of
+	 * a transfer without the payer's number are the reason's sentence without its full stop, as the kit writes them.
 	 *
 	 * @param string|null $code Note code: a reason, or `personal`, `no_payer_orange`, `by_claim`, `attached`,
 	 *                          `paid_late`.
@@ -1411,10 +1352,10 @@ final class MatchPolicy {
 		}
 		switch ( $code ) {
 			case 'no_payer':
-				$text = __( 'The message does not show the sender’s number', 'qersh-for-woocommerce' );
+				$text = self::without_period( self::reason_text( 'no_payer' ) );
 				break;
 			case 'no_payer_orange':
-				$text = __( 'The message does not show the sender’s number, and no customer has entered this transaction id yet', 'qersh-for-woocommerce' );
+				$text = self::without_period( self::reason_text( 'no_payer', array( 'orange' => true ) ) );
 				break;
 			case 'by_claim':
 				$text = __( 'Matched by the transaction id the customer entered', 'qersh-for-woocommerce' );
@@ -1423,7 +1364,7 @@ final class MatchPolicy {
 				$text = __( 'Attached to the order by the merchant', 'qersh-for-woocommerce' );
 				break;
 			case 'paid_late':
-				$text = __( 'Paid after the deadline', 'qersh-for-woocommerce' );
+				$text = self::without_period( self::hint_text( 'paid_late' ) );
 				break;
 			case 'closed_order':
 				if ( empty( $args['payer'] ) ) {
@@ -1431,7 +1372,7 @@ final class MatchPolicy {
 					break;
 				}
 				/* translators: %s: order number. */
-				$text = sprintf( __( 'A transfer from this payer arrived after order #%s was closed; decide: attach it or refund the money.', 'qersh-for-woocommerce' ), isset( $args['N'] ) ? self::order_ref( (int) $args['N'] ) : '' );
+				$text = sprintf( __( 'A transfer from this payer arrived after order %s was closed; decide: attach it or refund the money.', 'qersh-for-woocommerce' ), isset( $args['N'] ) ? self::order_tag( (int) $args['N'] ) : '…' );
 				break;
 			default:
 				$text = self::reason_text( $code, $args );
@@ -1459,7 +1400,7 @@ final class MatchPolicy {
 				return sprintf( __( 'Overpaid by %s', 'qersh-for-woocommerce' ), self::plain_price( isset( $args['X'] ) ? (int) $args['X'] : 0 ) );
 			case 'second_payment':
 				/* translators: %s: order number. */
-				return sprintf( __( 'Possibly a second payment for order #%s from the same payer; contact them to refund the amount from the wallet app.', 'qersh-for-woocommerce' ), isset( $args['N'] ) ? self::order_ref( (int) $args['N'] ) : '' );
+				return sprintf( __( 'Possibly a second payment for order %s from the same payer; contact them to refund the amount from the wallet app.', 'qersh-for-woocommerce' ), isset( $args['N'] ) ? self::order_tag( (int) $args['N'] ) : '…' );
 			default:
 				return self::reason_text( $code, $args );
 		}
@@ -1483,38 +1424,157 @@ final class MatchPolicy {
 	}
 
 	/**
-	 * An amount as plain text from wc_price(), isolated.
+	 * `#` and the number of an order, isolated together, as the admin screens write it in "order %s".
+	 *
+	 * @param int $order_id Order id.
+	 * @return string
+	 */
+	public static function order_tag( int $order_id ): string {
+		$number = (string) $order_id;
+		if ( $order_id > 0 && function_exists( 'wc_get_order' ) ) {
+			$order = wc_get_order( $order_id );
+			if ( $order instanceof \WC_Order ) {
+				$number = (string) $order->get_order_number();
+			}
+		}
+		return self::iso( '#' . $number );
+	}
+
+	/**
+	 * An amount as plain text from wc_price(), isolated (Format::price()).
 	 *
 	 * @param int $minor Piasters.
 	 * @return string
 	 */
 	public static function plain_price( int $minor ): string {
-		if ( class_exists( Format::class ) && method_exists( Format::class, 'price' ) ) {
-			return Format::price( $minor, Format::PLAIN, 'EGP' );
-		}
-		$html = function_exists( 'wc_price' ) ? wc_price( $minor / 100, array( 'currency' => 'EGP' ) ) : number_format( $minor / 100, 2 );
-		return self::iso( trim( html_entity_decode( wp_strip_all_tags( $html ), ENT_QUOTES, 'UTF-8' ) ) );
+		return Format::price( $minor, Format::PLAIN, 'EGP' );
 	}
 
 	/**
-	 * Plain-text isolation (U+2066 … U+2069).
+	 * Plain-text isolation by the rule of Format::isolate(): U+2066 … U+2069, or U+2068 … U+2069 for a value with
+	 * right-to-left letters.
 	 *
 	 * @param string $value Value.
 	 * @return string
 	 */
 	public static function iso( string $value ): string {
-		return "\u{2066}" . $value . "\u{2069}";
+		return Format::isolate( $value, Format::PLAIN );
 	}
 
 	/**
-	 * The label of a wallet of the configuration, or its id.
+	 * The Admin\Reasons code whose sentence is the text of a reason, or null for a reason whose text is here.
+	 *
+	 * @param string $code Reason code (or a risk reason).
+	 * @return string|null
+	 */
+	private static function admin_reason( string $code ): ?string {
+		if ( 'suspected_forgery' === $code ) {
+			return 'forgery';
+		}
+		if ( 'merchant_confirmed' === $code || in_array( $code, Reasons::STORE_REASONS, true ) || in_array( $code, Reasons::RISK_ORDER, true ) ) {
+			return $code;
+		}
+		return null;
+	}
+
+	/**
+	 * A sentence of Admin\Reasons::text(), from the arguments of reason_text(), as plain text.
+	 *
+	 * @param string $code   An Admin\Reasons code.
+	 * @param string $detail The code a `risk_other` or `unknown_risk` sentence names ('' to take `values`).
+	 * @param array  $args   Arguments of reason_text().
+	 * @return string
+	 */
+	private static function admin_text( string $code, string $detail, array $args ): string {
+		if ( 'unknown_risk' === $code && '' === $detail && isset( $args['values'] ) ) {
+			$detail = (string) $args['values'];
+		}
+		$form    = isset( $args['form'] ) ? (string) $args['form'] : '';
+		$variant = '';
+		if ( 'no_payer' === $code ) {
+			$variant = empty( $args['orange'] ) ? '' : 'orange';
+		} elseif ( 'txn_contested' === $code ) {
+			$variant = 'competitor' === $form ? 'competitor' : 'two';
+		} elseif ( 'txn_window' === $code ) {
+			$variant = 'early' === $form ? 'early' : 'created';
+		}
+		$pick   = array(
+			'code'    => $code,
+			'variant' => 'balance_unavailable' === $code ? 'sms' : '', // risk_reason() names the notification channel apart.
+			'detail'  => $detail,
+		);
+		$params = array(
+			'n'       => isset( $args['N'] ) ? (int) $args['N'] : null,
+			'm'       => isset( $args['M'] ) ? (int) $args['M'] : null,
+			't'       => isset( $args['T'] ) && '' !== (string) $args['T'] ? (string) $args['T'] : null,
+			'z'       => isset( $args['Z'] ) ? (int) $args['Z'] : null,
+			'w'       => isset( $args['W'] ) ? self::wallet_label( (string) $args['W'] ) : null,
+			'variant' => $variant,
+		);
+		return self::plain( Reasons::text( $pick, $params ) );
+	}
+
+	/**
+	 * The plain text of a line of escaped HTML: each isolating element (a `dir` attribute, or a `<bdi>`, which takes
+	 * the direction of its first strong letter) becomes the matching isolate, U+2066, U+2067 or U+2068 … U+2069; the
+	 * other tags go, and the entities are decoded. Pure.
+	 *
+	 * @param string $html Escaped HTML.
+	 * @return string
+	 */
+	private static function plain( string $html ): string {
+		$isolates = array(
+			'ltr'  => "\u{2066}",
+			'rtl'  => "\u{2067}",
+			'auto' => "\u{2068}",
+		);
+		$parts    = preg_split( '/(<[^>]*>)/', $html, -1, PREG_SPLIT_DELIM_CAPTURE );
+		$out      = '';
+		$open     = array();
+		foreach ( false === $parts ? array( $html ) : $parts as $part ) {
+			if ( '' === $part || '<' !== $part[0] ) {
+				$out .= $part;
+				continue;
+			}
+			if ( 0 === strpos( $part, '</' ) ) {
+				$out .= true === array_pop( $open ) ? "\u{2069}" : '';
+				continue;
+			}
+			if ( '/>' === substr( $part, -2 ) || 1 === preg_match( '/^<(?:br|wbr|img|hr)\b/i', $part ) ) {
+				continue; // A void element closes nothing.
+			}
+			$isolate = '';
+			if ( 1 === preg_match( '/\sdir\s*=\s*["\']?(ltr|rtl|auto)\b/i', $part, $dir ) ) {
+				$isolate = $isolates[ strtolower( $dir[1] ) ];
+			} elseif ( 1 === preg_match( '/^<bdi\b/i', $part ) ) {
+				$isolate = $isolates['auto'];
+			}
+			$open[] = '' !== $isolate;
+			$out   .= $isolate;
+		}
+		return trim( html_entity_decode( $out, ENT_QUOTES, 'UTF-8' ) );
+	}
+
+	/**
+	 * A sentence without its final full stop (a note of the reply to the phone).
+	 *
+	 * @param string $text Text.
+	 * @return string
+	 */
+	private static function without_period( string $text ): string {
+		return '.' === substr( $text, -1 ) ? substr( $text, 0, -1 ) : $text;
+	}
+
+	/**
+	 * The name the admin screens give a wallet of the configuration (its label, or its type), or its id.
 	 *
 	 * @param string $wallet Wallet id.
 	 * @return string
 	 */
-	private static function wallet_name( string $wallet ): string {
+	private static function wallet_label( string $wallet ): string {
 		$entry = Plugin::instance()->wallet( $wallet );
-		return null !== $entry && isset( $entry['label'] ) && is_string( $entry['label'] ) && '' !== $entry['label'] ? $entry['label'] : $wallet;
+		$name  = null !== $entry ? View::wallet_name( $entry ) : '';
+		return '' !== $name ? $name : $wallet;
 	}
 
 	/**

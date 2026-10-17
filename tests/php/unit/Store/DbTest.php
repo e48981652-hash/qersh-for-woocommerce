@@ -34,7 +34,7 @@ final class DbTest extends TestCase {
 	 */
 	protected function set_up() {
 		parent::set_up();
-		$this->wpdb       = new FakeWpdb();
+		$this->wpdb      = new FakeWpdb();
 		$GLOBALS['wpdb'] = $this->wpdb;
 	}
 
@@ -47,7 +47,7 @@ final class DbTest extends TestCase {
 	}
 
 	/** One txn:/trf: name first, then payer: names sorted with strcmp, each once (docs/17 §4.4 step 8). */
-	public function test_order_lock_names() {
+	public function test_order_lock_names(): void {
 		$this->assertSame(
 			array( 'txn:orange_cash:12345678901234', 'payer:01001234567', 'payer:01112223334', 'payer:ali@instapay' ),
 			Db::order_lock_names( array( 'payer:ali@instapay', 'payer:01112223334', 'txn:orange_cash:12345678901234', 'payer:01001234567', 'payer:01112223334' ) )
@@ -59,7 +59,7 @@ final class DbTest extends TestCase {
 	}
 
 	/** Two different head locks, unknown kinds, empty names and non-strings are programming errors. */
-	public function test_order_lock_names_refuses() {
+	public function test_order_lock_names_refuses(): void {
 		$bad = array(
 			array( 'txn:orange_cash:1', 'trf:trf_x' ),
 			array( 'order:12' ),
@@ -77,7 +77,7 @@ final class DbTest extends TestCase {
 	}
 
 	/** A lock name longer than the column becomes a hash that keeps its kind. */
-	public function test_lock_row_name() {
+	public function test_lock_row_name(): void {
 		$this->assertSame( 'payer:01001234567', Db::lock_row_name( 'payer:01001234567' ) );
 		$long = 'payer:' . str_repeat( 'a', 120 ) . '@instapay';
 		$row  = Db::lock_row_name( $long );
@@ -86,7 +86,7 @@ final class DbTest extends TestCase {
 	}
 
 	/** MySQL 1205/1213 (by number or text) and SQLite busy are lock errors; nothing else is. */
-	public function test_is_lock_error() {
+	public function test_is_lock_error(): void {
 		$this->assertTrue( Db::is_lock_error( 'Lock wait timeout exceeded; try restarting transaction' ) );
 		$this->assertTrue( Db::is_lock_error( 'Deadlock found when trying to get lock; try restarting transaction' ) );
 		$this->assertTrue( Db::is_lock_error( 'SQLSTATE[HY000]: General error: 5 database is locked' ) );
@@ -98,7 +98,7 @@ final class DbTest extends TestCase {
 	}
 
 	/** begin() saves and sets the lock wait timeout after START TRANSACTION; commit() puts it back. */
-	public function test_transaction_sequence_on_mysql() {
+	public function test_transaction_sequence_on_mysql(): void {
 		$this->wpdb->on( '/^SELECT @@innodb_lock_wait_timeout$/', '50' );
 		$db = new Db();
 		$db->begin();
@@ -121,7 +121,7 @@ final class DbTest extends TestCase {
 	}
 
 	/** rollback() also restores the timeout, never throws, and does nothing without a transaction. */
-	public function test_rollback() {
+	public function test_rollback(): void {
 		$this->wpdb->on( '/^SELECT @@innodb_lock_wait_timeout$/', '30' );
 		$db = new Db();
 		$db->rollback();
@@ -138,7 +138,7 @@ final class DbTest extends TestCase {
 	 * @runInSeparateProcess
 	 * @preserveGlobalState disabled
 	 */
-	public function test_sqlite_skips_session_variables() {
+	public function test_sqlite_skips_session_variables(): void {
 		require_once __DIR__ . '/FakeSqliteDb.php';
 		$db = new Db();
 		$this->assertTrue( $db->is_sqlite() );
@@ -161,7 +161,7 @@ final class DbTest extends TestCase {
 	 * @runInSeparateProcess
 	 * @preserveGlobalState disabled
 	 */
-	public function test_sqlite_begin_lock_maps() {
+	public function test_sqlite_begin_lock_maps(): void {
 		require_once __DIR__ . '/FakeSqliteDb.php';
 		$this->wpdb->on( '/^START TRANSACTION$/', false, 'SQLSTATE[HY000]: General error: 5 database is locked' );
 		$db = new Db();
@@ -178,7 +178,7 @@ final class DbTest extends TestCase {
 	}
 
 	/** START TRANSACTION failing for another reason stays a RuntimeException. */
-	public function test_begin_other_error() {
+	public function test_begin_other_error(): void {
 		$this->wpdb->on( '/^START TRANSACTION$/', false, 'MySQL server has gone away' );
 		$db = new Db();
 		try {
@@ -194,7 +194,7 @@ final class DbTest extends TestCase {
 	 * The total lock order holds across lock() calls of one transaction: a later call may continue it (names already
 	 * held are skipped), never go back; rollback() and commit() start afresh.
 	 */
-	public function test_lock_order_across_calls() {
+	public function test_lock_order_across_calls(): void {
 		$this->wpdb->on( '/^SELECT @@innodb_lock_wait_timeout$/', '5', '', true );
 		$db = new Db();
 		$db->begin();
@@ -235,7 +235,7 @@ final class DbTest extends TestCase {
 	}
 
 	/** continue_lock_order() is pure: what is left to take, or LogicException. */
-	public function test_continue_lock_order() {
+	public function test_continue_lock_order(): void {
 		$this->assertSame( array( 'trf:trf_x', 'payer:a' ), Db::continue_lock_order( array(), array( 'trf:trf_x', 'payer:a' ) ) );
 		$this->assertSame( array( 'payer:c' ), Db::continue_lock_order( array( 'trf:trf_x', 'payer:a' ), array( 'trf:trf_x', 'payer:a', 'payer:c' ) ) );
 		$this->assertSame( array(), Db::continue_lock_order( array( 'payer:a' ), array( 'payer:a' ) ) );
@@ -244,7 +244,7 @@ final class DbTest extends TestCase {
 	}
 
 	/** When the session already waits 5 seconds nothing is set or restored. */
-	public function test_timeout_already_five() {
+	public function test_timeout_already_five(): void {
 		$this->wpdb->on( '/^SELECT @@innodb_lock_wait_timeout$/', '5' );
 		$db = new Db();
 		$db->begin();
@@ -253,7 +253,7 @@ final class DbTest extends TestCase {
 	}
 
 	/** A lock wait timeout on a lock row becomes LockTimeout. */
-	public function test_lock_timeout_maps() {
+	public function test_lock_timeout_maps(): void {
 		$this->wpdb->on( '/^INSERT INTO `wp_qersh_locks`/', false, 'Lock wait timeout exceeded; try restarting transaction' );
 		$db = new Db();
 		$db->begin();
@@ -262,7 +262,7 @@ final class DbTest extends TestCase {
 	}
 
 	/** A deadlock reported at COMMIT (Galera) becomes LockTimeout, and the timeout is still restored. */
-	public function test_commit_deadlock_maps() {
+	public function test_commit_deadlock_maps(): void {
 		$this->wpdb->on( '/^SELECT @@innodb_lock_wait_timeout$/', '50' );
 		$this->wpdb->on( '/^COMMIT$/', false, 'Deadlock found when trying to get lock; try restarting transaction' );
 		$db = new Db();
@@ -277,7 +277,7 @@ final class DbTest extends TestCase {
 	}
 
 	/** Locks need a transaction, and transactions do not nest. */
-	public function test_misuse() {
+	public function test_misuse(): void {
 		$db = new Db();
 		try {
 			$db->lock( array( 'payer:01001234567' ) );
@@ -291,7 +291,7 @@ final class DbTest extends TestCase {
 	}
 
 	/** A failed read throws (an empty answer would read as "no order"); a failed query() returns false. */
-	public function test_read_errors() {
+	public function test_read_errors(): void {
 		$db = new Db();
 		$this->wpdb->on( '/^SELECT/', null, "Table 'wp_qersh_orders' doesn't exist" );
 		try {
@@ -305,7 +305,7 @@ final class DbTest extends TestCase {
 	}
 
 	/** table() knows the five tables only. */
-	public function test_table() {
+	public function test_table(): void {
 		$db = new Db();
 		$this->assertSame( 'wp_qersh_deliveries', $db->table( 'deliveries' ) );
 		$this->assertSame( 'wp_qersh_locks', $db->table( 'qersh_locks' ) );
@@ -314,7 +314,7 @@ final class DbTest extends TestCase {
 	}
 
 	/** Values are checked like MySQL would otherwise do silently. */
-	public function test_values() {
+	public function test_values(): void {
 		$this->assertSame( array( '%d', 7 ), Db::value( 'orders', 'order_id', '7' ) );
 		$this->assertSame( array( '%d', 1 ), Db::value( 'transfers', 'auto_confirm_ok', true ) );
 		$this->assertSame( array( 'NULL', null ), Db::value( 'transfers', 'payer_key', '' ) );
@@ -351,8 +351,8 @@ final class DbTest extends TestCase {
 	}
 
 	/** insert_sql() and set_sql() write NULL literally and keep the arguments in placeholder order. */
-	public function test_sql_builders() {
-		$db = new Db();
+	public function test_sql_builders(): void {
+		$db                 = new Db();
 		list( $sql, $args ) = $db->insert_sql(
 			'deliveries',
 			array(
@@ -377,7 +377,7 @@ final class DbTest extends TestCase {
 	}
 
 	/** Rows read back are typed. */
-	public function test_typed() {
+	public function test_typed(): void {
 		$row = Db::typed(
 			'transfers',
 			array(

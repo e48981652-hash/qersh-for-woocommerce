@@ -102,19 +102,19 @@ final class Diagnostics {
 	 * Security plugins and firewalls recognised in a blocked answer, by a pattern of their body or headers.
 	 */
 	const BLOCKERS = array(
-		'/wordfence|wfwaf/i'                                 => 'Wordfence',
-		'/disable[ -]rest[ -]api|\bDRA:/i'                   => 'Disable REST API',
-		'/solid ?security|ithemes ?security|\bitsec/i'       => 'Solid Security',
-		'/all[- ]in[- ]one[- ](wp[- ])?security|aiowps/i'    => 'All-In-One Security',
-		'/sucuri/i'                                          => 'Sucuri',
-		'/imunify/i'                                         => 'Imunify360',
-		'/mod_?security|not acceptable!/i'                   => 'ModSecurity',
-		'/perfmatters/i'                                     => 'Perfmatters',
-		'/wp[- ]hide/i'                                      => 'WP Hide & Security Enhancer',
-		'/shield ?security|\bicwp/i'                         => 'Shield Security',
-		'/clearfy/i'                                         => 'Clearfy',
-		'/wp[- ]cerber|cerber/i'                             => 'WP Cerber',
-		'/litespeed.*(waf|firewall)|lsws.*(waf|firewall)/i'  => 'LiteSpeed',
+		'/wordfence|wfwaf/i'                              => 'Wordfence',
+		'/disable[ -]rest[ -]api|\bDRA:/i'                => 'Disable REST API',
+		'/solid ?security|ithemes ?security|\bitsec/i'    => 'Solid Security',
+		'/all[- ]in[- ]one[- ](wp[- ])?security|aiowps/i' => 'All-In-One Security',
+		'/sucuri/i'                                       => 'Sucuri',
+		'/imunify/i'                                      => 'Imunify360',
+		'/mod_?security|not acceptable!/i'                => 'ModSecurity',
+		'/perfmatters/i'                                  => 'Perfmatters',
+		'/wp[- ]hide/i'                                   => 'WP Hide & Security Enhancer',
+		'/shield ?security|\bicwp/i'                      => 'Shield Security',
+		'/clearfy/i'                                      => 'Clearfy',
+		'/wp[- ]cerber|cerber/i'                          => 'WP Cerber',
+		'/litespeed.*(waf|firewall)|lsws.*(waf|firewall)/i' => 'LiteSpeed',
 	);
 
 	/**
@@ -153,10 +153,10 @@ final class Diagnostics {
 	 *                         the first, so the phone holds a newer key (docs/17 §4.8).
 	 */
 	public function record_delivery( string $wallet, array $envelope, string $form, int $now = 0, array $verified = array() ): void {
+		if ( ! $this->plugin instanceof Plugin || ! Config::wallet_id_ok( $wallet ) ) {
+			return;
+		}
 		try {
-			if ( ! $this->plugin instanceof Plugin || ! Config::wallet_id_ok( $wallet ) ) {
-				return;
-			}
 			$now      = $now > 0 ? $now : time();
 			$cfg      = $this->plugin->wallet( $wallet );
 			$provider = is_array( $cfg ) && isset( $cfg['provider'] ) ? (string) $cfg['provider'] : '';
@@ -181,9 +181,7 @@ final class Diagnostics {
 				$this->plugin->logger()->warning( 'Qersh received an Orange Cash transaction id of an unexpected format (…' . $drift . '); the transaction id box is hidden until the plugin is updated.' );
 			}
 		} catch ( \Throwable $e ) {
-			if ( $this->plugin instanceof Plugin ) {
-				$this->plugin->logger()->warning( 'Qersh could not record the wallet state of a delivery.', array( 'error' => get_class( $e ) ) );
-			}
+			$this->plugin->logger()->warning( 'Qersh could not record the wallet state of a delivery.', array( 'error' => get_class( $e ) ) );
 		}
 	}
 
@@ -365,6 +363,7 @@ final class Diagnostics {
 				'orders_waiting' => $waiting,
 			)
 		);
+
 		$out = array();
 		foreach ( $codes as $item ) {
 			$message = $this->wallet_alert_text( $item, $cfg );
@@ -652,7 +651,9 @@ final class Diagnostics {
 		$tail = self::drift_tail( get_option( self::DRIFT_OPTION, null ) );
 		if ( null !== $tail && $this->has_provider( 'orange_cash' ) ) {
 			/* translators: %s: the last three digits of a transaction id. */
-			$add( 'txn_drift:' . $tail, 'error', 'txn_drift', sprintf( esc_html__( 'An Orange Cash transfer arrived with a transaction id whose format this version does not expect (…%s), so your customers\' ids may not match it. Update Qersh for WooCommerce.', 'qersh-for-woocommerce' ), View::ltr( $tail ) ) . '<br>' . esc_html__( 'Customers cannot enter the transaction id for this wallet until you update Qersh for WooCommerce.', 'qersh-for-woocommerce' ) );
+			$drift  = sprintf( esc_html__( 'An Orange Cash transfer arrived with a transaction id whose format this version does not expect (…%s), so your customers\' ids may not match it. Update Qersh for WooCommerce.', 'qersh-for-woocommerce' ), View::ltr( $tail ) );
+			$drift .= '<br>' . esc_html__( 'Customers cannot enter the transaction id for this wallet until you update Qersh for WooCommerce.', 'qersh-for-woocommerce' );
+			$add( 'txn_drift:' . $tail, 'error', 'txn_drift', $drift );
 		}
 		if ( $ours ) {
 			$count = $this->competition_today();
@@ -674,7 +675,7 @@ final class Diagnostics {
 	private function wallet_alert_text( array $item, array $cfg ): string {
 		$name   = esc_html( View::wallet_name( $cfg ) ) . ': ';
 		$at     = esc_html__( 'At the last delivery:', 'qersh-for-woocommerce' ) . ' ';
-		$since  = isset( $item['since'] ) && null !== $item['since'] ? View::ltr( View::time( (int) $item['since'] ) ) : '';
+		$since  = isset( $item['since'] ) ? View::ltr( View::time( (int) $item['since'] ) ) : '';
 		$prefix = $name;
 		switch ( $item['code'] ) {
 			case 'key_unreadable':
@@ -682,14 +683,14 @@ final class Diagnostics {
 			case 'key_constant_invalid':
 				return $prefix . esc_html__( 'The connection key in wp-config.php is not a valid key (at least 24 characters, no spaces), so the store answers the phone 401.', 'qersh-for-woocommerce' );
 			case 'device_sms':
-				return $prefix . $at . esc_html__( 'The phone has no permission to read messages: no transfer will arrive. Open Qersh → “Prepare the phone”.', 'qersh-for-woocommerce' );
+				return $prefix . $at . esc_html__( 'The phone has no permission to read messages: no transfer will arrive. Open Qersh → “Set up the phone”.', 'qersh-for-woocommerce' );
 			case 'device_notif':
 				return $prefix . $at . esc_html__( 'Qersh cannot reach InstaPay notifications: no transfer will arrive.', 'qersh-for-woocommerce' );
 			case 'device_bg':
-				return $prefix . $at . esc_html__( 'The system stops Qersh from working in the background: open “Prepare the phone”.', 'qersh-for-woocommerce' );
+				return $prefix . $at . esc_html__( 'The system stops Qersh from working in the background: open “Set up the phone”.', 'qersh-for-woocommerce' );
 			case 'silent_suspect':
 				/* translators: %s: date and time. */
-				return $prefix . sprintf( esc_html__( 'The phone of this wallet is suspected to be offline since %s: orders will not be confirmed on their own until it is back.', 'qersh-for-woocommerce' ), $since );
+				return $prefix . sprintf( esc_html__( 'The phone of this wallet seems to have been offline since %s: orders will not be confirmed on their own until it is back.', 'qersh-for-woocommerce' ), $since );
 			case 'silent_down':
 				/* translators: %s: date and time. */
 				return $prefix . sprintf( esc_html__( 'The phone of this wallet has been offline since %s.', 'qersh-for-woocommerce' ), $since );
@@ -760,11 +761,19 @@ final class Diagnostics {
 	 * @return string
 	 */
 	public static function fallback_url( string $wallet ): string {
-		return self::force_https( add_query_arg( array( 'wc-api' => 'qersh', 'qw' => $wallet ), home_url( '/' ) ) );
+		return self::force_https(
+			add_query_arg(
+				array(
+					'wc-api' => 'qersh',
+					'qw'     => $wallet,
+				),
+				home_url( '/' )
+			)
+		);
 	}
 
 	/**
-	 * https:// for any host the app does not accept plain http for.
+	 * Forces https:// for any host the app does not accept plain http for.
 	 *
 	 * @param string $url URL.
 	 * @return string
@@ -877,9 +886,16 @@ final class Diagnostics {
 		if ( null !== $seen && self::url_key( $seen ) !== self::url_key( $current ) ) {
 			$steps[] = array( 'saved', $seen, 'webhook', '' );
 		}
-		$steps[] = array( 'fallback', self::fallback_url( $wallet ), 'webhook', 'current' );
-		$steps[] = array( 'txn', self::force_https( rest_url( 'qersh/v1/order-txn' ) ), 'txn', '' );
-		$steps[] = array( 'txn_fallback', self::force_https( add_query_arg( array( 'wc-api' => 'qersh', 'qo' => 'txn' ), home_url( '/' ) ) ), 'txn', 'txn' );
+		$steps[]      = array( 'fallback', self::fallback_url( $wallet ), 'webhook', 'current' );
+		$steps[]      = array( 'txn', self::force_https( rest_url( 'qersh/v1/order-txn' ) ), 'txn', '' );
+		$txn_fallback = add_query_arg(
+			array(
+				'wc-api' => 'qersh',
+				'qo'     => 'txn',
+			),
+			home_url( '/' )
+		);
+		$steps[]      = array( 'txn_fallback', self::force_https( $txn_fallback ), 'txn', 'txn' );
 
 		$result['probes'] = self::run_probes(
 			$steps,
@@ -907,6 +923,7 @@ final class Diagnostics {
 		$dead    = array();
 		foreach ( $steps as $step ) {
 			list( $name, $url, $expect, $after ) = array_pad( array_values( $step ), 4, '' );
+
 			$name = (string) $name;
 			$url  = (string) $url;
 			if ( '' !== (string) $after && ( ! isset( $verdict[ $after ] ) || 'ok' === $verdict[ $after ] || 'skipped' === $verdict[ $after ] ) ) {
@@ -1131,7 +1148,7 @@ final class Diagnostics {
 			}
 			$late = 0;
 			foreach ( array( 'woocommerce-emails', 'qersh' ) as $group ) {
-				$ids = as_get_scheduled_actions(
+				$ids   = as_get_scheduled_actions(
 					array(
 						'group'        => $group,
 						'status'       => 'pending',
@@ -1255,6 +1272,14 @@ final class Diagnostics {
 				if ( 1 !== $claimed ) {
 					continue;
 				}
+				/**
+				 * Sends the administrator's Qersh alert email (Emails\AdminAlert, one of woocommerce_email_actions).
+				 *
+				 * @since 0.1.0
+				 *
+				 * @param string $kind The alert: `forgery`, `phone_silent`, `claim_overdue` or `partial_overdue`.
+				 * @param array  $args Its arguments; for `phone_silent`: `wallet`, `since` (UTC seconds), `orders`.
+				 */
 				do_action(
 					'qersh_wc_admin_alert',
 					'phone_silent',

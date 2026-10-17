@@ -5,9 +5,12 @@
  *   every 60 s until the deadline plus the grace window; paused while the page is hidden (the customer is in the
  *   wallet app), polled at once on return, stopped at a final state. When REST answers with something that is not
  *   JSON, or with 401/403, the page switches to ?wc-api=qersh&qo=status|txn and keeps it.
- * - The deadline is drawn in Cairo time with Intl.DateTimeFormat (timeZone Africa/Cairo, Latin digits).
+ * - The deadline is drawn in Cairo time with Intl.DateTimeFormat (timeZone Africa/Cairo, Latin digits), isolated by
+ *   its first strong letter when the page's language writes it with Arabic words, else left to right.
  * - Copy buttons copy the raw value of their data- attribute.
- * - The transaction-id form (Orange Cash): read with the same normaliser as the server, sent as the id alone.
+ * - The transaction-id form (Orange Cash): read with the same normaliser as the server, sent as the id alone. When
+ *   what the field holds is not the id itself (a pasted message, spaces, Arabic-Indic digits), the id that will be
+ *   sent shows under the field before sending ("We will send: …", docs/17 §14.1).
  * Plain ES5, no build step.
  */
 ( function ( win, doc ) {
@@ -239,7 +242,11 @@
 					options.day = 'numeric';
 					options.month = 'long';
 				}
-				el.textContent = new win.Intl.DateTimeFormat( lang, options ).format( new Date( ts * 1000 ) );
+				var text = new win.Intl.DateTimeFormat( lang, options ).format( new Date( ts * 1000 ) );
+				el.textContent = text;
+				// Format::isolate(): a time written with Arabic words ("4:35 م") takes its direction from its first
+				// strong letter; one without them stays left to right.
+				el.setAttribute( 'dir', N.hasRtl( text ) ? 'auto' : 'ltr' );
 			} catch ( e ) {
 				// Keep the server's text.
 			}
@@ -307,6 +314,30 @@
 			return errors[ code ] || errors.other || '';
 		}
 
+		function read() {
+			var txn = cfg.txn || {};
+			return N.canonicalTyped( txn.provider, input.value, txn.payer_key || null, txn.store_numbers || [], txn.shapes );
+		}
+
+		// "We will send: <id>", the id isolated left to right, when the field holds more than the id itself (a pasted
+		// message, spaces, Arabic-Indic digits). Nothing while it is the id as typed, or not readable yet: the errors
+		// wait for the send, so a customer typing digits is not told off at each key.
+		function preview() {
+			var res = read();
+			var template = strings.will_send || '';
+			var at = template.indexOf( '%s' );
+			say( '', false );
+			if ( ! msg || ! res.ok || at === -1 || res.txn === input.value.replace( /^\s+|\s+$/g, '' ) ) {
+				return;
+			}
+			var id = doc.createElement( 'bdi' );
+			id.setAttribute( 'dir', 'ltr' );
+			id.textContent = res.txn;
+			msg.appendChild( doc.createTextNode( template.slice( 0, at ) ) );
+			msg.appendChild( id );
+			msg.appendChild( doc.createTextNode( template.slice( at + 2 ) ) );
+		}
+
 		// An input of type text drops line breaks on paste; a pasted message keeps them as paragraph separators,
 		// which the normaliser reads as line breaks, so two numbers on two lines are never joined.
 		input.addEventListener( 'paste', function ( e ) {
@@ -325,15 +356,14 @@
 			} catch ( err ) {
 				// Some input types do not support a selection.
 			}
+			// Setting the value fires no input event.
+			preview();
 		} );
 
-		input.addEventListener( 'input', function () {
-			say( '', false );
-		} );
+		input.addEventListener( 'input', preview );
 
 		function send() {
-			var txn = cfg.txn || {};
-			var res = N.canonicalTyped( txn.provider, input.value, txn.payer_key || null, txn.store_numbers || [], txn.shapes );
+			var res = read();
 			if ( ! res.ok ) {
 				say( errorText( res.error ), true );
 				return;

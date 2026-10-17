@@ -46,7 +46,12 @@ $qersh_wc_store = $args['store'];
 					echo esc_html(
 						sprintf(
 							/* translators: %d: minutes. */
-							__( 'The deadline the customer sees, from 15 to 1440 minutes. An order with no transfer is cancelled %d minutes after its deadline, so a transfer the phone held still finds it.', 'qersh-for-woocommerce' ),
+							_n(
+								'The deadline the customer sees, from 15 to 1440 minutes. An order with no transfer is cancelled %d minute after its deadline, so a transfer the phone held still finds it.',
+								'The deadline the customer sees, from 15 to 1440 minutes. An order with no transfer is cancelled %d minutes after its deadline, so a transfer the phone held still finds it.',
+								(int) $args['late_min'],
+								'qersh-for-woocommerce'
+							),
 							(int) $args['late_min']
 						)
 					);
@@ -81,7 +86,7 @@ $qersh_wc_store = $args['store'];
 		</tr>
 		<tr>
 			<th scope="row"><?php esc_html_e( 'Cancelled orders', 'qersh-for-woocommerce' ); ?></th>
-			<td><label><input type="checkbox" name="admin_cancel_email_on_expiry" value="1"<?php checked( ! empty( $qersh_wc_store['admin_cancel_email_on_expiry'] ) ); ?><?php disabled( $args['constant'] ); ?>> <?php esc_html_e( 'Send the administrator WooCommerce\'s “Cancelled order” email when the deadline cancels an order', 'qersh-for-woocommerce' ); ?></label></td>
+			<td><label><input type="checkbox" name="admin_cancel_email_on_expiry" value="1"<?php checked( ! empty( $qersh_wc_store['admin_cancel_email_on_expiry'] ) ); ?><?php disabled( $args['constant'] ); ?>> <?php esc_html_e( 'Do not send the administrator WooCommerce\'s “Cancelled order” email when the deadline alone cancels an order', 'qersh-for-woocommerce' ); ?></label></td>
 		</tr>
 		<tr>
 			<th scope="row"><label for="qersh-retention"><?php esc_html_e( 'Unmatched transfers (days)', 'qersh-for-woocommerce' ); ?></label></th>
@@ -138,10 +143,10 @@ $qersh_wc_store = $args['store'];
 <h2><?php esc_html_e( 'Before the first order', 'qersh-for-woocommerce' ); ?></h2>
 <ul class="qersh-wc-list">
 	<li><?php esc_html_e( '“Test connection” arrives even before Qersh is activated, but the phone sends no transfer before activation: it keeps them for up to 30 days and sends them after.', 'qersh-for-woocommerce' ); ?></li>
-	<li><?php esc_html_e( 'For a wallet whose messages state the balance (all but InstaPay and banks): on the wallet page open the ⋮ menu → “Sync balance” and enter your real balance from the wallet app or its balance code. Without it, Qersh holds the first transfers of the wallet for up to 15 minutes and asks you to check the balance; answer in “Confirm balance” within that time and the order is confirmed on its own, otherwise the transfer goes to “Needs a decision”.', 'qersh-for-woocommerce' ); ?></li>
-	<li><?php esc_html_e( 'A transfer larger than the “Maximum for automatic confirmation (EGP)” in the wallet settings on the phone (5,000 by default) always goes to “Needs a decision”: raise it there if your orders are larger.', 'qersh-for-woocommerce' ); ?></li>
+	<li><?php esc_html_e( 'For a wallet whose messages state the balance (all but InstaPay and banks): on the wallet page open the ⋮ menu → “Sync balance” and enter your real balance from the wallet app or its balance code. Without it, Qersh holds the first transfers of the wallet for up to 15 minutes and asks you to check the balance; answer in “Confirm your balance” within that time and the order is confirmed on its own, otherwise the transfer goes to “Needs a decision”.', 'qersh-for-woocommerce' ); ?></li>
+	<li><?php esc_html_e( 'A transfer larger than the “Auto-confirm limit (EGP)” in the wallet settings on the phone (5,000 by default) always goes to “Needs a decision”: raise it there if your orders are larger.', 'qersh-for-woocommerce' ); ?></li>
 	<li><?php esc_html_e( 'Turn the method on in WooCommerce → Settings → Payments → “Wallet transfer (Qersh)”.', 'qersh-for-woocommerce' ); ?></li>
-	<li><?php esc_html_e( 'Place a small test order and send a real transfer: the order turns “Processing” within seconds (or after your answer in “Confirm balance”), and the phone shows the order number next to the transfer.', 'qersh-for-woocommerce' ); ?></li>
+	<li><?php esc_html_e( 'Place a small test order and send a real transfer: the order turns “Processing” within seconds (or after your answer in “Confirm your balance”), and the phone shows the order number next to the transfer.', 'qersh-for-woocommerce' ); ?></li>
 </ul>
 
 <h2><?php esc_html_e( 'Every day', 'qersh-for-woocommerce' ); ?></h2>

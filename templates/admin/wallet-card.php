@@ -91,7 +91,7 @@ $qersh_wc_id = $args['id'];
 	<?php endif; ?>
 
 	<details class="qersh-wc-another"<?php echo $args['key_link'] ? '' : ' open'; ?>>
-		<summary><?php esc_html_e( 'Another way: your developer\'s link (paste it in the Qersh app: Add wallet → Have a link from your developer?)', 'qersh-for-woocommerce' ); ?></summary>
+		<summary><?php esc_html_e( 'Another way: your developer\'s link (paste it in the Qersh app: “Add wallet” → “Have a link from your developer?”)', 'qersh-for-woocommerce' ); ?></summary>
 		<?php if ( null !== $args['keyless'] ) : ?>
 			<p><code dir="ltr" class="qersh-wc-link"><?php echo esc_html( $args['keyless'] ); ?></code></p>
 			<p>

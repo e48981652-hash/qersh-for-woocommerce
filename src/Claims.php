@@ -100,6 +100,7 @@ final class Claims {
 	 * @param mixed     $raw   What the customer sent.
 	 * @param int       $now   UTC seconds.
 	 * @return array `[ 'http' => int, 'body' => array, 'retry_after' => int|null ]`
+	 * @throws \Throwable Any error of the locked transaction other than a busy lock, after its rollback.
 	 */
 	public function submit( \WC_Order $order, $raw, int $now ): array {
 		$id    = (int) $order->get_id();
@@ -109,8 +110,11 @@ final class Claims {
 		if ( Orders::METHOD !== $order->get_payment_method() || empty( $opts['txn_entry'] ) || null === $row ) {
 			return self::not_found();
 		}
+		// The order's wallet is still in the configuration, turned off or not: turning a wallet off only hides it from
+		// the checkout (docs/17 §5 step 10), so the orders already waiting on it keep their field (ClaimRoute,
+		// Checkout::txn_wallet()). A deleted wallet has no entry.
 		$wallet = $this->plugin->wallet( (string) $row['wallet'] );
-		if ( null === $wallet || ! isset( $wallet['provider'] ) || self::PROVIDER !== $wallet['provider'] || ( isset( $wallet['enabled'] ) && false === $wallet['enabled'] ) ) {
+		if ( null === $wallet || ! isset( $wallet['provider'] ) || self::PROVIDER !== $wallet['provider'] ) {
 			return self::not_found();
 		}
 
@@ -162,7 +166,7 @@ final class Claims {
 					}
 					return self::refusal( 409, 'qersh_txn_locked', $order );
 				}
-				$old = isset( $row['claim_txn'] ) && null !== $row['claim_txn'] ? (string) $row['claim_txn'] : '';
+				$old = isset( $row['claim_txn'] ) ? (string) $row['claim_txn'] : '';
 				if ( '' === $old ) {
 					/* translators: %s: transaction id. */
 					$order->add_order_note( sprintf( __( 'The customer entered the transaction id %s.', 'qersh-for-woocommerce' ), Orders::ltr( $txn ) ) );
@@ -213,8 +217,9 @@ final class Claims {
 	 * for a busy lock (the sweep tries again).
 	 *
 	 * @param int $order_id Order id.
+	 * @throws \Throwable Any other error of the locked transaction, after its rollback.
 	 */
-	public function evaluate( int $order_id ) {
+	public function evaluate( int $order_id ): void {
 		if ( $order_id <= 0 || ! $this->plugin->wc_ready() || ! $this->plugin->tables_ready() ) {
 			return;
 		}
@@ -238,7 +243,7 @@ final class Claims {
 	 * The sweep (every 15 minutes, from Webhook\Module): evaluates again the live ids that an eligible row matches
 	 * and whose last evaluation is older than the claim (a callback that never ran).
 	 */
-	public function sweep() {
+	public function sweep(): void {
 		if ( ! $this->plugin->wc_ready() || ! $this->plugin->tables_ready() ) {
 			return;
 		}
@@ -259,7 +264,7 @@ final class Claims {
 	/**
 	 * The after-reply callback (shutdown, priority 5): finishes the response, then evaluates. Never throws.
 	 */
-	public static function on_shutdown() {
+	public static function on_shutdown(): void {
 		$ids          = array_keys( self::$queued );
 		self::$queued = array();
 		if ( empty( $ids ) ) {
@@ -384,7 +389,7 @@ final class Claims {
 		$notes    = array();
 		$eligible = array();
 		foreach ( $rows as $tr ) {
-			$linked = isset( $tr['order_id'] ) && null !== $tr['order_id'] ? (int) $tr['order_id'] : 0;
+			$linked = isset( $tr['order_id'] ) ? (int) $tr['order_id'] : 0;
 			if ( $linked === $order_id ) {
 				$db->commit();
 				return true; // The delivery got there first.
@@ -462,7 +467,7 @@ final class Claims {
 	 */
 	public static function eligible( array $tr ): bool {
 		return 'review' === $tr['outcome'] && 'no_payer' === $tr['reason'] && null === $tr['order_id']
-			&& ( ! isset( $tr['flag'] ) || null === $tr['flag'] || '' === $tr['flag'] ) && 1 === (int) $tr['auto_confirm_ok'];
+			&& ( ! isset( $tr['flag'] ) || '' === $tr['flag'] ) && 1 === (int) $tr['auto_confirm_ok'];
 	}
 
 	/**
@@ -470,7 +475,7 @@ final class Claims {
 	 *
 	 * @param int $order_id Order id.
 	 */
-	private function schedule_evaluation( int $order_id ) {
+	private function schedule_evaluation( int $order_id ): void {
 		if ( Plugin::finish_available() ) {
 			self::$queued[ $order_id ] = true;
 			if ( ! self::$hooked ) {
@@ -507,7 +512,7 @@ final class Claims {
 	/**
 	 * Sends what is buffered and ends the response, so the customer has the answer before the evaluation runs.
 	 */
-	private static function finish_response() {
+	private static function finish_response(): void {
 		while ( ob_get_level() > 0 ) {
 			$status = ob_get_status();
 			if ( empty( $status ) || ! ( (int) $status['flags'] & PHP_OUTPUT_HANDLER_REMOVABLE ) ) {
@@ -567,12 +572,9 @@ final class Claims {
 	 * @return array
 	 */
 	private static function not_found(): array {
-		$body = class_exists( OrderStatusRoute::class ) && method_exists( OrderStatusRoute::class, 'not_found_body' )
-			? OrderStatusRoute::not_found_body()
-			: array( 'code' => 'qersh_not_found' );
 		return array(
 			'http'        => 404,
-			'body'        => $body,
+			'body'        => OrderStatusRoute::not_found_body(),
 			'retry_after' => null,
 		);
 	}

@@ -56,7 +56,7 @@ final class Time {
 		};
 		if ( '' !== $part( 2 ) ) {
 			if ( '-' === $part( 1 ) && '000000' === $part( 2 ) ) {
-				return null; // year zero is written +000000
+				return null; // year zero is written +000000.
 			}
 			$year = ( '-' === $part( 1 ) ? -1 : 1 ) * (int) $part( 2 );
 		} else {
@@ -89,7 +89,7 @@ final class Time {
 				}
 				$offset = ( '-' === $part( 11 ) ? -1 : 1 ) * ( $offset_hour * 3600 + $offset_minute * 60 );
 			} elseif ( '' === $part( 10 ) ) {
-				return null; // neither Z nor an offset: Date.parse would read local time
+				return null; // neither Z nor an offset: Date.parse would read local time.
 			}
 			$clock  = $hour * 3600 + $minute * 60 + $second;
 			$millis = self::read_milliseconds( $fraction );

@@ -23,7 +23,7 @@ final class TimeTest extends TestCase {
 	const VECTOR = 1791725801;
 
 	/** `Z` in either case, with or without seconds. */
-	public function test_utc() {
+	public function test_utc(): void {
 		$this->assertSame( self::VECTOR, Time::iso_to_sec( '2026-10-11T13:36:41Z' ) );
 		$this->assertSame( self::VECTOR, Time::iso_to_sec( '2026-10-11t13:36:41z' ) );
 		$this->assertSame( self::VECTOR - 41, Time::iso_to_sec( '2026-10-11T13:36Z' ) );
@@ -31,7 +31,7 @@ final class TimeTest extends TestCase {
 	}
 
 	/** Offsets, with or without the colon, east and west of UTC. */
-	public function test_offsets() {
+	public function test_offsets(): void {
 		$this->assertSame( self::VECTOR, Time::iso_to_sec( '2026-10-11T16:36:41+03:00' ) );
 		$this->assertSame( self::VECTOR, Time::iso_to_sec( '2026-10-11T16:36:41+0300' ) );
 		$this->assertSame( self::VECTOR, Time::iso_to_sec( '2026-10-11T08:06:41-05:30' ) );
@@ -45,7 +45,7 @@ final class TimeTest extends TestCase {
 	}
 
 	/** Fractions of a second are dropped toward negative infinity, like Math.floor( Date.parse( x ) / 1000 ). */
-	public function test_milliseconds_are_floored() {
+	public function test_milliseconds_are_floored(): void {
 		$this->assertSame( self::VECTOR, Time::iso_to_sec( '2026-10-11T13:36:41.000Z' ) );
 		$this->assertSame( self::VECTOR, Time::iso_to_sec( '2026-10-11T13:36:41.999Z' ) );
 		$this->assertSame( self::VECTOR, Time::iso_to_sec( '2026-10-11T16:36:41.5+03:00' ) );
@@ -55,7 +55,7 @@ final class TimeTest extends TestCase {
 	}
 
 	/** A date alone is UTC midnight, as Date.parse reads it. */
-	public function test_date_only() {
+	public function test_date_only(): void {
 		$this->assertSame( self::VECTOR - ( 13 * 3600 + 36 * 60 + 41 ), Time::iso_to_sec( '2026-10-11' ) );
 		$this->assertSame( Time::iso_to_sec( '2026-10-11T00:00:00Z' ), Time::iso_to_sec( '2026-10-11' ) );
 		$this->assertSame( Time::iso_to_sec( '2028-02-29T00:00:00Z' ), Time::iso_to_sec( '2028-02-29' ) );
@@ -63,7 +63,7 @@ final class TimeTest extends TestCase {
 	}
 
 	/** The other date-only forms: a year alone, a year and a month, and a time after either. */
-	public function test_short_dates() {
+	public function test_short_dates(): void {
 		$this->assertSame( 1767225600, Time::iso_to_sec( '2026' ) );
 		$this->assertSame( Time::iso_to_sec( '2026-01-01T00:00:00Z' ), Time::iso_to_sec( '2026' ) );
 		$this->assertSame( 1790812800, Time::iso_to_sec( '2026-10' ) );
@@ -74,7 +74,7 @@ final class TimeTest extends TestCase {
 	}
 
 	/** Years 0000 to 0100 are taken as written, never as two-digit years; year 0 is a leap year, as in MakeDay. */
-	public function test_early_years() {
+	public function test_early_years(): void {
 		$this->assertSame( -61078152486, Time::iso_to_sec( '0034-07-05T22:31:54Z' ) );
 		$this->assertSame( -62167219200, Time::iso_to_sec( '0000-01-01' ) );
 		$this->assertSame( -62135596800, Time::iso_to_sec( '0001-01-01' ) );
@@ -87,7 +87,7 @@ final class TimeTest extends TestCase {
 	}
 
 	/** Expanded years ±YYYYYY: before year 0 too, but never -000000. */
-	public function test_expanded_years() {
+	public function test_expanded_years(): void {
 		$this->assertSame( self::VECTOR, Time::iso_to_sec( '+002026-10-11T13:36:41Z' ) );
 		$this->assertSame( 1767225600, Time::iso_to_sec( '+002026' ) );
 		$this->assertSame( -126077077399, Time::iso_to_sec( '-002026-10-11T13:36:41Z' ) );
@@ -102,7 +102,7 @@ final class TimeTest extends TestCase {
 	}
 
 	/** A JavaScript Date holds 8.64e15 ms either side of 1970; past that Date.parse returns NaN. */
-	public function test_date_limits() {
+	public function test_date_limits(): void {
 		$this->assertSame( 8640000000000, Time::iso_to_sec( '+275760-09-13T00:00:00Z' ) );
 		$this->assertSame( 8640000000000, Time::iso_to_sec( '+275760-09-13' ) );
 		$this->assertSame( 8640000000000, Time::iso_to_sec( '+275760-09-13T00:00:00.0001Z' ) ); // V8 reads 0 ms
@@ -115,7 +115,7 @@ final class TimeTest extends TestCase {
 	}
 
 	/** A day 29 to 31 past the end of its month rolls over, as V8 reads it; other impossible parts are refused. */
-	public function test_impossible_dates() {
+	public function test_impossible_dates(): void {
 		$this->assertSame( Time::iso_to_sec( '2026-03-01' ), Time::iso_to_sec( '2026-02-29' ) ); // 2026 is not a leap year
 		$this->assertSame( 1772409600, Time::iso_to_sec( '2026-02-30' ) );
 		$this->assertSame( Time::iso_to_sec( '2026-03-02' ), Time::iso_to_sec( '2026-02-30' ) );
@@ -148,7 +148,7 @@ final class TimeTest extends TestCase {
 	}
 
 	/** A fraction of any length is read; only its first digits could matter, and never to the seconds. */
-	public function test_long_fractions() {
+	public function test_long_fractions(): void {
 		$this->assertSame( self::VECTOR, Time::iso_to_sec( '2026-10-11T13:36:41.1234567890123Z' ) );
 		$this->assertSame( self::VECTOR, Time::iso_to_sec( '2026-10-11T13:36:41.0001234567891Z' ) );
 		$this->assertSame( self::VECTOR, Time::iso_to_sec( '2026-10-11T13:36:41.' . str_repeat( '9', 40 ) . 'Z' ) );
@@ -157,7 +157,7 @@ final class TimeTest extends TestCase {
 	}
 
 	/** A date-time without an offset is refused: Date.parse would read it as local time, which differs between machines. */
-	public function test_offset_less_date_time_is_refused() {
+	public function test_offset_less_date_time_is_refused(): void {
 		$this->assertNull( Time::iso_to_sec( '2026-10-11T16:36:41' ) );
 		$this->assertNull( Time::iso_to_sec( '2026-10-11T16:36' ) );
 		$this->assertNull( Time::iso_to_sec( '2026-10-11T16:36:41.123' ) );
@@ -168,7 +168,7 @@ final class TimeTest extends TestCase {
 	 * Nothing is trimmed: white space around the text is refused (Date.parse returns NaN, or reads local time when
 	 * the text is a date alone).
 	 */
-	public function test_white_space_is_not_trimmed() {
+	public function test_white_space_is_not_trimmed(): void {
 		$cases = array(
 			' 2026-10-11T00:00:00Z',
 			'2026-10-11T00:00:00Z ',
@@ -188,7 +188,7 @@ final class TimeTest extends TestCase {
 	 * Texts outside the format are refused on purpose, also where V8's legacy parser would return a number: its
 	 * heuristics (two-digit years, month-day-year order, local time) belong to no sender of these values.
 	 */
-	public function test_legacy_forms_are_refused() {
+	public function test_legacy_forms_are_refused(): void {
 		$cases = array(
 			'2026-10-11 13:36:41Z', // V8: UTC
 			'2032-04-26 03:00:24Z',
@@ -209,7 +209,7 @@ final class TimeTest extends TestCase {
 	}
 
 	/** Anything else is null. */
-	public function test_other_values() {
+	public function test_other_values(): void {
 		foreach ( array( 'not a date', '', ' ', 'T13:36:41Z', '1791725801' ) as $iso ) {
 			$this->assertNull( Time::iso_to_sec( $iso ), $iso );
 		}
@@ -219,7 +219,7 @@ final class TimeTest extends TestCase {
 	}
 
 	/** Seconds back to ISO: `YYYY-MM-DDTHH:MM:SSZ`, and the round trip. */
-	public function test_sec_to_iso() {
+	public function test_sec_to_iso(): void {
 		$this->assertSame( '2026-10-11T13:36:41Z', Time::sec_to_iso( self::VECTOR ) );
 		$this->assertSame( '1970-01-01T00:00:00Z', Time::sec_to_iso( 0 ) );
 		$this->assertSame( '1969-12-31T23:59:59Z', Time::sec_to_iso( -1 ) );

@@ -26,7 +26,7 @@ final class Status {
 	/**
 	 * Renders the tab.
 	 */
-	public static function render() {
+	public static function render(): void {
 		$plugin  = Module::plugin();
 		$wallets = array();
 		foreach ( $plugin->config()['wallets'] as $wallet ) {
@@ -56,7 +56,7 @@ final class Status {
 	/**
 	 * Runs the self-test (admin-post qersh_wc_self_test).
 	 */
-	public static function handle_self_test() {
+	public static function handle_self_test(): void {
 		Module::check_action( 'qersh_wc_self_test' );
 		check_admin_referer( 'qersh_wc_self_test' );
 		$plugin = Module::plugin();
@@ -97,7 +97,7 @@ final class Status {
 		$extra = array();
 		$link  = null;
 		if ( isset( $by_name['current'], $by_name['fallback'] ) && 'ok' !== $by_name['current']['verdict'] && 'ok' === $by_name['fallback']['verdict'] && null !== $wallet ) {
-			$extra[] = esc_html__( 'The fallback address works. Open this developer\'s link on the wallet\'s phone so it sends there; it updates the same wallet and keeps the connection key. Then tap “Test connection”.', 'qersh-for-woocommerce' );
+			$extra[] = esc_html__( 'The fallback address works. Open your developer\'s link below on the wallet\'s phone so it sends there; it updates the same wallet and keeps the connection key. Then tap “Test connection”.', 'qersh-for-woocommerce' );
 			$link    = Wallets::setup_link( (string) $by_name['fallback']['url'], View::wallet_name( $wallet ), (string) $wallet['provider'], null );
 		}
 		if ( isset( $by_name['txn'], $by_name['txn_fallback'] ) && 'ok' !== $by_name['txn']['verdict'] && 'ok' === $by_name['txn_fallback']['verdict'] ) {
@@ -202,6 +202,7 @@ final class Status {
 				'warn'  => $warn,
 			);
 		};
+
 		$yes = esc_html__( 'Yes', 'qersh-for-woocommerce' );
 		$no  = esc_html__( 'No', 'qersh-for-woocommerce' );
 

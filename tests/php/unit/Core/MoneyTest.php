@@ -20,7 +20,7 @@ defined( 'ABSPATH' ) || exit;
 final class MoneyTest extends TestCase {
 
 	/** The smallest whole-pound amount at or above the value (docs/17 §4.6: 139.50 → 140). */
-	public function test_round_up_pound() {
+	public function test_round_up_pound(): void {
 		$cases = array(
 			13950 => 14000,
 			14000 => 14000,
@@ -38,14 +38,14 @@ final class MoneyTest extends TestCase {
 	}
 
 	/** It equals ceil( minor / 100 ) * 100 for every positive amount (CONTRACTS.md §6). */
-	public function test_round_up_pound_is_ceil_for_positive_amounts() {
+	public function test_round_up_pound_is_ceil_for_positive_amounts(): void {
 		foreach ( array( 1, 50, 99, 100, 101, 199, 200, 12345, 15007, 99999999, 2147483547 ) as $minor ) {
 			$this->assertSame( (int) ( ceil( $minor / 100 ) * 100 ), Money::round_up_pound( $minor ), (string) $minor );
 		}
 	}
 
 	/** Decimal strings with up to two places, and whole numbers. */
-	public function test_to_minor_strings() {
+	public function test_to_minor_strings(): void {
 		$cases = array(
 			'139.50'           => 13950,
 			'139.5'            => 13950,
@@ -65,13 +65,14 @@ final class MoneyTest extends TestCase {
 	}
 
 	/** An int is a whole number of pounds. */
-	public function test_to_minor_int() {
+	public function test_to_minor_int(): void {
 		$this->assertSame( 14000, Money::to_minor( 140 ) );
 		$this->assertSame( 0, Money::to_minor( 0 ) );
 	}
 
 	/** Anything that is not a plain amount is null, floats included (never float arithmetic). */
-	public function test_to_minor_refused() {
+	public function test_to_minor_refused(): void {
+		// phpcs:ignore PHPCompatibility.Miscellaneous.ValidIntegers.HexNumericStringFound -- '0x10' is an input to_minor() must refuse, never used as a number.
 		foreach ( array( '1.234', '.5', '5.', '-5', '+5', '1,000', '1 000', '1e3', '', ' ', 'abc', '١٢', '0x10', '12.3.4', '99999999999999' ) as $decimal ) {
 			$this->assertNull( Money::to_minor( $decimal ), $decimal );
 		}

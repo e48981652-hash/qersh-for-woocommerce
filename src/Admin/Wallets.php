@@ -46,7 +46,7 @@ final class Wallets {
 	/**
 	 * Renders the tab.
 	 */
-	public static function render() {
+	public static function render(): void {
 		$plugin   = Module::plugin();
 		$store    = $plugin->config_store();
 		$constant = $store->is_constant();
@@ -152,13 +152,13 @@ final class Wallets {
 		$test_at = is_array( $row ) && ! empty( $row['last_test_at'] ) ? (int) $row['last_test_at'] : 0;
 		if ( $test_at > 0 ) {
 			/* translators: %s: date and time. */
-			$line = sprintf( esc_html__( 'Test connection arrived from the phone %s ✓', 'qersh-for-woocommerce' ), View::ltr( View::time( $test_at ) ) );
+			$line = sprintf( esc_html__( '“Test connection” arrived from the phone at %s ✓', 'qersh-for-woocommerce' ), View::ltr( View::time( $test_at ) ) );
 			if ( is_array( $fp ) && ! empty( $fp['set_at'] ) && ! empty( $row['last_delivery_at'] ) && abs( (int) $fp['set_at'] - (int) $row['last_delivery_at'] ) <= 5 && empty( $fp['pending_at'] ) ) {
 				$line .= ' ' . esc_html__( 'What the phone sent carries the new key, so it is the connection key now.', 'qersh-for-woocommerce' );
 			}
 			$lines[] = $line;
 			if ( ! $has_any ) {
-				$lines[] = esc_html__( 'The test does not mean Qersh is activated: real transfers do not arrive before it is activated in the app. Try with one pound.', 'qersh-for-woocommerce' );
+				$lines[] = esc_html__( 'The test does not mean Qersh is activated: real transfers do not arrive before it is activated in the app. Try a transfer of one pound.', 'qersh-for-woocommerce' );
 			}
 		}
 		if ( is_array( $row ) && ! empty( $row['last_delivery_at'] ) ) {
@@ -366,7 +366,7 @@ final class Wallets {
 	/**
 	 * Adds or edits a wallet (admin-post qersh_wc_wallet_save).
 	 */
-	public static function handle_save() {
+	public static function handle_save(): void {
 		Module::check_action( 'qersh_wc_wallet_save' );
 		check_admin_referer( 'qersh_wc_wallet_save' );
 		$plugin = Module::plugin();
@@ -439,7 +439,7 @@ final class Wallets {
 	 * with the entry as snapshot (ConfigStore::save() calls Store\Wallets::mark_deleted(), which erases the pending
 	 * key and seals the current one for 72 hours), and with "Erase the connection key now" the key is erased at once.
 	 */
-	public static function handle_delete() {
+	public static function handle_delete(): void {
 		Module::check_action( 'qersh_wc_wallet_delete' );
 		check_admin_referer( 'qersh_wc_wallet_delete' );
 		$plugin = Module::plugin();
@@ -501,7 +501,7 @@ final class Wallets {
 	 * "Erase the connection key now") the wallet answers 401 no_key until it gets a new key. The saved entry goes
 	 * back into the configuration (with QERSH_WC_CONFIG the constant's entry is used).
 	 */
-	public static function handle_restore() {
+	public static function handle_restore(): void {
 		Module::check_action( 'qersh_wc_wallet_restore' );
 		check_admin_referer( 'qersh_wc_wallet_restore' );
 		$plugin   = Module::plugin();
@@ -563,7 +563,7 @@ final class Wallets {
 		if ( $plugin->secrets()->has_key( $id ) ) {
 			Module::flash( 'success', esc_html__( 'The wallet was restored with its key. Tap “Test connection” on the phone so what is waiting arrives now; otherwise it arrives with the next attempt, within about 12 hours.', 'qersh-for-woocommerce' ) );
 		} else {
-			Module::flash( 'success', esc_html__( 'The wallet was restored with the same link, without a key. 1) Generate your developer\'s link with the connection key and open it on the wallet\'s phone (“Update wallet”). 2) Tap “Test connection”. 3) Open “Not delivered to your store” and tap “Resend all”.', 'qersh-for-woocommerce' ) );
+			Module::flash( 'success', esc_html__( 'The wallet was restored with the same link, without a key. 1) Generate your developer\'s link with the connection key and open it on the wallet\'s phone (“Update wallet”). 2) Tap “Test connection”. 3) Open “Not delivered” and tap “Resend all”.', 'qersh-for-woocommerce' ) );
 		}
 		Module::redirect( 'wallets' );
 	}
@@ -574,7 +574,7 @@ final class Wallets {
 	 * refused; a different one while a key link is pending needs the merchant's confirmation, because it cancels the
 	 * link. The paste is never sanitized, stored or logged.
 	 */
-	public static function handle_key_paste() {
+	public static function handle_key_paste(): void {
 		Module::check_action( 'qersh_wc_key_paste' );
 		check_admin_referer( 'qersh_wc_key_paste' );
 		$plugin  = Module::plugin();
@@ -606,7 +606,7 @@ final class Wallets {
 		if ( isset( $found['url'] ) && is_string( $found['url'] ) ) {
 			$for = self::wallet_of_url( $found['url'] );
 			if ( null === $for ) {
-				Module::flash( 'error', esc_html__( 'The link in this message does not point to this store, so the phone sends that wallet somewhere else. Open your developer\'s link (under “Another way”) on the wallet\'s phone first, then paste the new message.', 'qersh-for-woocommerce' ) );
+				Module::flash( 'error', esc_html__( 'The link in this message does not point to this store, so the phone sends that wallet\'s transfers somewhere else. Open your developer\'s link (under “Another way”) on the wallet\'s phone first, then paste the new message.', 'qersh-for-woocommerce' ) );
 				Module::redirect( 'wallets' );
 			}
 			if ( $for !== $id ) {
@@ -636,8 +636,7 @@ final class Wallets {
 			$secrets->set_current( $id, $key, time() );
 		} catch ( \Throwable $e ) {
 			unset( $key );
-			/* translators: %s: a constant name. */
-			Module::flash( 'error', sprintf( esc_html__( 'The connection key could not be saved on this site. Define LOGGED_IN_KEY and LOGGED_IN_SALT in wp-config.php, or put the key in the constant %s there.', 'qersh-for-woocommerce' ), View::ltr( \QershPay\WooCommerce\Secrets::constant_name( $id ) ) ) );
+			Module::flash( 'error', sprintf( esc_html( self::key_not_saved_format() ), View::ltr( \QershPay\WooCommerce\Secrets::constant_name( $id ) ) ) );
 			Module::redirect( 'wallets' );
 		}
 		unset( $key );
@@ -652,7 +651,7 @@ final class Wallets {
 	 * card's pending key. A pending key is cancelled; a link that became the current key of a wallet that had none is
 	 * erased (docs/17 §4.8 rule 7). The fingerprint and time posted name the link, so a newer one is never touched.
 	 */
-	public static function handle_pending_cancel() {
+	public static function handle_pending_cancel(): void {
 		Module::check_action( 'qersh_wc_key_pending_cancel' );
 		check_admin_referer( 'qersh_wc_key_pending_cancel' );
 		$plugin  = Module::plugin();
@@ -682,7 +681,7 @@ final class Wallets {
 	 * the current one until the phone delivers with it. The reply `{link, fingerprint, created_at}` is not cached
 	 * and nothing keeps the key outside Secrets.
 	 */
-	public static function ajax_key_link() {
+	public static function ajax_key_link(): void {
 		nocache_headers();
 		if ( ! headers_sent() ) {
 			header( 'Cache-Control: no-store, private' );
@@ -698,15 +697,33 @@ final class Wallets {
 		$id      = isset( $_POST['wallet'] ) ? sanitize_key( wp_unslash( $_POST['wallet'] ) ) : '';
 		$wallet  = $plugin->wallet( $id );
 		if ( null === $wallet ) {
-			wp_send_json( array( 'code' => 'qersh_unknown_wallet', 'message' => __( 'This wallet does not exist any more.', 'qersh-for-woocommerce' ) ), 404 );
+			wp_send_json(
+				array(
+					'code'    => 'qersh_unknown_wallet',
+					'message' => __( 'This wallet does not exist any more.', 'qersh-for-woocommerce' ),
+				),
+				404
+			);
 		}
 		if ( empty( $plugin->config()['store']['allow_key_link'] ) || $secrets->from_constant( $id ) ) {
-			wp_send_json( array( 'code' => 'qersh_key_link_off', 'message' => __( 'The link with the connection key is turned off for this wallet.', 'qersh-for-woocommerce' ) ), 403 );
+			wp_send_json(
+				array(
+					'code'    => 'qersh_key_link_off',
+					'message' => __( 'The link with the connection key is turned off for this wallet.', 'qersh-for-woocommerce' ),
+				),
+				403
+			);
 		}
 		$rate = self::RATE_PREFIX . $id;
 		if ( false !== get_transient( $rate ) ) {
 			header( 'Retry-After: ' . self::LINK_RATE_SEC );
-			wp_send_json( array( 'code' => 'qersh_busy', 'message' => __( 'A link was generated a few seconds ago. Wait a moment before you generate another one.', 'qersh-for-woocommerce' ) ), 429 );
+			wp_send_json(
+				array(
+					'code'    => 'qersh_busy',
+					'message' => __( 'A link was generated a few seconds ago. Wait a moment before you generate another one.', 'qersh-for-woocommerce' ),
+				),
+				429
+			);
 		}
 		$now = time();
 		$key = Config::new_key();
@@ -715,7 +732,13 @@ final class Wallets {
 		$link = self::setup_link( Diagnostics::store_url( $id ), View::wallet_name( $wallet ), (string) $wallet['provider'], $key );
 		if ( null === $link ) {
 			unset( $key );
-			wp_send_json( array( 'code' => 'qersh_bad_url', 'message' => __( 'The Qersh app would not accept this store URL. Check the site address in Settings → General.', 'qersh-for-woocommerce' ) ), 409 );
+			wp_send_json(
+				array(
+					'code'    => 'qersh_bad_url',
+					'message' => __( 'The Qersh app would not accept this store URL. Check the site address in Settings → General.', 'qersh-for-woocommerce' ),
+				),
+				409
+			);
 		}
 		set_transient( $rate, $now, self::LINK_RATE_SEC );
 		try {
@@ -726,8 +749,7 @@ final class Wallets {
 			wp_send_json(
 				array(
 					'code'    => 'qersh_key_not_saved',
-					/* translators: %s: a constant name. */
-					'message' => sprintf( __( 'The connection key could not be saved on this site. Define LOGGED_IN_KEY and LOGGED_IN_SALT in wp-config.php, or put a key in the constant %s there.', 'qersh-for-woocommerce' ), \QershPay\WooCommerce\Secrets::constant_name( $id ) ),
+					'message' => sprintf( self::key_not_saved_format(), \QershPay\WooCommerce\Secrets::constant_name( $id ) ),
 				),
 				500
 			);
@@ -761,7 +783,7 @@ final class Wallets {
 	 *
 	 * @param string $id Wallet id.
 	 */
-	private static function note_link_shown( string $id ) {
+	private static function note_link_shown( string $id ): void {
 		$plugin = Module::plugin();
 		try {
 			if ( ! $plugin->tables_ready() ) {
@@ -877,6 +899,17 @@ final class Wallets {
 		$wallets[]         = $entry;
 		$config['wallets'] = $wallets;
 		return $config;
+	}
+
+	/**
+	 * What the merchant reads when a connection key cannot be stored on this site, after a paste or a generated
+	 * link: a sprintf() format whose %s is the name of the wallet's constant.
+	 *
+	 * @return string Plain text.
+	 */
+	private static function key_not_saved_format(): string {
+		/* translators: %s: a constant name. */
+		return __( 'The connection key could not be saved on this site. Define LOGGED_IN_KEY and LOGGED_IN_SALT in wp-config.php, or put a key in the constant %s there.', 'qersh-for-woocommerce' );
 	}
 
 	/**

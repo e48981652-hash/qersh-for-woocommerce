@@ -36,7 +36,7 @@ final class DeliveriesTest extends TestCase {
 	 */
 	protected function set_up() {
 		parent::set_up();
-		$this->wpdb       = new FakeWpdb();
+		$this->wpdb      = new FakeWpdb();
 		$GLOBALS['wpdb'] = $this->wpdb;
 	}
 
@@ -49,7 +49,7 @@ final class DeliveriesTest extends TestCase {
 	}
 
 	/** One inserted row: the delivery is ours, with a 32-hex token. */
-	public function test_fresh_claim() {
+	public function test_fresh_claim(): void {
 		$this->wpdb->on( '/^INSERT IGNORE INTO `wp_qersh_deliveries`/', 1 );
 		$claim = ( new Deliveries() )->claim( self::ID, 'k7q2m9x4p1rz', 'transfer.received', null, self::NOW );
 		$this->assertSame( 'claimed', $claim['state'] );
@@ -60,7 +60,7 @@ final class DeliveriesTest extends TestCase {
 	}
 
 	/** A finished delivery gives back its stored reply and status. */
-	public function test_done_replays() {
+	public function test_done_replays(): void {
 		$this->wpdb->on( '/^INSERT IGNORE/', 0 );
 		$this->wpdb->on(
 			'/^SELECT state, http_status, reply_json, claimed_at FROM `wp_qersh_deliveries`/',
@@ -87,7 +87,7 @@ final class DeliveriesTest extends TestCase {
 	}
 
 	/** In processing for 60 seconds or less: busy, and nothing is taken over. */
-	public function test_recent_processing_is_busy() {
+	public function test_recent_processing_is_busy(): void {
 		$this->wpdb->on( '/^INSERT IGNORE/', 0 );
 		$this->wpdb->on(
 			'/^SELECT state/',
@@ -103,7 +103,7 @@ final class DeliveriesTest extends TestCase {
 	}
 
 	/** Older than 60 seconds: taken over by an UPDATE that only one request can win. */
-	public function test_stale_processing_is_reclaimed() {
+	public function test_stale_processing_is_reclaimed(): void {
 		$this->wpdb->on( '/^INSERT IGNORE/', 0 );
 		$this->wpdb->on(
 			'/^SELECT state/',
@@ -123,7 +123,7 @@ final class DeliveriesTest extends TestCase {
 	}
 
 	/** Losing the takeover: the winner's result if it is done already, otherwise busy. */
-	public function test_lost_reclaim() {
+	public function test_lost_reclaim(): void {
 		$stale = array(
 			'state'       => 'processing',
 			'http_status' => null,
@@ -138,7 +138,7 @@ final class DeliveriesTest extends TestCase {
 	}
 
 	/** A row released between our insert and our read: the claim tries once more. */
-	public function test_released_meanwhile() {
+	public function test_released_meanwhile(): void {
 		$this->wpdb->on( '/^INSERT IGNORE/', 0 );
 		$this->wpdb->on( '/^SELECT state/', null );
 		$this->wpdb->on( '/^INSERT IGNORE/', 1 );
@@ -148,13 +148,13 @@ final class DeliveriesTest extends TestCase {
 	}
 
 	/** An id the column would cut is refused before any query. */
-	public function test_invalid_id() {
+	public function test_invalid_id(): void {
 		$this->expectException( \InvalidArgumentException::class );
 		( new Deliveries() )->claim( str_repeat( 'a', 37 ), 'k7q2m9x4p1rz', 'transfer.received', null, self::NOW );
 	}
 
 	/** The fence marks our processing row done and never stores status_updates. */
-	public function test_fence() {
+	public function test_fence(): void {
 		$this->wpdb->on( '/^UPDATE `wp_qersh_deliveries` SET state/', 1 );
 		$ok = ( new Deliveries() )->fence(
 			self::ID,
@@ -176,17 +176,53 @@ final class DeliveriesTest extends TestCase {
 	}
 
 	/** Release deletes only our own processing row and swallows errors. */
-	public function test_release() {
+	public function test_release(): void {
 		$this->wpdb->on( '/^DELETE/', false, 'Lock wait timeout exceeded; try restarting transaction' );
 		( new Deliveries() )->release( self::ID, str_repeat( 'c', 32 ) );
 		$this->assertSame( "DELETE FROM `wp_qersh_deliveries` WHERE delivery_id = '" . self::ID . "' AND claim_token = '" . str_repeat( 'c', 32 ) . "' AND state = 'processing'", $this->wpdb->queries[0] );
 	}
 
 	/** verdict(): done, busy within 60 s, stale after. */
-	public function test_verdict() {
-		$this->assertSame( 'done', Deliveries::verdict( array( 'state' => 'done', 'claimed_at' => self::NOW ), self::NOW ) );
-		$this->assertSame( 'busy', Deliveries::verdict( array( 'state' => 'processing', 'claimed_at' => self::NOW ), self::NOW ) );
-		$this->assertSame( 'busy', Deliveries::verdict( array( 'state' => 'processing', 'claimed_at' => self::NOW - 60 ), self::NOW ) );
-		$this->assertSame( 'stale', Deliveries::verdict( array( 'state' => 'processing', 'claimed_at' => self::NOW - 61 ), self::NOW ) );
+	public function test_verdict(): void {
+		$this->assertSame(
+			'done',
+			Deliveries::verdict(
+				array(
+					'state'      => 'done',
+					'claimed_at' => self::NOW,
+				),
+				self::NOW
+			)
+		);
+		$this->assertSame(
+			'busy',
+			Deliveries::verdict(
+				array(
+					'state'      => 'processing',
+					'claimed_at' => self::NOW,
+				),
+				self::NOW
+			)
+		);
+		$this->assertSame(
+			'busy',
+			Deliveries::verdict(
+				array(
+					'state'      => 'processing',
+					'claimed_at' => self::NOW - 60,
+				),
+				self::NOW
+			)
+		);
+		$this->assertSame(
+			'stale',
+			Deliveries::verdict(
+				array(
+					'state'      => 'processing',
+					'claimed_at' => self::NOW - 61,
+				),
+				self::NOW
+			)
+		);
 	}
 }

@@ -8,7 +8,6 @@
 
 namespace QershPay\WooCommerce\Webhook;
 
-use QershPay\WooCommerce\Claims;
 use QershPay\WooCommerce\Expiry;
 use QershPay\WooCommerce\Orders;
 use QershPay\WooCommerce\Plugin;
@@ -81,7 +80,7 @@ final class Module {
 	 * @param Plugin $plugin   The plugin.
 	 * @param bool   $wc_ready True when a supported WooCommerce is active.
 	 */
-	public static function register( Plugin $plugin, bool $wc_ready ) {
+	public static function register( Plugin $plugin, bool $wc_ready ): void {
 		if ( self::$registered ) {
 			return;
 		}
@@ -106,17 +105,14 @@ final class Module {
 		} else {
 			add_action( 'action_scheduler_init', array( __CLASS__, 'schedule_recurring' ) );
 		}
-		foreach ( array( Orders::class, Expiry::class ) as $class ) {
-			if ( class_exists( $class ) && method_exists( $class, 'register_hooks' ) ) {
-				$class::register_hooks( $plugin );
-			}
-		}
+		Orders::register_hooks( $plugin );
+		Expiry::register_hooks( $plugin );
 	}
 
 	/**
-	 * rest_api_init: the webhook route, POST only and hidden from the REST index.
+	 * On rest_api_init: the webhook route, POST only and hidden from the REST index.
 	 */
-	public static function register_routes() {
+	public static function register_routes(): void {
 		register_rest_route(
 			self::REST_NAMESPACE,
 			self::ROUTE,
@@ -131,7 +127,7 @@ final class Module {
 	}
 
 	/**
-	 * rest_pre_dispatch: a webhook body above 64 KB is answered 413 before any other work.
+	 * Filters rest_pre_dispatch: a webhook body above 64 KB is answered 413 before any other work.
 	 *
 	 * @param mixed            $result  Earlier result, null by default.
 	 * @param \WP_REST_Server  $server  Server.
@@ -150,7 +146,7 @@ final class Module {
 	}
 
 	/**
-	 * rest_json_encode_options: Arabic and slashes as they are, on our routes only.
+	 * Filters rest_json_encode_options: Arabic and slashes as they are, on our routes only.
 	 *
 	 * @param int              $options JSON options.
 	 * @param \WP_REST_Request $request Request.
@@ -164,7 +160,7 @@ final class Module {
 	}
 
 	/**
-	 * rest_post_dispatch: no-cache headers on every answer of the webhook route, errors included.
+	 * Filters rest_post_dispatch: no-cache headers on every answer of the webhook route, errors included.
 	 *
 	 * @param mixed            $response Response.
 	 * @param \WP_REST_Server  $server   Server.
@@ -185,10 +181,10 @@ final class Module {
 	}
 
 	/**
-	 * action_scheduler_init: schedules the sweep (every 900 s) and the daily cleanup (every 86400 s) when they are
+	 * On action_scheduler_init: schedules the sweep (every 900 s) and the daily cleanup (every 86400 s) when they are
 	 * missing. Checked only where it costs nobody a page view: admin, cron, WP-CLI and webhook requests.
 	 */
-	public static function schedule_recurring() {
+	public static function schedule_recurring(): void {
 		if ( ! function_exists( 'as_has_scheduled_action' ) || ! function_exists( 'as_schedule_recurring_action' ) ) {
 			return;
 		}
@@ -211,11 +207,11 @@ final class Module {
 	}
 
 	/**
-	 * qersh_wc_complete ( order_id ): the claimed completion path.
+	 * Handles qersh_wc_complete ( order_id ): the claimed completion path.
 	 *
 	 * @param mixed $order_id Order id (Action Scheduler passes the arguments by position).
 	 */
-	public static function on_complete( $order_id = 0 ) {
+	public static function on_complete( $order_id = 0 ): void {
 		$plugin = self::ready_plugin();
 		$id     = self::order_id_of( $order_id );
 		if ( null === $plugin || $id <= 0 ) {
@@ -225,14 +221,14 @@ final class Module {
 	}
 
 	/**
-	 * qersh_wc_expire ( order_id ): the expiry of one order (package D2).
+	 * Handles qersh_wc_expire ( order_id ): the expiry of one order.
 	 *
 	 * @param mixed $order_id Order id.
 	 */
-	public static function on_expire( $order_id = 0 ) {
+	public static function on_expire( $order_id = 0 ): void {
 		$plugin = self::ready_plugin();
 		$id     = self::order_id_of( $order_id );
-		if ( null === $plugin || $id <= 0 || ! class_exists( Expiry::class ) || ! method_exists( Expiry::class, 'run' ) ) {
+		if ( null === $plugin || $id <= 0 ) {
 			return;
 		}
 		try {
@@ -243,14 +239,14 @@ final class Module {
 	}
 
 	/**
-	 * qersh_wc_claim_eval ( order_id ): the late evaluation of a customer's transaction id (package D2).
+	 * Handles qersh_wc_claim_eval ( order_id ): the late evaluation of a customer's transaction id.
 	 *
 	 * @param mixed $order_id Order id.
 	 */
-	public static function on_claim_eval( $order_id = 0 ) {
+	public static function on_claim_eval( $order_id = 0 ): void {
 		$plugin = self::ready_plugin();
 		$id     = self::order_id_of( $order_id );
-		if ( null === $plugin || $id <= 0 || ! class_exists( Claims::class ) || ! method_exists( Claims::class, 'evaluate' ) ) {
+		if ( null === $plugin || $id <= 0 ) {
 			return;
 		}
 		try {
@@ -261,36 +257,32 @@ final class Module {
 	}
 
 	/**
-	 * qersh_wc_sweep (every 15 minutes): completions that did not run, expiries, and the late evaluations.
+	 * Handles qersh_wc_sweep (every 15 minutes): completions that did not run, expiries, and the late evaluations.
 	 */
-	public static function on_sweep() {
+	public static function on_sweep(): void {
 		$plugin = self::ready_plugin();
 		if ( null === $plugin ) {
 			return;
 		}
 		$plugin->completion()->sweep();
-		if ( class_exists( Expiry::class ) && method_exists( Expiry::class, 'sweep' ) ) {
-			try {
-				$plugin->expiry()->sweep();
-			} catch ( \Throwable $e ) {
-				self::log_error( $plugin, 'expiry sweep', $e );
-			}
+		try {
+			$plugin->expiry()->sweep();
+		} catch ( \Throwable $e ) {
+			self::log_error( $plugin, 'expiry sweep', $e );
 		}
-		if ( class_exists( Claims::class ) && method_exists( Claims::class, 'sweep' ) ) {
-			try {
-				$plugin->claims()->sweep();
-			} catch ( \Throwable $e ) {
-				self::log_error( $plugin, 'claims sweep', $e );
-			}
+		try {
+			$plugin->claims()->sweep();
+		} catch ( \Throwable $e ) {
+			self::log_error( $plugin, 'claims sweep', $e );
 		}
 	}
 
 	/**
-	 * qersh_wc_daily: forgets old deliveries (dedup.keep_days, 180), erases the payer data of old transfers that
+	 * Handles qersh_wc_daily: forgets old deliveries (dedup.keep_days, 180), erases the payer data of old transfers that
 	 * paid no order (store.unmatched_retention_days, 90), deletes lock rows unused for a day, and erases the keys
 	 * of wallets deleted 72 hours ago. Each step runs even when another fails.
 	 */
-	public static function on_daily() {
+	public static function on_daily(): void {
 		$plugin = self::ready_plugin();
 		if ( null === $plugin ) {
 			return;
@@ -407,7 +399,7 @@ final class Module {
 	 * @param string     $where  Step.
 	 * @param \Throwable $e      Error.
 	 */
-	private static function log_error( Plugin $plugin, string $where, \Throwable $e ) {
+	private static function log_error( Plugin $plugin, string $where, \Throwable $e ): void {
 		try {
 			$plugin->logger()->error( 'qersh: ' . $where . ' failed: ' . get_class( $e ) . ' at ' . basename( $e->getFile() ) . ':' . $e->getLine() );
 		} catch ( \Throwable $ignored ) {

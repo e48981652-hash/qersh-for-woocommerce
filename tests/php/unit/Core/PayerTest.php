@@ -20,7 +20,7 @@ defined( 'ABSPATH' ) || exit;
 final class PayerTest extends TestCase {
 
 	/** The kit spellings (packages/qersh-webhook/test/summarize.test.ts, normalizePayer). */
-	public function test_the_kit_spellings() {
+	public function test_the_kit_spellings(): void {
 		$this->assertSame( '01012345678', Payer::normalize( '+20 101 234 5678' ) );
 		$this->assertSame( '01012345678', Payer::normalize( '00201012345678' ) );
 		$this->assertSame( '01012345678', Payer::normalize( '201012345678' ) );
@@ -34,7 +34,7 @@ final class PayerTest extends TestCase {
 	}
 
 	/** More number spellings: Persian digits, +20 01…, 0020 01…, separators, white space JavaScript's trim() removes. */
-	public function test_number_spellings() {
+	public function test_number_spellings(): void {
 		$cases = array(
 			'۰۱۰۱۲۳۴۵۶۷۸',
 			'+٢٠ ١٠١ ٢٣٤ ٥٦٧٨',
@@ -58,7 +58,7 @@ final class PayerTest extends TestCase {
 	}
 
 	/** Not a number and not a handle: null. */
-	public function test_refused() {
+	public function test_refused(): void {
 		$cases = array(
 			'0101234567', // 10 digits not starting with 1
 			'010123456789', // 12 digits
@@ -79,7 +79,7 @@ final class PayerTest extends TestCase {
 	}
 
 	/** Handles: lower case, the suffix added to a bare name, 2 to 64 characters of a-z 0-9 . _ -. */
-	public function test_handles() {
+	public function test_handles(): void {
 		$this->assertSame( 'ab@instapay', Payer::normalize( 'AB@INSTAPAY' ) );
 		$this->assertSame( 'ab@instapay', Payer::normalize( 'ab' ) );
 		$this->assertSame( 'shop.name_1-x@instapay', Payer::normalize( 'shop.name_1-x' ) );
@@ -91,7 +91,7 @@ final class PayerTest extends TestCase {
 	}
 
 	/** Numbers and booleans are read as JavaScript's String() reads them. */
-	public function test_other_types() {
+	public function test_other_types(): void {
 		$this->assertSame( '01012345678', Payer::normalize( 1012345678 ) );
 		$this->assertSame( '01012345678', Payer::normalize( 201012345678 ) );
 		$this->assertSame( 'true@instapay', Payer::normalize( true ) );
@@ -105,7 +105,7 @@ final class PayerTest extends TestCase {
 	 * object is `[object Object]`. So the core normalises a list holding a number, and payerKeyOf takes an
 	 * array-valued number before the handle.
 	 */
-	public function test_arrays_and_objects() {
+	public function test_arrays_and_objects(): void {
 		$this->assertNull( Payer::normalize( array() ) ); // ''
 		$this->assertNull( Payer::normalize( new \stdClass() ) ); // [object Object]
 		$this->assertNull( Payer::normalize( array( 'number' => '01012345678' ) ) ); // a JSON object: [object Object]
@@ -125,18 +125,34 @@ final class PayerTest extends TestCase {
 			$this->assertSame( '01012345678', Payer::normalize( $list ) );
 			$this->assertSame( '01012345678', Payer::key_of( array( 'number' => $list ) ) );
 			$this->assertSame( '01012345678', Payer::key_of( array( 'handle' => $list ) ) );
-			$this->assertSame( '01012345678', Payer::key_of( array( 'number' => $list, 'handle' => 'shop' ) ) );
+			$this->assertSame(
+				'01012345678',
+				Payer::key_of(
+					array(
+						'number' => $list,
+						'handle' => 'shop',
+					)
+				)
+			);
 		}
 		$this->assertSame( 'shop@instapay', Payer::normalize( array( 'Shop' ) ) );
 		$this->assertSame( 'true@instapay', Payer::normalize( array( true ) ) );
-		$this->assertSame( 'shop@instapay', Payer::key_of( array( 'number' => array( 'number' => '01012345678' ), 'handle' => 'shop' ) ) );
+		$this->assertSame(
+			'shop@instapay',
+			Payer::key_of(
+				array(
+					'number' => array( 'number' => '01012345678' ),
+					'handle' => 'shop',
+				)
+			)
+		);
 	}
 
 	/**
 	 * White space is what String.prototype.trim() removes, no more: U+0085 (NEL), U+180E (Mongolian vowel separator)
 	 * and NUL stay, so the value is no identifier; VT and FF go.
 	 */
-	public function test_trim_is_javascript_trim() {
+	public function test_trim_is_javascript_trim(): void {
 		$this->assertNull( Payer::normalize( "shop\u{85}" ) );
 		$this->assertNull( Payer::normalize( "\u{180E}shop" ) );
 		$this->assertNull( Payer::normalize( "bonah@INSTAPAY\u{85}" ) );
@@ -159,7 +175,7 @@ final class PayerTest extends TestCase {
 	}
 
 	/** Bytes that are not UTF-8 are read as the core receives them: U+FFFD for each invalid sequence. */
-	public function test_invalid_utf8() {
+	public function test_invalid_utf8(): void {
 		$this->assertSame( '01012345678', Payer::normalize( "\xFF01012345678" ) );
 		$this->assertSame( '01012345678', Payer::normalize( "0101234\xC0\x805678\xE2\x80" ) );
 		$this->assertSame( '01012345678', Payer::normalize( "\xE0\xD9\xA0\xD9\xA1\xD9\xA0\xD9\xA1\xD9\xA2\xD9\xA3\xD9\xA4\xD9\xA5\xD9\xA6\xD9\xA7\xD9\xA8" ) ); // E0 then ٠١٠١٢٣٤٥٦٧٨
@@ -171,7 +187,7 @@ final class PayerTest extends TestCase {
 	}
 
 	/** The payer key of a transfer (payerKeyOf): the number when it normalises, otherwise the handle. */
-	public function test_key_of() {
+	public function test_key_of(): void {
 		$this->assertSame(
 			'shop@instapay',
 			Payer::key_of(

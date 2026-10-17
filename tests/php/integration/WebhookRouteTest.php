@@ -20,7 +20,7 @@ class WebhookRouteTest extends TestCase {
 	/**
 	 * A wallet the store never had: 404 qersh_unknown_wallet, before any signature check.
 	 */
-	public function test_unknown_wallet_is_404() {
+	public function test_unknown_wallet_is_404(): void {
 		$this->vodafone_wallet();
 		$response = $this->post_webhook( 'aaaaaaaaaaaa', '{}', null );
 		$this->assertSame( 404, $response->get_status() );
@@ -30,7 +30,7 @@ class WebhookRouteTest extends TestCase {
 	/**
 	 * A deleted wallet answers 404 qersh_wallet_deleted until gone_at, then 410 qersh_wallet_gone, without a write.
 	 */
-	public function test_deleted_wallet_is_404_then_410() {
+	public function test_deleted_wallet_is_404_then_410(): void {
 		$kept    = $this->vodafone_wallet();
 		$deleted = $this->orange_wallet();
 
@@ -49,26 +49,26 @@ class WebhookRouteTest extends TestCase {
 
 		global $wpdb;
 		$table = $wpdb->prefix . 'qersh_wallets';
-		$wpdb->query( $wpdb->prepare( 'UPDATE %i SET gone_at = %d WHERE wallet = %s', $table, time() + 60, $deleted['id'] ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-		$deliveries_before = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i', $wpdb->prefix . 'qersh_deliveries' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$wpdb->query( $wpdb->prepare( 'UPDATE %i SET gone_at = %d WHERE wallet = %s', $table, time() + 60, $deleted['id'] ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- a test reads or sets up the plugin's tables directly.
+		$deliveries_before = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i', $wpdb->prefix . 'qersh_deliveries' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- a test reads or sets up the plugin's tables directly.
 
 		$recent = $this->deliver( 'transfer.received', $deleted, array( 'amount_minor' => 14000 ) )['response'];
 		$this->assertSame( 404, $recent->get_status() );
 		$this->assertSame( 'qersh_wallet_deleted', $recent->get_data()['code'] );
 
-		$wpdb->query( $wpdb->prepare( 'UPDATE %i SET gone_at = %d WHERE wallet = %s', $table, time(), $deleted['id'] ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$wpdb->query( $wpdb->prepare( 'UPDATE %i SET gone_at = %d WHERE wallet = %s', $table, time(), $deleted['id'] ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- a test reads or sets up the plugin's tables directly.
 		$gone = $this->deliver( 'transfer.received', $deleted, array( 'amount_minor' => 14000 ) )['response'];
 		$this->assertSame( 410, $gone->get_status() );
 		$this->assertSame( 'qersh_wallet_gone', $gone->get_data()['code'] );
 
-		$deliveries_after = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i', $wpdb->prefix . 'qersh_deliveries' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$deliveries_after = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i', $wpdb->prefix . 'qersh_deliveries' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- a test reads or sets up the plugin's tables directly.
 		$this->assertSame( $deliveries_before, $deliveries_after, 'no delivery row for a deleted wallet' );
 	}
 
 	/**
 	 * A signature made with another key: 401 qersh_invalid_signature, reason bad_signature.
 	 */
-	public function test_bad_signature_is_401() {
+	public function test_bad_signature_is_401(): void {
 		$wallet = $this->vodafone_wallet();
 		$env    = $this->envelope( 'transfer.received', $wallet, array( 'amount_minor' => 100 ) );
 		$body   = (string) wp_json_encode( $env );
@@ -84,7 +84,7 @@ class WebhookRouteTest extends TestCase {
 	/**
 	 * A wallet with no usable key: 401 with the reason no_key.
 	 */
-	public function test_wallet_without_a_key_is_401_no_key() {
+	public function test_wallet_without_a_key_is_401_no_key(): void {
 		$wallet = $this->vodafone_wallet();
 		$key    = $this->keys[ $wallet['id'] ];
 		$this->plugin->secrets()->erase( $wallet['id'] );
@@ -99,7 +99,7 @@ class WebhookRouteTest extends TestCase {
 	/**
 	 * A body above 64 KB: 413 qersh_too_large before the signature is read.
 	 */
-	public function test_body_above_64_kb_is_413() {
+	public function test_body_above_64_kb_is_413(): void {
 		$wallet   = $this->vodafone_wallet();
 		$body     = '{"pad":"' . str_repeat( 'x', 66000 ) . '"}';
 		$response = $this->post_webhook( $wallet['id'], $body, $this->sign( $body, $wallet['id'] ) );
@@ -111,7 +111,7 @@ class WebhookRouteTest extends TestCase {
 	 * A signed body that is not JSON: 400. With `Content-Type: application/json` WordPress refuses it itself
 	 * (rest_invalid_json) before the route runs; the status is the same 400 the phone treats as final.
 	 */
-	public function test_signed_body_that_is_not_json_is_400() {
+	public function test_signed_body_that_is_not_json_is_400(): void {
 		$wallet   = $this->vodafone_wallet();
 		$body     = 'this is not json {';
 		$response = $this->post_webhook( $wallet['id'], $body, $this->sign( $body, $wallet['id'] ) );
@@ -122,7 +122,7 @@ class WebhookRouteTest extends TestCase {
 	/**
 	 * Signed JSON that is not a qersh.v1 envelope: 400 qersh_invalid_envelope with the reason.
 	 */
-	public function test_signed_json_that_is_not_an_envelope_is_400() {
+	public function test_signed_json_that_is_not_an_envelope_is_400(): void {
 		$wallet   = $this->vodafone_wallet();
 		$body     = '{"schema":"other.v9","event":"transfer.received"}';
 		$response = $this->post_webhook( $wallet['id'], $body, $this->sign( $body, $wallet['id'] ) );
@@ -135,7 +135,7 @@ class WebhookRouteTest extends TestCase {
 	/**
 	 * The same delivery while another request still processes it: 429 qersh_busy with Retry-After 30.
 	 */
-	public function test_same_delivery_in_progress_is_429() {
+	public function test_same_delivery_in_progress_is_429(): void {
 		$wallet = $this->vodafone_wallet();
 		$id     = wp_generate_uuid4();
 		$claim  = $this->plugin->deliveries()->claim( $id, $wallet['id'], 'transfer.received', null, time() );
@@ -158,7 +158,7 @@ class WebhookRouteTest extends TestCase {
 	 * A transfer from the order's payer for its total: 200 matched with the order number; the same delivery again
 	 * gets the stored reply and changes nothing.
 	 */
-	public function test_matching_transfer_is_200_matched_and_a_repeat_gets_the_stored_reply() {
+	public function test_matching_transfer_is_200_matched_and_a_repeat_gets_the_stored_reply(): void {
 		$wallet = $this->vodafone_wallet();
 		$order  = $this->order( $this->product( '140' ) );
 		$this->assertSame( 'success', $this->pay( $order, '01122334455', $wallet['id'] )['result'] );
@@ -193,7 +193,7 @@ class WebhookRouteTest extends TestCase {
 	/**
 	 * GET is not a route: WordPress's own 404 rest_no_route.
 	 */
-	public function test_get_is_not_a_route() {
+	public function test_get_is_not_a_route(): void {
 		$wallet   = $this->vodafone_wallet();
 		$response = $this->server->dispatch( new \WP_REST_Request( 'GET', '/qersh/v1/webhook/' . $wallet['id'] ) );
 		$this->assertSame( 404, $response->get_status() );

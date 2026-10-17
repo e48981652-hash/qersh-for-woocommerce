@@ -28,6 +28,8 @@ final class BlocksIntegration extends AbstractPaymentMethodType {
 
 	/**
 	 * Reads the method settings.
+	 *
+	 * @return void
 	 */
 	public function initialize() {
 		$settings       = get_option( 'woocommerce_qersh_settings', array() );

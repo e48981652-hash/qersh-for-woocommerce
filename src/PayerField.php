@@ -229,7 +229,7 @@ final class PayerField {
 	 * @param Plugin         $plugin The plugin.
 	 * @param \WC_Order|null $order  The order on "Pay for order", or null at checkout.
 	 */
-	public static function render( Plugin $plugin, $order = null ) {
+	public static function render( Plugin $plugin, $order = null ): void {
 		$config  = $plugin->config();
 		$all     = isset( $config['wallets'] ) && is_array( $config['wallets'] ) ? $config['wallets'] : array();
 		$views   = Checkout::wallet_views( $plugin );

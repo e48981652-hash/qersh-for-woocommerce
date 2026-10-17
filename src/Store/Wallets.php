@@ -98,7 +98,7 @@ final class Wallets {
 	 *
 	 * @param string $wallet Wallet id.
 	 */
-	public function ensure( string $wallet ) {
+	public function ensure( string $wallet ): void {
 		$db = $this->db();
 		$db->exec(
 			'INSERT IGNORE INTO %i (wallet, state) VALUES (%s, %s)',
@@ -113,7 +113,7 @@ final class Wallets {
 	 * @param string $wallet Wallet id.
 	 * @param array  $fields Column => value, from TOUCH_COLUMNS.
 	 */
-	public function touch( string $wallet, array $fields ) {
+	public function touch( string $wallet, array $fields ): void {
 		$fields = array_intersect_key( $fields, array_flip( self::TOUCH_COLUMNS ) );
 		if ( empty( $fields ) ) {
 			return;
@@ -140,7 +140,7 @@ final class Wallets {
 	 * @param int    $now      UTC seconds.
 	 * @param array  $snapshot The wallets[] entry, for "Restore wallet".
 	 */
-	public function mark_deleted( string $wallet, int $now, array $snapshot ) {
+	public function mark_deleted( string $wallet, int $now, array $snapshot ): void {
 		$this->ensure( $wallet );
 		$db = $this->db();
 		$db->exec(
@@ -204,7 +204,7 @@ final class Wallets {
 	}
 
 	/**
-	 * gone() for a row already read. Pure.
+	 * The answer of gone() for a row already read. Pure.
 	 *
 	 * @param array|null $row Row, or null.
 	 * @param int        $now UTC seconds.
@@ -217,7 +217,7 @@ final class Wallets {
 		if ( ! isset( $row['state'] ) || 'deleted' !== $row['state'] ) {
 			return 'active';
 		}
-		if ( isset( $row['gone_at'] ) && null !== $row['gone_at'] ) {
+		if ( isset( $row['gone_at'] ) ) {
 			$gone_at = (int) $row['gone_at'];
 		} else {
 			$gone_at = ( isset( $row['deleted_at'] ) ? (int) $row['deleted_at'] : 0 ) + self::GONE_SEC;
@@ -231,7 +231,7 @@ final class Wallets {
 	 * @param string $wallet Wallet id.
 	 * @param int    $now    UTC seconds.
 	 */
-	public function erase_key( string $wallet, int $now ) {
+	public function erase_key( string $wallet, int $now ): void {
 		if ( $this->plugin instanceof \QershPay\WooCommerce\Plugin ) {
 			$this->plugin->secrets()->erase( $wallet );
 		}

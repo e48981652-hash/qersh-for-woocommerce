@@ -18,7 +18,7 @@
 require_once __DIR__ . '/lib/overrides.php';
 
 $qersh_root = $_SERVER['DOCUMENT_ROOT'];
-$qersh_path = rawurldecode( (string) parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH ) );
+$qersh_path = rawurldecode( (string) parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions.parse_url_parse_url -- WordPress is not loaded yet (no wp_parse_url()).
 $qersh_file = realpath( $qersh_root . $qersh_path );
 if ( false !== $qersh_file && 0 === strpos( $qersh_file, realpath( $qersh_root ) ) && is_file( $qersh_file ) && ! preg_match( '/\.php$/i', $qersh_file ) ) {
 	return false;
@@ -39,10 +39,10 @@ if ( false !== $qersh_file && 1 === preg_match( '#^/wp-content/plugins/[^/.][^/]
 		'woff2' => 'font/woff2',
 		'txt'   => 'text/plain; charset=utf-8',
 	);
-	$qersh_ext = strtolower( pathinfo( $qersh_file, PATHINFO_EXTENSION ) );
+	$qersh_ext   = strtolower( pathinfo( $qersh_file, PATHINFO_EXTENSION ) );
 	header( 'Content-Type: ' . ( isset( $qersh_types[ $qersh_ext ] ) ? $qersh_types[ $qersh_ext ] : 'application/octet-stream' ) );
 	header( 'Content-Length: ' . filesize( $qersh_file ) );
-	readfile( $qersh_file );
+	readfile( $qersh_file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile -- the built-in server's static file, before WordPress loads.
 	return true;
 }
 if ( false !== $qersh_file && is_file( $qersh_file ) && preg_match( '/\.php$/i', $qersh_file ) ) {
