@@ -73,7 +73,11 @@ function shapeTransfer(data) {
 		const p = flag('--payer');
 		data.counterparty = p.includes('@') || /[a-z]/i.test(p) ? { ...data.counterparty, number: null, handle: p } : { ...data.counterparty, number: p, handle: null };
 	}
+	// Every real transfer has its own operator transaction id: a fixed one from the vector would make every run a
+	// "duplicate transaction id" (rule 2). --txn sets it, --no-txn leaves it out (e& money has none).
 	if (flag('--txn') !== null) data.provider_txn_id = flag('--txn');
+	else if (has('--no-txn')) data.provider_txn_id = null;
+	else data.provider_txn_id = String(Number('0x' + randomBytes(5).toString('hex'))).padStart(12, '0').slice(-12);
 	if (flag('--channel')) data.channel = flag('--channel');
 	if (flag('--reasons') !== null) data.risk_reasons = flag('--reasons') ? flag('--reasons').split(',') : [];
 	if (flag('--risk')) data.risk = flag('--risk');
