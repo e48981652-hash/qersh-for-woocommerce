@@ -1,0 +1,26 @@
+{
+	"name": "qersh-pay/qersh-for-woocommerce",
+	"description": "Qersh for WooCommerce: development tools only. The plugin has no runtime dependencies.",
+	"type": "wordpress-plugin",
+	"license": "GPL-2.0-or-later",
+	"require": {
+		"php": ">=7.4"
+	},
+	"require-dev": {
+		"phpunit/phpunit": "^9.6",
+		"yoast/phpunit-polyfills": "^2.0"
+	},
+	"config": {
+		"platform": {
+			"php": "7.4.33"
+		},
+		"sort-packages": true,
+		"allow-plugins": {
+			"dealerdirect/phpcodesniffer-composer-installer": true
+		}
+	},
+	"scripts": {
+		"test:unit": "phpunit -c phpunit.xml.dist --testsuite unit",
+		"lint:php": "php scripts/lint-php.php"
+	}
+}

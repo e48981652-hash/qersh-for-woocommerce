@@ -1,0 +1,76 @@
+{
+	"source": "Qersh repository",
+	"commit": "d2f4158285d5ebd44687ee8e9bc54f45bc4c341e",
+	"files": [
+		{
+			"path": "fixtures/test-vectors.json",
+			"source": "kit/test-vectors.json",
+			"sha256": "9fa0ef9944d8682146b55bb77951e746e48e968bc56f41a717a0bf3fcf54f6f1"
+		},
+		{
+			"path": "fixtures/webhook.v1.schema.json",
+			"source": "kit/webhook.v1.schema.json",
+			"sha256": "17187b2d74e5ad2b37db21a56830f34db4ab02433a791d22387a3a9262adee28"
+		},
+		{
+			"path": "fixtures/sink/send.mjs",
+			"source": "kit/sink/send.mjs",
+			"sha256": "aad8b7e958edd874b79e205c3a3ca935dacfe5439898855aa9f380d9287de6e4"
+		},
+		{
+			"path": "tests/php/fixtures/verify.php",
+			"source": "kit/snippets/php/verify.php",
+			"sha256": "2c04794759921cc96666f72d2eb1519ed03d8af113e67e0d25b477921495b778"
+		},
+		{
+			"path": "tests/parity/kit/match.mjs",
+			"source": "kit/reference/match.mjs",
+			"sha256": "c2aafbb1398dd372fd4a141f4ff8457f91dfce47b632f7ffdabe178f7f0c70b6"
+		},
+		{
+			"path": "fixtures/qersh.config.schema.json",
+			"source": "packages/qersh-webhook/qersh.config.schema.json",
+			"sha256": "3291c851e81f886daf3d2da218d04738ebafeb4da0c254c0be269ddf69b8ef0c"
+		},
+		{
+			"path": "tests/parity/core/config.js",
+			"source": "packages/qersh-webhook/dist/src/core/config.js",
+			"sha256": "1e99f86bcc880202689b8342632f8a3b36c3ba8efb6d79bda353e75231aeef22"
+		},
+		{
+			"path": "tests/parity/core/envelope.js",
+			"source": "packages/qersh-webhook/dist/src/core/envelope.js",
+			"sha256": "55aa432677c6b0dfc89a9a0d1c2aa5f3301938c34f2551ca67db03f89fc490f0"
+		},
+		{
+			"path": "tests/parity/core/index.js",
+			"source": "packages/qersh-webhook/dist/src/core/index.js",
+			"sha256": "337ff8da5e967fe4271e1bc7ba0e5d60b48095451969a1a69f1491d58e1333ba"
+		},
+		{
+			"path": "tests/parity/core/match.js",
+			"source": "packages/qersh-webhook/dist/src/core/match.js",
+			"sha256": "ac8920490596764e8b3b69cdf6a05c0739911a1de5eb049b7efe471f180e261d"
+		},
+		{
+			"path": "tests/parity/core/payer.js",
+			"source": "packages/qersh-webhook/dist/src/core/payer.js",
+			"sha256": "ff95ea5362bcb5dd600a68f064ebcc3701df5e98e564fce0aad3c21463970a70"
+		},
+		{
+			"path": "tests/parity/core/setup-link.js",
+			"source": "packages/qersh-webhook/dist/src/core/setup-link.js",
+			"sha256": "3bd304ba8e9804850f374d101f4fc1f6898b4ddb1a7e18cb2a7fb00495d60180"
+		},
+		{
+			"path": "tests/parity/core/signature.js",
+			"source": "packages/qersh-webhook/dist/src/core/signature.js",
+			"sha256": "32723a3ffbfb4cb66723eba6a9052b4108a112c3b7241f9eb340d80082abe125"
+		},
+		{
+			"path": "tests/parity/core/standard-webhooks.js",
+			"source": "packages/qersh-webhook/dist/src/core/standard-webhooks.js",
+			"sha256": "6d3c6db13596192f0ddaed8bfef87d51086793bf6dc813ea83f213256bf4f414"
+		}
+	]
+}

@@ -1,0 +1,217 @@
+{
+  "schema": "qersh.v1",
+  "note": "All cases derive from one epoch so ISO time, epoch_ms and signatures agree byte for byte. Secrets here are TEST values.",
+  "generated_from_epoch_ms": 1791725802000,
+  "tolerance_sec": 300,
+  "secret": "qsk_Kx7pQ2mZ9vL4nT8rW1yB6cD3fG5hJ0kM2nP4qR6sT8uV",
+  "previous_secret": "qsk_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8S9t0U1v2W",
+  "cases": [
+    {
+      "name": "valid_transfer_received",
+      "now": 1791725807,
+      "secrets": [
+        "qsk_Kx7pQ2mZ9vL4nT8rW1yB6cD3fG5hJ0kM2nP4qR6sT8uV"
+      ],
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "User-Agent": "Qersh/1.0.0 (Android 36; direct)",
+        "X-Qersh-Version": "1",
+        "X-Qersh-Event": "transfer.received",
+        "X-Qersh-Delivery": "3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d",
+        "X-Qersh-Attempt": "1",
+        "X-Qersh-Wallet": "wlt_01JA2Y4X5M7Q9R0S1T2U3V4W5X",
+        "X-Qersh-Signature": "t=1791725802,v1=040710e73f01fce689c0fe7a0d7f5e200e2fa8fc9be39173dcd8a068a3ad0131",
+        "Idempotency-Key": "3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d",
+        "webhook-id": "3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d",
+        "webhook-timestamp": "1791725802",
+        "webhook-signature": "v1,O26ODa+Mua8xp5JSLdngV0vxn1hnv8wJgIwlMBeBU4w="
+      },
+      "body": "{\"schema\":\"qersh.v1\",\"event\":\"transfer.received\",\"delivery_id\":\"3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d\",\"created_at\":\"2026-10-11T16:36:42+03:00\",\"created_at_epoch_ms\":1791725802000,\"test\":false,\"device\":{\"id\":\"dev_01JA2Y4X5M7Q9R0S1T2U3V4W5Y\",\"app_version\":\"1.0.0\",\"flavor\":\"direct\",\"android_sdk\":36,\"state\":{\"sms_permission\":true,\"notification_access\":true,\"background_restricted\":false,\"battery_optimized\":false}},\"wallet\":{\"id\":\"wlt_01JA2Y4X5M7Q9R0S1T2U3V4W5X\",\"provider\":\"vodafone_cash\",\"label\":\"محفظة المتجر\",\"number_masked\":\"0100****776\",\"slot\":0},\"subscription\":{\"plan\":\"growth\",\"limit_exceeded\":false,\"grace_until\":null},\"data\":{\"transfer_id\":\"trf_01JA2Y4X5M7Q9R0S1T2U3V4W5Z\",\"direction\":\"in\",\"status\":\"completed\",\"amount\":\"150.07\",\"amount_minor\":15007,\"currency\":\"EGP\",\"balance_after\":\"3122.42\",\"balance_after_minor\":312242,\"fee\":null,\"fee_minor\":null,\"provider_txn_id\":\"099409626954\",\"provider_time_text\":\"16:36 26-10-11\",\"sms_timestamp\":\"2026-10-11T16:36:38+03:00\",\"received_at\":\"2026-10-11T16:36:41+03:00\",\"counterparty\":{\"number\":\"01112233445\",\"name\":\"Assaad K Mansouri\",\"handle\":null,\"bank\":null},\"receiver_wallet_number\":\"01009988776\",\"channel\":\"sms\",\"sender_id\":\"VF-Cash\",\"message_kind\":\"CREDIT\",\"message_subkind\":\"p2p_received\",\"checks\":{\"sender_allowlisted\":true,\"sim_match\":\"match\",\"receiver_wallet_match\":\"match\",\"balance_chain\":\"consistent\",\"balance_expected\":\"3122.42\",\"balance_observed\":\"3122.42\",\"txn_id_unique\":true,\"amount_sane\":true,\"within_auto_confirm_limit\":true,\"amount_unusual\":false,\"clock_skew_sec\":1,\"corroborated_by\":null,\"template\":{\"provider\":\"vodafone_cash\",\"kind_id\":\"vf.credit.2026_04\",\"pack_version\":2026101101,\"source\":\"pack\",\"status\":\"verified\"}},\"risk\":\"low\",\"risk_reasons\":[],\"auto_confirm_ok\":true}}",
+      "expect": "accept"
+    },
+    {
+      "name": "valid_webhook_test",
+      "now": 1791725807,
+      "secrets": [
+        "qsk_Kx7pQ2mZ9vL4nT8rW1yB6cD3fG5hJ0kM2nP4qR6sT8uV"
+      ],
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "User-Agent": "Qersh/1.0.0 (Android 36; direct)",
+        "X-Qersh-Version": "1",
+        "X-Qersh-Event": "webhook.test",
+        "X-Qersh-Delivery": "3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d",
+        "X-Qersh-Attempt": "1",
+        "X-Qersh-Wallet": "wlt_01JA2Y4X5M7Q9R0S1T2U3V4W5X",
+        "X-Qersh-Signature": "t=1791725802,v1=b2a3bf97fd47088c93e520b3e2222b61d21c892ab257b1e3e2f4120a7bf0a42d",
+        "Idempotency-Key": "3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d",
+        "webhook-id": "3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d",
+        "webhook-timestamp": "1791725802",
+        "webhook-signature": "v1,DvVOBKO9AQXdJkv62x2hQ5VqHPEQnF21anxzbdmU97A="
+      },
+      "body": "{\"schema\":\"qersh.v1\",\"event\":\"webhook.test\",\"delivery_id\":\"3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d\",\"created_at\":\"2026-10-11T16:36:42+03:00\",\"created_at_epoch_ms\":1791725802000,\"test\":true,\"device\":{\"id\":\"dev_01JA2Y4X5M7Q9R0S1T2U3V4W5Y\",\"app_version\":\"1.0.0\",\"flavor\":\"direct\",\"android_sdk\":36,\"state\":{\"sms_permission\":true,\"notification_access\":true,\"background_restricted\":false,\"battery_optimized\":false}},\"wallet\":{\"id\":\"wlt_01JA2Y4X5M7Q9R0S1T2U3V4W5X\",\"provider\":\"vodafone_cash\",\"label\":\"محفظة المتجر\",\"number_masked\":\"0100****776\",\"slot\":0},\"subscription\":{\"plan\":\"growth\",\"limit_exceeded\":false,\"grace_until\":null},\"data\":{\"test\":true,\"message\":\"اختبار من قرش\",\"sample\":{\"transfer_id\":\"trf_01JA2Y4X5M7Q9R0S1T2U3V4W5Z\",\"direction\":\"in\",\"status\":\"completed\",\"amount\":\"1.00\",\"amount_minor\":100,\"currency\":\"EGP\",\"balance_after\":\"3122.42\",\"balance_after_minor\":312242,\"fee\":null,\"fee_minor\":null,\"provider_txn_id\":\"000000000000\",\"provider_time_text\":\"16:36 26-10-11\",\"sms_timestamp\":\"2026-10-11T16:36:38+03:00\",\"received_at\":\"2026-10-11T16:36:41+03:00\",\"counterparty\":{\"number\":\"01000000000\",\"name\":\"اختبار\",\"handle\":null,\"bank\":null},\"receiver_wallet_number\":\"01009988776\",\"channel\":\"sms\",\"sender_id\":\"VF-Cash\",\"message_kind\":\"CREDIT\",\"message_subkind\":\"p2p_received\",\"checks\":{\"sender_allowlisted\":true,\"sim_match\":\"match\",\"receiver_wallet_match\":\"match\",\"balance_chain\":\"consistent\",\"balance_expected\":\"3122.42\",\"balance_observed\":\"3122.42\",\"txn_id_unique\":true,\"amount_sane\":true,\"within_auto_confirm_limit\":true,\"amount_unusual\":false,\"clock_skew_sec\":1,\"corroborated_by\":null,\"template\":{\"provider\":\"vodafone_cash\",\"kind_id\":\"vf.credit.2026_04\",\"pack_version\":2026101101,\"source\":\"pack\",\"status\":\"verified\"}},\"risk\":\"test\",\"risk_reasons\":[],\"auto_confirm_ok\":false}}}",
+      "expect": "accept"
+    },
+    {
+      "name": "wrong_secret",
+      "now": 1791725807,
+      "secrets": [
+        "qsk_wrongwrongwrongwrongwrongwrongwrongwrongwro"
+      ],
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "User-Agent": "Qersh/1.0.0 (Android 36; direct)",
+        "X-Qersh-Version": "1",
+        "X-Qersh-Event": "transfer.received",
+        "X-Qersh-Delivery": "3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d",
+        "X-Qersh-Attempt": "1",
+        "X-Qersh-Wallet": "wlt_01JA2Y4X5M7Q9R0S1T2U3V4W5X",
+        "X-Qersh-Signature": "t=1791725802,v1=040710e73f01fce689c0fe7a0d7f5e200e2fa8fc9be39173dcd8a068a3ad0131",
+        "Idempotency-Key": "3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d",
+        "webhook-id": "3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d",
+        "webhook-timestamp": "1791725802",
+        "webhook-signature": "v1,O26ODa+Mua8xp5JSLdngV0vxn1hnv8wJgIwlMBeBU4w="
+      },
+      "body": "{\"schema\":\"qersh.v1\",\"event\":\"transfer.received\",\"delivery_id\":\"3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d\",\"created_at\":\"2026-10-11T16:36:42+03:00\",\"created_at_epoch_ms\":1791725802000,\"test\":false,\"device\":{\"id\":\"dev_01JA2Y4X5M7Q9R0S1T2U3V4W5Y\",\"app_version\":\"1.0.0\",\"flavor\":\"direct\",\"android_sdk\":36,\"state\":{\"sms_permission\":true,\"notification_access\":true,\"background_restricted\":false,\"battery_optimized\":false}},\"wallet\":{\"id\":\"wlt_01JA2Y4X5M7Q9R0S1T2U3V4W5X\",\"provider\":\"vodafone_cash\",\"label\":\"محفظة المتجر\",\"number_masked\":\"0100****776\",\"slot\":0},\"subscription\":{\"plan\":\"growth\",\"limit_exceeded\":false,\"grace_until\":null},\"data\":{\"transfer_id\":\"trf_01JA2Y4X5M7Q9R0S1T2U3V4W5Z\",\"direction\":\"in\",\"status\":\"completed\",\"amount\":\"150.07\",\"amount_minor\":15007,\"currency\":\"EGP\",\"balance_after\":\"3122.42\",\"balance_after_minor\":312242,\"fee\":null,\"fee_minor\":null,\"provider_txn_id\":\"099409626954\",\"provider_time_text\":\"16:36 26-10-11\",\"sms_timestamp\":\"2026-10-11T16:36:38+03:00\",\"received_at\":\"2026-10-11T16:36:41+03:00\",\"counterparty\":{\"number\":\"01112233445\",\"name\":\"Assaad K Mansouri\",\"handle\":null,\"bank\":null},\"receiver_wallet_number\":\"01009988776\",\"channel\":\"sms\",\"sender_id\":\"VF-Cash\",\"message_kind\":\"CREDIT\",\"message_subkind\":\"p2p_received\",\"checks\":{\"sender_allowlisted\":true,\"sim_match\":\"match\",\"receiver_wallet_match\":\"match\",\"balance_chain\":\"consistent\",\"balance_expected\":\"3122.42\",\"balance_observed\":\"3122.42\",\"txn_id_unique\":true,\"amount_sane\":true,\"within_auto_confirm_limit\":true,\"amount_unusual\":false,\"clock_skew_sec\":1,\"corroborated_by\":null,\"template\":{\"provider\":\"vodafone_cash\",\"kind_id\":\"vf.credit.2026_04\",\"pack_version\":2026101101,\"source\":\"pack\",\"status\":\"verified\"}},\"risk\":\"low\",\"risk_reasons\":[],\"auto_confirm_ok\":true}}",
+      "expect": "reject"
+    },
+    {
+      "name": "tampered_body",
+      "now": 1791725807,
+      "secrets": [
+        "qsk_Kx7pQ2mZ9vL4nT8rW1yB6cD3fG5hJ0kM2nP4qR6sT8uV"
+      ],
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "User-Agent": "Qersh/1.0.0 (Android 36; direct)",
+        "X-Qersh-Version": "1",
+        "X-Qersh-Event": "transfer.received",
+        "X-Qersh-Delivery": "3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d",
+        "X-Qersh-Attempt": "1",
+        "X-Qersh-Wallet": "wlt_01JA2Y4X5M7Q9R0S1T2U3V4W5X",
+        "X-Qersh-Signature": "t=1791725802,v1=040710e73f01fce689c0fe7a0d7f5e200e2fa8fc9be39173dcd8a068a3ad0131",
+        "Idempotency-Key": "3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d",
+        "webhook-id": "3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d",
+        "webhook-timestamp": "1791725802",
+        "webhook-signature": "v1,O26ODa+Mua8xp5JSLdngV0vxn1hnv8wJgIwlMBeBU4w="
+      },
+      "body": "{\"schema\":\"qersh.v1\",\"event\":\"transfer.received\",\"delivery_id\":\"3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d\",\"created_at\":\"2026-10-11T16:36:42+03:00\",\"created_at_epoch_ms\":1791725802000,\"test\":false,\"device\":{\"id\":\"dev_01JA2Y4X5M7Q9R0S1T2U3V4W5Y\",\"app_version\":\"1.0.0\",\"flavor\":\"direct\",\"android_sdk\":36,\"state\":{\"sms_permission\":true,\"notification_access\":true,\"background_restricted\":false,\"battery_optimized\":false}},\"wallet\":{\"id\":\"wlt_01JA2Y4X5M7Q9R0S1T2U3V4W5X\",\"provider\":\"vodafone_cash\",\"label\":\"محفظة المتجر\",\"number_masked\":\"0100****776\",\"slot\":0},\"subscription\":{\"plan\":\"growth\",\"limit_exceeded\":false,\"grace_until\":null},\"data\":{\"transfer_id\":\"trf_01JA2Y4X5M7Q9R0S1T2U3V4W5Z\",\"direction\":\"in\",\"status\":\"completed\",\"amount\":\"1500.70\",\"amount_minor\":150070,\"currency\":\"EGP\",\"balance_after\":\"3122.42\",\"balance_after_minor\":312242,\"fee\":null,\"fee_minor\":null,\"provider_txn_id\":\"099409626954\",\"provider_time_text\":\"16:36 26-10-11\",\"sms_timestamp\":\"2026-10-11T16:36:38+03:00\",\"received_at\":\"2026-10-11T16:36:41+03:00\",\"counterparty\":{\"number\":\"01112233445\",\"name\":\"Assaad K Mansouri\",\"handle\":null,\"bank\":null},\"receiver_wallet_number\":\"01009988776\",\"channel\":\"sms\",\"sender_id\":\"VF-Cash\",\"message_kind\":\"CREDIT\",\"message_subkind\":\"p2p_received\",\"checks\":{\"sender_allowlisted\":true,\"sim_match\":\"match\",\"receiver_wallet_match\":\"match\",\"balance_chain\":\"consistent\",\"balance_expected\":\"3122.42\",\"balance_observed\":\"3122.42\",\"txn_id_unique\":true,\"amount_sane\":true,\"within_auto_confirm_limit\":true,\"amount_unusual\":false,\"clock_skew_sec\":1,\"corroborated_by\":null,\"template\":{\"provider\":\"vodafone_cash\",\"kind_id\":\"vf.credit.2026_04\",\"pack_version\":2026101101,\"source\":\"pack\",\"status\":\"verified\"}},\"risk\":\"low\",\"risk_reasons\":[],\"auto_confirm_ok\":true}}",
+      "expect": "reject"
+    },
+    {
+      "name": "stale_timestamp",
+      "now": 1791726103,
+      "secrets": [
+        "qsk_Kx7pQ2mZ9vL4nT8rW1yB6cD3fG5hJ0kM2nP4qR6sT8uV"
+      ],
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "User-Agent": "Qersh/1.0.0 (Android 36; direct)",
+        "X-Qersh-Version": "1",
+        "X-Qersh-Event": "transfer.received",
+        "X-Qersh-Delivery": "3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d",
+        "X-Qersh-Attempt": "1",
+        "X-Qersh-Wallet": "wlt_01JA2Y4X5M7Q9R0S1T2U3V4W5X",
+        "X-Qersh-Signature": "t=1791725802,v1=040710e73f01fce689c0fe7a0d7f5e200e2fa8fc9be39173dcd8a068a3ad0131",
+        "Idempotency-Key": "3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d",
+        "webhook-id": "3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d",
+        "webhook-timestamp": "1791725802",
+        "webhook-signature": "v1,O26ODa+Mua8xp5JSLdngV0vxn1hnv8wJgIwlMBeBU4w="
+      },
+      "body": "{\"schema\":\"qersh.v1\",\"event\":\"transfer.received\",\"delivery_id\":\"3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d\",\"created_at\":\"2026-10-11T16:36:42+03:00\",\"created_at_epoch_ms\":1791725802000,\"test\":false,\"device\":{\"id\":\"dev_01JA2Y4X5M7Q9R0S1T2U3V4W5Y\",\"app_version\":\"1.0.0\",\"flavor\":\"direct\",\"android_sdk\":36,\"state\":{\"sms_permission\":true,\"notification_access\":true,\"background_restricted\":false,\"battery_optimized\":false}},\"wallet\":{\"id\":\"wlt_01JA2Y4X5M7Q9R0S1T2U3V4W5X\",\"provider\":\"vodafone_cash\",\"label\":\"محفظة المتجر\",\"number_masked\":\"0100****776\",\"slot\":0},\"subscription\":{\"plan\":\"growth\",\"limit_exceeded\":false,\"grace_until\":null},\"data\":{\"transfer_id\":\"trf_01JA2Y4X5M7Q9R0S1T2U3V4W5Z\",\"direction\":\"in\",\"status\":\"completed\",\"amount\":\"150.07\",\"amount_minor\":15007,\"currency\":\"EGP\",\"balance_after\":\"3122.42\",\"balance_after_minor\":312242,\"fee\":null,\"fee_minor\":null,\"provider_txn_id\":\"099409626954\",\"provider_time_text\":\"16:36 26-10-11\",\"sms_timestamp\":\"2026-10-11T16:36:38+03:00\",\"received_at\":\"2026-10-11T16:36:41+03:00\",\"counterparty\":{\"number\":\"01112233445\",\"name\":\"Assaad K Mansouri\",\"handle\":null,\"bank\":null},\"receiver_wallet_number\":\"01009988776\",\"channel\":\"sms\",\"sender_id\":\"VF-Cash\",\"message_kind\":\"CREDIT\",\"message_subkind\":\"p2p_received\",\"checks\":{\"sender_allowlisted\":true,\"sim_match\":\"match\",\"receiver_wallet_match\":\"match\",\"balance_chain\":\"consistent\",\"balance_expected\":\"3122.42\",\"balance_observed\":\"3122.42\",\"txn_id_unique\":true,\"amount_sane\":true,\"within_auto_confirm_limit\":true,\"amount_unusual\":false,\"clock_skew_sec\":1,\"corroborated_by\":null,\"template\":{\"provider\":\"vodafone_cash\",\"kind_id\":\"vf.credit.2026_04\",\"pack_version\":2026101101,\"source\":\"pack\",\"status\":\"verified\"}},\"risk\":\"low\",\"risk_reasons\":[],\"auto_confirm_ok\":true}}",
+      "expect": "reject"
+    },
+    {
+      "name": "future_timestamp",
+      "now": 1791725501,
+      "secrets": [
+        "qsk_Kx7pQ2mZ9vL4nT8rW1yB6cD3fG5hJ0kM2nP4qR6sT8uV"
+      ],
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "User-Agent": "Qersh/1.0.0 (Android 36; direct)",
+        "X-Qersh-Version": "1",
+        "X-Qersh-Event": "transfer.received",
+        "X-Qersh-Delivery": "3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d",
+        "X-Qersh-Attempt": "1",
+        "X-Qersh-Wallet": "wlt_01JA2Y4X5M7Q9R0S1T2U3V4W5X",
+        "X-Qersh-Signature": "t=1791725802,v1=040710e73f01fce689c0fe7a0d7f5e200e2fa8fc9be39173dcd8a068a3ad0131",
+        "Idempotency-Key": "3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d",
+        "webhook-id": "3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d",
+        "webhook-timestamp": "1791725802",
+        "webhook-signature": "v1,O26ODa+Mua8xp5JSLdngV0vxn1hnv8wJgIwlMBeBU4w="
+      },
+      "body": "{\"schema\":\"qersh.v1\",\"event\":\"transfer.received\",\"delivery_id\":\"3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d\",\"created_at\":\"2026-10-11T16:36:42+03:00\",\"created_at_epoch_ms\":1791725802000,\"test\":false,\"device\":{\"id\":\"dev_01JA2Y4X5M7Q9R0S1T2U3V4W5Y\",\"app_version\":\"1.0.0\",\"flavor\":\"direct\",\"android_sdk\":36,\"state\":{\"sms_permission\":true,\"notification_access\":true,\"background_restricted\":false,\"battery_optimized\":false}},\"wallet\":{\"id\":\"wlt_01JA2Y4X5M7Q9R0S1T2U3V4W5X\",\"provider\":\"vodafone_cash\",\"label\":\"محفظة المتجر\",\"number_masked\":\"0100****776\",\"slot\":0},\"subscription\":{\"plan\":\"growth\",\"limit_exceeded\":false,\"grace_until\":null},\"data\":{\"transfer_id\":\"trf_01JA2Y4X5M7Q9R0S1T2U3V4W5Z\",\"direction\":\"in\",\"status\":\"completed\",\"amount\":\"150.07\",\"amount_minor\":15007,\"currency\":\"EGP\",\"balance_after\":\"3122.42\",\"balance_after_minor\":312242,\"fee\":null,\"fee_minor\":null,\"provider_txn_id\":\"099409626954\",\"provider_time_text\":\"16:36 26-10-11\",\"sms_timestamp\":\"2026-10-11T16:36:38+03:00\",\"received_at\":\"2026-10-11T16:36:41+03:00\",\"counterparty\":{\"number\":\"01112233445\",\"name\":\"Assaad K Mansouri\",\"handle\":null,\"bank\":null},\"receiver_wallet_number\":\"01009988776\",\"channel\":\"sms\",\"sender_id\":\"VF-Cash\",\"message_kind\":\"CREDIT\",\"message_subkind\":\"p2p_received\",\"checks\":{\"sender_allowlisted\":true,\"sim_match\":\"match\",\"receiver_wallet_match\":\"match\",\"balance_chain\":\"consistent\",\"balance_expected\":\"3122.42\",\"balance_observed\":\"3122.42\",\"txn_id_unique\":true,\"amount_sane\":true,\"within_auto_confirm_limit\":true,\"amount_unusual\":false,\"clock_skew_sec\":1,\"corroborated_by\":null,\"template\":{\"provider\":\"vodafone_cash\",\"kind_id\":\"vf.credit.2026_04\",\"pack_version\":2026101101,\"source\":\"pack\",\"status\":\"verified\"}},\"risk\":\"low\",\"risk_reasons\":[],\"auto_confirm_ok\":true}}",
+      "expect": "reject"
+    },
+    {
+      "name": "rotation_previous_secret_still_valid",
+      "now": 1791725807,
+      "secrets": [
+        "qsk_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8S9t0U1v2W"
+      ],
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "User-Agent": "Qersh/1.0.0 (Android 36; direct)",
+        "X-Qersh-Version": "1",
+        "X-Qersh-Event": "transfer.received",
+        "X-Qersh-Delivery": "3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d",
+        "X-Qersh-Attempt": "1",
+        "X-Qersh-Wallet": "wlt_01JA2Y4X5M7Q9R0S1T2U3V4W5X",
+        "X-Qersh-Signature": "t=1791725802,v1=040710e73f01fce689c0fe7a0d7f5e200e2fa8fc9be39173dcd8a068a3ad0131,v1=fddd14a38e37ca607fa0ed49dfebf9fbf31874d0a212b74e748edfd60679bac1",
+        "Idempotency-Key": "3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d",
+        "webhook-id": "3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d",
+        "webhook-timestamp": "1791725802",
+        "webhook-signature": "v1,O26ODa+Mua8xp5JSLdngV0vxn1hnv8wJgIwlMBeBU4w="
+      },
+      "body": "{\"schema\":\"qersh.v1\",\"event\":\"transfer.received\",\"delivery_id\":\"3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d\",\"created_at\":\"2026-10-11T16:36:42+03:00\",\"created_at_epoch_ms\":1791725802000,\"test\":false,\"device\":{\"id\":\"dev_01JA2Y4X5M7Q9R0S1T2U3V4W5Y\",\"app_version\":\"1.0.0\",\"flavor\":\"direct\",\"android_sdk\":36,\"state\":{\"sms_permission\":true,\"notification_access\":true,\"background_restricted\":false,\"battery_optimized\":false}},\"wallet\":{\"id\":\"wlt_01JA2Y4X5M7Q9R0S1T2U3V4W5X\",\"provider\":\"vodafone_cash\",\"label\":\"محفظة المتجر\",\"number_masked\":\"0100****776\",\"slot\":0},\"subscription\":{\"plan\":\"growth\",\"limit_exceeded\":false,\"grace_until\":null},\"data\":{\"transfer_id\":\"trf_01JA2Y4X5M7Q9R0S1T2U3V4W5Z\",\"direction\":\"in\",\"status\":\"completed\",\"amount\":\"150.07\",\"amount_minor\":15007,\"currency\":\"EGP\",\"balance_after\":\"3122.42\",\"balance_after_minor\":312242,\"fee\":null,\"fee_minor\":null,\"provider_txn_id\":\"099409626954\",\"provider_time_text\":\"16:36 26-10-11\",\"sms_timestamp\":\"2026-10-11T16:36:38+03:00\",\"received_at\":\"2026-10-11T16:36:41+03:00\",\"counterparty\":{\"number\":\"01112233445\",\"name\":\"Assaad K Mansouri\",\"handle\":null,\"bank\":null},\"receiver_wallet_number\":\"01009988776\",\"channel\":\"sms\",\"sender_id\":\"VF-Cash\",\"message_kind\":\"CREDIT\",\"message_subkind\":\"p2p_received\",\"checks\":{\"sender_allowlisted\":true,\"sim_match\":\"match\",\"receiver_wallet_match\":\"match\",\"balance_chain\":\"consistent\",\"balance_expected\":\"3122.42\",\"balance_observed\":\"3122.42\",\"txn_id_unique\":true,\"amount_sane\":true,\"within_auto_confirm_limit\":true,\"amount_unusual\":false,\"clock_skew_sec\":1,\"corroborated_by\":null,\"template\":{\"provider\":\"vodafone_cash\",\"kind_id\":\"vf.credit.2026_04\",\"pack_version\":2026101101,\"source\":\"pack\",\"status\":\"verified\"}},\"risk\":\"low\",\"risk_reasons\":[],\"auto_confirm_ok\":true}}",
+      "expect": "accept"
+    },
+    {
+      "name": "missing_signature_header",
+      "now": 1791725807,
+      "secrets": [
+        "qsk_Kx7pQ2mZ9vL4nT8rW1yB6cD3fG5hJ0kM2nP4qR6sT8uV"
+      ],
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "User-Agent": "Qersh/1.0.0 (Android 36; direct)",
+        "X-Qersh-Version": "1",
+        "X-Qersh-Event": "transfer.received",
+        "X-Qersh-Delivery": "3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d",
+        "X-Qersh-Attempt": "1",
+        "X-Qersh-Wallet": "wlt_01JA2Y4X5M7Q9R0S1T2U3V4W5X",
+        "X-Qersh-Signature": "",
+        "Idempotency-Key": "3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d",
+        "webhook-id": "3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d",
+        "webhook-timestamp": "1791725802",
+        "webhook-signature": "v1,O26ODa+Mua8xp5JSLdngV0vxn1hnv8wJgIwlMBeBU4w="
+      },
+      "body": "{\"schema\":\"qersh.v1\",\"event\":\"transfer.received\",\"delivery_id\":\"3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d\",\"created_at\":\"2026-10-11T16:36:42+03:00\",\"created_at_epoch_ms\":1791725802000,\"test\":false,\"device\":{\"id\":\"dev_01JA2Y4X5M7Q9R0S1T2U3V4W5Y\",\"app_version\":\"1.0.0\",\"flavor\":\"direct\",\"android_sdk\":36,\"state\":{\"sms_permission\":true,\"notification_access\":true,\"background_restricted\":false,\"battery_optimized\":false}},\"wallet\":{\"id\":\"wlt_01JA2Y4X5M7Q9R0S1T2U3V4W5X\",\"provider\":\"vodafone_cash\",\"label\":\"محفظة المتجر\",\"number_masked\":\"0100****776\",\"slot\":0},\"subscription\":{\"plan\":\"growth\",\"limit_exceeded\":false,\"grace_until\":null},\"data\":{\"transfer_id\":\"trf_01JA2Y4X5M7Q9R0S1T2U3V4W5Z\",\"direction\":\"in\",\"status\":\"completed\",\"amount\":\"150.07\",\"amount_minor\":15007,\"currency\":\"EGP\",\"balance_after\":\"3122.42\",\"balance_after_minor\":312242,\"fee\":null,\"fee_minor\":null,\"provider_txn_id\":\"099409626954\",\"provider_time_text\":\"16:36 26-10-11\",\"sms_timestamp\":\"2026-10-11T16:36:38+03:00\",\"received_at\":\"2026-10-11T16:36:41+03:00\",\"counterparty\":{\"number\":\"01112233445\",\"name\":\"Assaad K Mansouri\",\"handle\":null,\"bank\":null},\"receiver_wallet_number\":\"01009988776\",\"channel\":\"sms\",\"sender_id\":\"VF-Cash\",\"message_kind\":\"CREDIT\",\"message_subkind\":\"p2p_received\",\"checks\":{\"sender_allowlisted\":true,\"sim_match\":\"match\",\"receiver_wallet_match\":\"match\",\"balance_chain\":\"consistent\",\"balance_expected\":\"3122.42\",\"balance_observed\":\"3122.42\",\"txn_id_unique\":true,\"amount_sane\":true,\"within_auto_confirm_limit\":true,\"amount_unusual\":false,\"clock_skew_sec\":1,\"corroborated_by\":null,\"template\":{\"provider\":\"vodafone_cash\",\"kind_id\":\"vf.credit.2026_04\",\"pack_version\":2026101101,\"source\":\"pack\",\"status\":\"verified\"}},\"risk\":\"low\",\"risk_reasons\":[],\"auto_confirm_ok\":true}}",
+      "expect": "reject"
+    },
+    {
+      "name": "garbage_signature_header",
+      "now": 1791725807,
+      "secrets": [
+        "qsk_Kx7pQ2mZ9vL4nT8rW1yB6cD3fG5hJ0kM2nP4qR6sT8uV"
+      ],
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "User-Agent": "Qersh/1.0.0 (Android 36; direct)",
+        "X-Qersh-Version": "1",
+        "X-Qersh-Event": "transfer.received",
+        "X-Qersh-Delivery": "3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d",
+        "X-Qersh-Attempt": "1",
+        "X-Qersh-Wallet": "wlt_01JA2Y4X5M7Q9R0S1T2U3V4W5X",
+        "X-Qersh-Signature": "t=abc,v1=zz",
+        "Idempotency-Key": "3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d",
+        "webhook-id": "3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d",
+        "webhook-timestamp": "1791725802",
+        "webhook-signature": "v1,O26ODa+Mua8xp5JSLdngV0vxn1hnv8wJgIwlMBeBU4w="
+      },
+      "body": "{\"schema\":\"qersh.v1\",\"event\":\"transfer.received\",\"delivery_id\":\"3f2a9c6e-1b7d-4e8a-9f0c-5d6e7a8b9c0d\",\"created_at\":\"2026-10-11T16:36:42+03:00\",\"created_at_epoch_ms\":1791725802000,\"test\":false,\"device\":{\"id\":\"dev_01JA2Y4X5M7Q9R0S1T2U3V4W5Y\",\"app_version\":\"1.0.0\",\"flavor\":\"direct\",\"android_sdk\":36,\"state\":{\"sms_permission\":true,\"notification_access\":true,\"background_restricted\":false,\"battery_optimized\":false}},\"wallet\":{\"id\":\"wlt_01JA2Y4X5M7Q9R0S1T2U3V4W5X\",\"provider\":\"vodafone_cash\",\"label\":\"محفظة المتجر\",\"number_masked\":\"0100****776\",\"slot\":0},\"subscription\":{\"plan\":\"growth\",\"limit_exceeded\":false,\"grace_until\":null},\"data\":{\"transfer_id\":\"trf_01JA2Y4X5M7Q9R0S1T2U3V4W5Z\",\"direction\":\"in\",\"status\":\"completed\",\"amount\":\"150.07\",\"amount_minor\":15007,\"currency\":\"EGP\",\"balance_after\":\"3122.42\",\"balance_after_minor\":312242,\"fee\":null,\"fee_minor\":null,\"provider_txn_id\":\"099409626954\",\"provider_time_text\":\"16:36 26-10-11\",\"sms_timestamp\":\"2026-10-11T16:36:38+03:00\",\"received_at\":\"2026-10-11T16:36:41+03:00\",\"counterparty\":{\"number\":\"01112233445\",\"name\":\"Assaad K Mansouri\",\"handle\":null,\"bank\":null},\"receiver_wallet_number\":\"01009988776\",\"channel\":\"sms\",\"sender_id\":\"VF-Cash\",\"message_kind\":\"CREDIT\",\"message_subkind\":\"p2p_received\",\"checks\":{\"sender_allowlisted\":true,\"sim_match\":\"match\",\"receiver_wallet_match\":\"match\",\"balance_chain\":\"consistent\",\"balance_expected\":\"3122.42\",\"balance_observed\":\"3122.42\",\"txn_id_unique\":true,\"amount_sane\":true,\"within_auto_confirm_limit\":true,\"amount_unusual\":false,\"clock_skew_sec\":1,\"corroborated_by\":null,\"template\":{\"provider\":\"vodafone_cash\",\"kind_id\":\"vf.credit.2026_04\",\"pack_version\":2026101101,\"source\":\"pack\",\"status\":\"verified\"}},\"risk\":\"low\",\"risk_reasons\":[],\"auto_confirm_ok\":true}}",
+      "expect": "reject"
+    }
+  ]
+}

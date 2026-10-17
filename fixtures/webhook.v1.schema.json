@@ -1,0 +1,241 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qersh.pay/kit/webhook.v1.schema.json",
+  "title": "Qersh webhook (qersh.v1)",
+  "description": "Envelope POSTed by the Qersh Android app to a merchant webhook, the per-event `data` objects, and the merchant's JSON reply. Readers MUST ignore unknown fields. Money: `*_minor` are integer piasters, `amount`-style strings have two decimals, currency is always EGP.",
+  "type": "object",
+  "required": ["schema", "event", "delivery_id", "created_at", "created_at_epoch_ms", "test", "device", "wallet", "subscription", "data"],
+  "properties": {
+    "schema": { "const": "qersh.v1" },
+    "event": { "$ref": "#/$defs/eventName" },
+    "delivery_id": { "type": "string", "format": "uuid", "description": "Stable across retries, manual resends and backfills; use it for idempotency and keep it >= 180 days, or as long as the order exists (the same delivery can come again months later)." },
+    "created_at": { "type": "string", "format": "date-time", "description": "ISO-8601 with numeric offset (+02:00 / +03:00 as the phone reports)." },
+    "created_at_epoch_ms": { "type": "integer" },
+    "test": { "type": "boolean", "description": "true only for webhook.test" },
+    "device": { "$ref": "#/$defs/device" },
+    "wallet": { "$ref": "#/$defs/wallet" },
+    "subscription": { "$ref": "#/$defs/subscription" },
+    "data": { "type": "object" }
+  },
+  "allOf": [
+    { "if": { "properties": { "event": { "enum": ["transfer.received", "transfer.sent", "transfer.failed", "transfer.reversed"] } } }, "then": { "properties": { "data": { "$ref": "#/$defs/transferData" } } } },
+    { "if": { "properties": { "event": { "const": "transfer.updated" } } }, "then": { "properties": { "data": { "$ref": "#/$defs/transferUpdated" } } } },
+    { "if": { "properties": { "event": { "const": "message.unparsed" } } }, "then": { "properties": { "data": { "$ref": "#/$defs/unparsedData" } } } },
+    { "if": { "properties": { "event": { "const": "device.heartbeat" } } }, "then": { "properties": { "data": { "$ref": "#/$defs/heartbeatData" } } } },
+    { "if": { "properties": { "event": { "const": "webhook.test" } } }, "then": { "properties": { "data": { "$ref": "#/$defs/webhookTestData" } } } },
+    { "if": { "properties": { "event": { "const": "subscription.limit_reached" } } }, "then": { "properties": { "data": { "$ref": "#/$defs/limitReachedData" } } } }
+  ],
+  "$defs": {
+    "eventName": {
+      "type": "string",
+      "enum": ["transfer.received", "transfer.sent", "transfer.failed", "transfer.reversed", "transfer.updated", "message.unparsed", "device.heartbeat", "webhook.test", "subscription.limit_reached"]
+    },
+    "money": { "type": "string", "pattern": "^-?[0-9]+\\.[0-9]{2}$", "description": "Two-decimal string, e.g. \"150.07\". Compare *_minor integers instead of parsing floats." },
+    "minor": { "type": "integer", "description": "Integer piasters (1 EGP = 100)." },
+    "egyptPhone": { "type": "string", "pattern": "^01[0-9]{9}$|^01[0-9]{2}\\*{3}[0-9]{4}$", "description": "Canonical 11-digit Egyptian number, or masked 0111***3445 when the wallet sends masked numbers." },
+    "device": {
+      "type": "object",
+      "required": ["id", "app_version", "flavor", "android_sdk", "state"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^dev_[0-9A-Z]{26}$", "description": "Random install id, not a hardware identifier." },
+        "app_version": { "type": "string" },
+        "flavor": { "type": "string", "enum": ["play", "direct"] },
+        "android_sdk": { "type": "integer" },
+        "state": {
+          "type": "object",
+          "properties": {
+            "sms_permission": { "type": "boolean" },
+            "notification_access": { "type": "boolean" },
+            "background_restricted": { "type": "boolean" },
+            "battery_optimized": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "wallet": {
+      "type": "object",
+      "required": ["id", "provider", "number_masked"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^wlt_[0-9A-Z]{26}$" },
+        "provider": { "type": "string", "enum": ["vodafone_cash", "etisalat_cash", "orange_cash", "instapay_app", "bank_egbank", "bank_nbe", "bank_cib", "bank_kfh"] },
+        "label": { "type": "string" },
+        "number_masked": { "type": "string", "description": "First 4 + **** + last 3 digits." },
+        "slot": { "type": ["integer", "null"], "description": "SIM slot (0-based) or null for notification-only wallets." }
+      }
+    },
+    "subscription": {
+      "type": "object",
+      "properties": {
+        "plan": { "type": "string", "enum": ["trial", "basic", "growth", "business"] },
+        "limit_exceeded": { "type": "boolean", "description": "true after the monthly incoming limit was crossed; forwarding continues during the grace window." },
+        "grace_until": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "checks": {
+      "type": "object",
+      "properties": {
+        "sender_allowlisted": { "type": "boolean" },
+        "sim_match": { "type": "string", "enum": ["match", "mismatch", "unknown", "ambiguous", "not_applicable"] },
+        "receiver_wallet_match": { "type": "string", "enum": ["match", "mismatch", "not_in_message"] },
+        "balance_chain": { "type": "string", "enum": ["consistent", "inconsistent", "gap", "no_baseline", "unavailable", "late_consistent", "stale", "refuted", "merchant_confirmed"], "description": "Whether the balance stated in the message follows from the balance the phone trusts. late_consistent: proved by a message that arrived later. merchant_confirmed: the merchant read the real balance and it matches this transfer (normally low risk). refuted: suspected forgery (comes with the risk reason suspected_forgery, high risk). gap is kept for old rows and is no longer produced." },
+        "balance_expected": { "type": ["string", "null"] },
+        "balance_observed": { "type": ["string", "null"] },
+        "txn_id_unique": { "type": ["boolean", "null"] },
+        "amount_sane": { "type": "boolean" },
+        "within_auto_confirm_limit": { "type": "boolean" },
+        "amount_unusual": { "type": "boolean" },
+        "clock_skew_sec": { "type": ["integer", "null"] },
+        "corroborated_by": { "type": ["string", "null"], "enum": [null, "bank_sms", "instapay_push"] },
+        "template": {
+          "type": "object",
+          "properties": {
+            "provider": { "type": "string" },
+            "kind_id": { "type": "string" },
+            "pack_version": { "type": "integer" },
+            "source": { "type": "string", "enum": ["pack", "local"] },
+            "status": { "type": "string", "enum": ["verified", "partial", "unverified"] }
+          }
+        }
+      }
+    },
+    "riskReason": {
+      "type": "string",
+      "enum": ["sim_mismatch", "sim_ambiguous", "sim_unknown", "receiver_wallet_mismatch", "balance_inconsistent", "balance_gap", "no_baseline", "balance_unavailable", "balance_stale", "txn_id_duplicate", "ref_malformed", "no_txn_id", "local_template", "unverified_template", "clock_skew", "amount_over_limit", "amount_unusual", "amount_over_max", "notification_only", "partial_template", "amount_invalid", "suspected_forgery"],
+      "description": "Why a transfer is not low risk. suspected_forgery (high) means the balance check found that the message does not belong to the wallet's real balance line: do not hand over the order until a human sees the money in the wallet app. Treat any reason you do not know as needing a human."
+    },
+    "transferData": {
+      "type": "object",
+      "required": ["transfer_id", "direction", "status", "currency", "channel", "message_kind", "checks", "risk", "risk_reasons", "auto_confirm_ok"],
+      "properties": {
+        "transfer_id": { "type": "string", "pattern": "^trf_[0-9A-Z]{26}$" },
+        "direction": { "type": "string", "enum": ["in", "out"] },
+        "status": { "type": "string", "enum": ["completed", "failed", "reversed"] },
+        "amount": { "oneOf": [{ "$ref": "#/$defs/money" }, { "type": "null" }] },
+        "amount_minor": { "oneOf": [{ "$ref": "#/$defs/minor" }, { "type": "null" }], "description": "Integer piasters; compare as integers (whole pounds for *9# transfers). Decides only between one payer’s open orders: match on counterparty first. Null only for some failed transfers." },
+        "currency": { "const": "EGP" },
+        "balance_after": { "oneOf": [{ "$ref": "#/$defs/money" }, { "type": "null" }] },
+        "balance_after_minor": { "oneOf": [{ "$ref": "#/$defs/minor" }, { "type": "null" }] },
+        "fee": { "oneOf": [{ "$ref": "#/$defs/money" }, { "type": "null" }] },
+        "fee_minor": { "oneOf": [{ "$ref": "#/$defs/minor" }, { "type": "null" }] },
+        "fee_inferred": { "oneOf": [{ "$ref": "#/$defs/money" }, { "type": "null" }] },
+        "provider_txn_id": { "type": ["string", "null"], "description": "Operator transaction id as printed in the message; unique per wallet." },
+        "provider_time_text": { "type": ["string", "null"], "description": "Date/time text exactly as the operator wrote it." },
+        "sms_timestamp": { "type": ["string", "null"], "format": "date-time" },
+        "received_at": { "type": "string", "format": "date-time", "description": "When the phone got the message, i.e. when the money arrived. The delivery can reach you up to 15 minutes later even on a healthy phone, longer if the phone is asleep (an incoming transfer is held while the merchant checks the balance when its balance does not match or the wallet balance is not known yet, as on the first transfer of a new wallet), and hours or weeks later after retries, a manual resend or X-Qersh-Redelivery: backfill. Always match by this time against the orders that were open then, not by the arrival time." },
+        "counterparty": {
+          "type": "object",
+          "description": "The payer, as the message prints them: number (vodafone_cash, etisalat_cash), handle name@instapay (instapay_app), or name only (orange_cash, bank_*). Match orders on this plus the order window, with provider_txn_id as the strongest key when the customer typed it.",
+          "properties": {
+            "number": { "oneOf": [{ "$ref": "#/$defs/egyptPhone" }, { "type": "null" }], "description": "Full number when the wallet sends full sender details; masked like 0111***3445 otherwise." },
+            "name": { "type": ["string", "null"] },
+            "handle": { "type": ["string", "null"], "description": "InstaPay IPA handle when present." },
+            "bank": { "type": ["string", "null"] }
+          }
+        },
+        "receiver_wallet_number": { "type": ["string", "null"] },
+        "channel": { "type": "string", "enum": ["sms", "notification"] },
+        "sender_id": { "type": ["string", "null"] },
+        "message_kind": { "type": "string", "enum": ["CREDIT", "DEBIT", "FAILED", "REVERSED"] },
+        "message_subkind": { "type": ["string", "null"] },
+        "failure_reason": { "type": ["string", "null"], "enum": [null, "insufficient_balance", "limit_exceeded", "invalid_recipient", "unknown"] },
+        "checks": { "$ref": "#/$defs/checks" },
+        "risk": { "type": "string", "enum": ["low", "medium", "high", "test"] },
+        "risk_reasons": { "type": "array", "items": { "$ref": "#/$defs/riskReason" } },
+        "auto_confirm_ok": { "type": "boolean", "description": "risk == low AND within the wallet's auto-confirm limit. Treat false as \"needs a human\"." }
+      }
+    },
+    "transferUpdated": {
+      "type": "object",
+      "description": "A later verdict on a transfer you already received (same transfer_id). Answer {\"status\":\"ok\"}. When risk_reasons contains suspected_forgery (checks.balance_chain is refuted), stop the order that transfer paid and let a human check the money in the wallet app before anything ships. Other updates need no action.",
+      "required": ["transfer_id", "updated_fields"],
+      "properties": {
+        "transfer_id": { "type": "string" },
+        "updated_fields": { "type": "array", "items": { "type": "string" } },
+        "checks": { "$ref": "#/$defs/checks" },
+        "risk": { "type": "string" },
+        "risk_reasons": { "type": "array", "items": { "$ref": "#/$defs/riskReason" } },
+        "auto_confirm_ok": { "type": "boolean" }
+      }
+    },
+    "unparsedData": {
+      "type": "object",
+      "description": "An allow-listed sender wrote something no template understood. Fields only; the text never leaves the phone.",
+      "required": ["capture_id", "channel", "sender_id", "text_length", "text_sha256", "pack_version"],
+      "properties": {
+        "capture_id": { "type": "string" },
+        "channel": { "type": "string", "enum": ["sms", "notification"] },
+        "sender_id": { "type": "string" },
+        "text_length": { "type": "integer" },
+        "text_sha256": { "type": "string" },
+        "amount_candidates": { "type": "array", "items": { "$ref": "#/$defs/money" } },
+        "ref_candidates": { "type": "array", "items": { "type": "string" } },
+        "pack_version": { "type": "integer" }
+      }
+    },
+    "heartbeatData": {
+      "type": "object",
+      "required": ["seq", "interval_sec", "status"],
+      "properties": {
+        "seq": { "type": "integer" },
+        "interval_sec": { "type": "integer" },
+        "status": { "type": "string", "enum": ["ok", "degraded"] },
+        "issues": { "type": "array", "items": { "type": "string", "enum": ["sms_permission_missing", "notification_access_missing", "background_restricted", "battery_optimized", "sim_missing", "sim_changed", "deliveries_backlog", "plan_expired", "plan_limit_exceeded", "template_pack_stale", "clock_skew", "app_was_force_stopped"] } },
+        "battery_pct": { "type": ["integer", "null"] },
+        "charging": { "type": ["boolean", "null"] },
+        "network": { "type": ["string", "null"] },
+        "sims": { "type": "array", "items": { "type": "object" } },
+        "pending_deliveries": { "type": "integer" },
+        "dead_deliveries": { "type": "integer" },
+        "last_message_at": { "type": ["string", "null"], "format": "date-time" },
+        "last_credit_at": { "type": ["string", "null"], "format": "date-time" },
+        "balance_chain_state": { "type": ["string", "null"], "description": "Free string: tracking, no_baseline, stale, or fork (a message did not match the balance and the merchant has not answered yet)." },
+        "pack_version": { "type": "integer" },
+        "plan": { "type": "object" }
+      }
+    },
+    "webhookTestData": {
+      "type": "object",
+      "required": ["test", "message", "sample"],
+      "properties": {
+        "test": { "const": true },
+        "message": { "type": "string" },
+        "sample": { "$ref": "#/$defs/transferData", "description": "A sample transfer under data.sample (never directly under data) so naive code cannot mistake it for a real payment." }
+      }
+    },
+    "limitReachedData": {
+      "type": "object",
+      "properties": {
+        "plan": { "type": "string" },
+        "limit": { "type": "string" },
+        "allowed": { "type": "integer" },
+        "used": { "type": "integer" },
+        "period": { "type": "string" },
+        "grace_until": { "type": ["string", "null"], "format": "date-time" },
+        "forwarding": { "type": "string", "enum": ["continues", "paused"] }
+      }
+    },
+    "merchantResponse": {
+      "title": "Merchant reply (optional JSON body on any 2xx)",
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "enum": ["matched", "partial", "overpaid", "unmatched", "review", "duplicate", "ignored", "ok"] },
+        "reference": { "type": "string", "maxLength": 64, "description": "Your order/invoice number; shown on the phone next to the transfer." },
+        "note": { "type": "string", "maxLength": 200 },
+        "status_updates": {
+          "type": "array",
+          "description": "Settle earlier transfers after a manual review; accepted in any reply, even to heartbeats.",
+          "items": {
+            "type": "object",
+            "required": ["transfer_id", "status"],
+            "properties": {
+              "transfer_id": { "type": "string" },
+              "status": { "type": "string", "enum": ["matched", "partial", "overpaid", "unmatched", "review", "duplicate", "ignored"] },
+              "reference": { "type": "string" },
+              "note": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

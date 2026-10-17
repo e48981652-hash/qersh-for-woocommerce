@@ -1,0 +1,10 @@
+/vendor/
+/node_modules/
+/build/
+/dist/
+*.zip
+.phpunit.result.cache
+/tests/e2e/.auth/
+/tests/e2e/test-results/
+/tests/e2e/playwright-report/
+.env
