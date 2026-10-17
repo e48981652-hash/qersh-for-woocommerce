@@ -267,3 +267,28 @@ Value sets:
 - **Integration:** `tests/php/integration/**Test.php`, WP_UnitTestCase via the WordPress test library. Runs in CI (wp-env); locally only when a test library is available.
 - **Parity:** `node tests/parity/run.mjs` runs the compiled core and the PHP port (through `php tests/parity/php-runner.php`) on generated inputs and compares.
 - **E2E:** `tests/e2e/` (Playwright + `deliver.mjs`), CI only, except smoke scripts against a local site.
+
+## 12. Interfaces between C, D1, D2 and E (second wave)
+Package D is split in two: **D1** owns `src/Webhook/{Module,Fallback,Controller}.php` and `src/Completion.php`; **D2** owns `src/MatchPolicy.php`, `src/Orders.php`, `src/Claims.php` and `src/Expiry.php`.
+
+- **D1 to D2, called by `Webhook\Controller` after verifying and claiming a delivery.**
+  - `Orders::handle_received( array $envelope, array $wallet_cfg, string $delivery_id, string $token, int $now ): array`, returning `[ 'http' => int, 'reply' => array ]`.
+  - `Orders::handle_updated( ... same ... ): array`, with the same return.
+  - Both run the locked transaction whose first write is `Deliveries::fence()`.
+  - On `Store\LockTimeout` after one retry they return `[ 'http' => 429, 'reply' => [ 'code' => 'qersh_busy' ], 'retry_after' => 30 ]`.
+  - `Orders::status_updates( string $wallet, int $now ): array` returns the `status_updates[]` items to append to any 2xx reply (docs/17 §4.4 step 10). The controller appends them, and calls `Transfers::note_synced()` for the ids it sent.
+  - The controller handles `webhook.test`, `device.heartbeat` and ignored events itself.
+- **D2 to D1:** after a paid decision commits, `Completion::request( int $order_id )`.
+  - Path (a) registers one shutdown callback at priority 5.
+  - Path (b) runs inline under the 6 s guard, webhook requests only.
+  - Path (c) uses the `qersh_wc_complete` Action Scheduler action.
+  - `Completion::run( int $order_id )` is the claimed path, and also the action handler.
+- **C to D2:**
+  - `Orders::on_process_payment( \WC_Order $order, string $payer_key, string $wallet_id, int $now ): void`.
+  - `Claims::submit( \WC_Order $order, $raw_txn, int $now ): array`, returning `[ 'http' => int, 'body' => array, 'retry_after' => ?int ]`.
+- **D1 to C, the fallback for storefront routes:**
+  - `Webhook\Fallback` calls `OrderStatusRoute::handle_body( array $body ): array` and `ClaimRoute::handle_body( array $body ): array`.
+  - Both return `[ 'http' => int, 'body' => array, 'headers' => array ]`, and each is also the core of its REST callback.
+- **E to D2, for admin screens:** `Orders::apply_attach( string $transfer_id, int $order_id, int $user_id )`, `Orders::dismiss( string $transfer_id, int $user_id )` and `Orders::suggestions( array $transfer_row ): array`.
+- **D1 to E:** `Diagnostics::record_delivery( string $wallet, array $envelope, string $form, int $now ): void`, called for every verified delivery before dispatch. `$form` is `wp-json`, `rest_route` or `wc-api`.
+- **Customer-facing status values** (`OrderStatusRoute`): `waiting|partial|paid|review|expired|cancelled`, read from `qersh_orders.state` (docs/17 §4.1), plus `claim` (bool) for Orange orders.
