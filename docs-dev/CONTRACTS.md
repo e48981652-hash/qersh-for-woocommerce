@@ -33,8 +33,9 @@ The TypeScript sources and their tests are in `D:\qersh pay\packages\qersh-webho
 | Path | Owner (work package) |
 |---|---|
 | `qersh-for-woocommerce.php`, `src/Autoloader.php`, `src/Plugin.php` | Skeleton (given), then B extends `Plugin` |
+| `src/Core/{Payer,Time,Money}.php` | Skeleton (given; tests by A2) |
 | `src/Core/{Verifier,Envelope}.php` + tests | A1 |
-| `src/Core/{Payer,Matcher,Time,Money,Risk}.php` + tests | A2 |
+| `src/Core/{Matcher,Risk}.php` + tests, and tests for Payer, Time, Money | A2 |
 | `src/Core/{SetupLink,Config,TxnId}.php` + tests | A3 |
 | `tests/parity/*` (runner + generators) | A4 (after A1–A3) |
 | `src/Store/*`, `src/ConfigStore.php`, `src/Secrets.php`, `src/Logger.php` + tests | B |
