@@ -1,0 +1,217 @@
+/*
+ * Qersh for WooCommerce: storefront styles (payer field, thank-you box, transaction-id section).
+ * Logical properties only, so the same rules serve Arabic (RTL) and English.
+ */
+
+.qersh-payer {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75em;
+}
+
+.qersh-payer .qersh-desc,
+.qersh-payer .qersh-confirm {
+	margin: 0;
+}
+
+.qersh-confirm,
+.qersh-help,
+.qersh-note {
+	display: block;
+	font-size: 0.875em;
+	opacity: 0.85;
+}
+
+.qersh-wallets,
+.qersh-kind {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	min-inline-size: 0;
+}
+
+.qersh-wallets__legend,
+.qersh-kind__legend {
+	padding: 0;
+	margin-block-end: 0.5em;
+	font-weight: 600;
+}
+
+.qersh-wallet {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	column-gap: 0.5em;
+	align-items: start;
+	margin-block-end: 0.5em;
+}
+
+.qersh-wallet input[type="radio"] {
+	margin-block-start: 0.3em;
+}
+
+.qersh-wallet label {
+	display: inline;
+	margin: 0;
+	cursor: pointer;
+}
+
+.qersh-wallet .qersh-confirm {
+	grid-column: 2;
+}
+
+.qersh-wallet__name {
+	font-weight: 600;
+}
+
+.qersh-kind label {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35em;
+	margin-inline-end: 1.25em;
+	cursor: pointer;
+}
+
+.qersh-payer__row {
+	display: flex;
+	flex-direction: column;
+	gap: 0.3em;
+	margin: 0;
+}
+
+.qersh-payer__row label {
+	margin: 0;
+}
+
+.qersh-payer__row input[type="text"],
+.qersh-txn__input {
+	inline-size: 100%;
+	max-inline-size: 24em;
+	box-sizing: border-box;
+	font-variant-numeric: tabular-nums;
+	text-align: start;
+}
+
+.qersh-payer__input {
+	padding: 0.6em 0.75em;
+	border: 1px solid currentColor;
+	border-radius: 4px;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+}
+
+.qersh-error,
+.qersh-txn__msg--error {
+	color: #b32d2e;
+	font-size: 0.875em;
+}
+
+.qersh-payer__row.woocommerce-invalid input,
+.qersh-payer__row.has-error input,
+.qersh-txn__input[aria-invalid="true"] {
+	border-color: #b32d2e;
+}
+
+.qersh-box {
+	margin-block: 1.5em;
+	padding: 1em 1.25em;
+	border: 1px solid rgba(127, 127, 127, 0.35);
+	border-radius: 6px;
+}
+
+.qersh-box__title {
+	margin-block: 0 0.75em;
+	font-size: 1.25em;
+}
+
+.qersh-box__lines {
+	margin: 0 0 0.75em;
+	padding: 0;
+	list-style: none;
+}
+
+.qersh-line {
+	margin-block-end: 0.5em;
+	line-height: 1.6;
+}
+
+.qersh-line bdi,
+.qersh-payer bdi {
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+}
+
+.qersh-copy {
+	margin-inline-start: 0.5em;
+	padding: 0.1em 0.6em;
+	font-size: 0.8em;
+	line-height: 1.6;
+	border: 1px solid currentColor;
+	border-radius: 3px;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+}
+
+/*
+ * The scripts hide and show parts with the `hidden` attribute (copy buttons, the transaction-id form and section,
+ * the lines of a pending order, the nudge, the errors). Our own display rules, and a theme's `section` or `p`
+ * reset, would beat the browser's [hidden] rule, so this one wins for every element inside our boxes.
+ */
+.qersh-box [hidden],
+.qersh-payer [hidden] {
+	display: none !important;
+}
+
+.qersh-instructions {
+	margin-block-end: 0.75em;
+}
+
+.qersh-txn {
+	margin-block: 1em;
+	padding-block-start: 1em;
+	border-block-start: 1px solid rgba(127, 127, 127, 0.35);
+}
+
+.qersh-txn__title {
+	margin-block: 0 0.5em;
+	font-size: 1.1em;
+}
+
+.qersh-txn__form {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 0.4em;
+}
+
+.qersh-txn__label {
+	font-weight: 600;
+}
+
+.qersh-txn__send {
+	margin-block-start: 0.25em;
+}
+
+.qersh-status {
+	margin-block: 0.75em 0;
+	font-weight: 600;
+}
+
+.qersh-status--paid {
+	color: #1a7f37;
+}
+
+.qersh-status__mark {
+	margin-inline-start: 0.25em;
+}
+
+.qersh-nudge {
+	margin-block: 0.5em 0;
+	font-size: 0.9em;
+}
+
+.qersh-order-pay-txn,
+.qersh-order-pay-claim {
+	font-size: 0.9em;
+}

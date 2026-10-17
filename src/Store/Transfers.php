@@ -30,8 +30,13 @@ final class Transfers {
 	/**
 	 * What "needs a decision" means (docs/17 §4.6): review and overpaid, transfers flagged as forged, a partial
 	 * payment past its deadline, and a customer's transaction id waiting for the merchant at the deadline.
+	 *
+	 * An overdue reason counts whatever the outcome, until the merchant decides: an attach clears the reason, a
+	 * status set by hand clears it, a cancellation turns the row to review, and only a dismissed row leaves with the
+	 * reason kept. `partial_overdue` marks every transfer that paid the partial order (docs/17 §4.7), `partial` or
+	 * `attached` alike (Expiry::hold_partial()), so an order paid in part only by a merchant's attach shows too.
 	 */
-	const NEEDS_DECISION_SQL = "( outcome IN ('review','overpaid') OR ( flag = 'forgery' AND ( outcome IS NULL OR outcome <> 'dismissed' ) ) OR ( reason IN ('partial_overdue','claim_overdue') AND outcome NOT IN ('dismissed','attached') ) )";
+	const NEEDS_DECISION_SQL = "( outcome IN ('review','overpaid') OR ( flag = 'forgery' AND ( outcome IS NULL OR outcome <> 'dismissed' ) ) OR ( reason IN ('partial_overdue','claim_overdue') AND ( outcome IS NULL OR outcome <> 'dismissed' ) ) )";
 
 	/**
 	 * Columns insert() requires.

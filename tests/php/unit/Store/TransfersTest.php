@@ -156,6 +156,62 @@ final class TransfersTest extends TestCase {
 		$this->assertCount( 2, $this->wpdb->queries );
 	}
 
+	/** The menu badge and the "Needs a decision" tab read the same rule. */
+	public function test_needs_decision_queries() {
+		$this->wpdb->on( '/^SELECT COUNT/', '2' );
+		$this->assertSame( 2, ( new Transfers() )->count_needs_decision() );
+		$this->assertSame( 'SELECT COUNT(*) FROM `wp_qersh_transfers` WHERE ' . Transfers::NEEDS_DECISION_SQL, $this->wpdb->queries[0] );
+
+		$this->wpdb->on( '/^SELECT COUNT/', '2' );
+		( new Transfers() )->list_page( array( 'view' => 'needs_decision' ), 1, 20 );
+		$this->assertSame( 'SELECT COUNT(*) FROM `wp_qersh_transfers` WHERE ' . Transfers::NEEDS_DECISION_SQL, $this->wpdb->queries[1] );
+	}
+
+	/**
+	 * The rule itself (docs/17 §4.6, §4.7), run on an in-memory SQLite table: an overdue reason counts until the row
+	 * is dismissed, whatever paid the order, so a partial order paid only by a merchant's attach shows at its deadline.
+	 */
+	public function test_needs_decision_rule() {
+		if ( ! extension_loaded( 'pdo_sqlite' ) ) {
+			$this->markTestSkipped( 'pdo_sqlite is not available.' );
+		}
+		$cases = array(
+			// Name => outcome, reason, flag, counts.
+			'review'                   => array( 'review', 'no_payer', null, true ),
+			'overpaid'                 => array( 'overpaid', null, null, true ),
+			'cancelled_paid'           => array( 'review', 'cancelled_paid', null, true ),
+			'matched'                  => array( 'matched', null, null, false ),
+			'partial_in_time'          => array( 'partial', null, null, false ),
+			'attached'                 => array( 'attached', null, null, false ),
+			'unmatched'                => array( 'unmatched', null, null, false ),
+			'personal'                 => array( 'unmatched', 'personal', null, false ),
+			'processing'               => array( null, null, null, false ),
+			'dismissed'                => array( 'dismissed', null, null, false ),
+			'forgery'                  => array( 'matched', null, 'forgery', true ),
+			'forgery_processing'       => array( null, null, 'forgery', true ),
+			'forgery_dismissed'        => array( 'dismissed', null, 'forgery', false ),
+			'partial_overdue_partial'  => array( 'partial', 'partial_overdue', null, true ),
+			'partial_overdue_attached' => array( 'attached', 'partial_overdue', null, true ),
+			'claim_overdue'            => array( 'review', 'claim_overdue', null, true ),
+			'claim_overdue_dismissed'  => array( 'dismissed', 'claim_overdue', null, false ),
+		);
+
+		$pdo = new \PDO( 'sqlite::memory:' );
+		$pdo->setAttribute( \PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION );
+		$pdo->exec( 'CREATE TABLE t ( name TEXT NOT NULL, outcome TEXT NULL, reason TEXT NULL, flag TEXT NULL )' );
+		$insert   = $pdo->prepare( 'INSERT INTO t ( name, outcome, reason, flag ) VALUES ( ?, ?, ?, ? )' );
+		$expected = array();
+		foreach ( $cases as $name => $case ) {
+			$insert->execute( array( $name, $case[0], $case[1], $case[2] ) );
+			if ( $case[3] ) {
+				$expected[] = $name;
+			}
+		}
+
+		$found = $pdo->query( 'SELECT name FROM t WHERE ' . Transfers::NEEDS_DECISION_SQL . ' ORDER BY rowid' )->fetchAll( \PDO::FETCH_COLUMN );
+		$this->assertSame( $expected, $found );
+	}
+
 	/** The admin list: filter, count and page. */
 	public function test_list_page() {
 		$this->wpdb->on( '/^SELECT COUNT/', '3' );

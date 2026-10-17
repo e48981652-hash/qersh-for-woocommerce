@@ -1,0 +1,303 @@
+/*
+ * Qersh for WooCommerce: admin screens. Logical properties only (margin-inline-start, inset-inline-end…), so the
+ * same rules serve right-to-left Arabic and left-to-right English.
+ */
+
+.qersh-wc-disclosure {
+	max-inline-size: 60rem;
+	margin-block: 0.5rem 1rem;
+	color: #50575e;
+}
+
+.qersh-wc-tab {
+	margin-block-start: 1rem;
+}
+
+.qersh-wc-count {
+	display: inline-block;
+	min-inline-size: 1.25rem;
+	padding-inline: 0.4rem;
+	margin-inline-start: 0.25rem;
+	border-radius: 0.65rem;
+	background: #d63638;
+	color: #fff;
+	font-size: 0.75rem;
+	line-height: 1.25rem;
+	text-align: center;
+}
+
+.qersh-wc-card {
+	max-inline-size: 60rem;
+	margin-block: 0 1.25rem;
+	padding-block: 1rem;
+	padding-inline: 1.25rem;
+	border: 1px solid #c3c4c7;
+	background: #fff;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.qersh-wc-card h2 {
+	margin-block: 0;
+	font-size: 1.2rem;
+}
+
+.qersh-wc-card h3 {
+	margin-block: 1rem 0.5rem;
+	font-size: 1rem;
+}
+
+.qersh-wc-card-head {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem 1rem;
+	align-items: baseline;
+	margin-block-end: 0.75rem;
+}
+
+.qersh-wc-card-links {
+	margin-inline-start: auto;
+}
+
+.qersh-wc-card-links a + a {
+	margin-inline-start: 1rem;
+}
+
+.qersh-wc-card .notice.inline {
+	margin-block: 0.5rem;
+	margin-inline: 0;
+}
+
+.qersh-wc-muted {
+	color: #646970;
+}
+
+.qersh-wc-lines {
+	margin-block: 0.5rem;
+	margin-inline-start: 0;
+	padding-inline-start: 0;
+	list-style: none;
+}
+
+.qersh-wc-lines li {
+	margin-block-end: 0.35rem;
+}
+
+.qersh-wc-list {
+	margin-inline-start: 1.5rem;
+	list-style: disc;
+}
+
+.qersh-wc-help ol {
+	margin-inline-start: 1.5rem;
+}
+
+.qersh-wc-help,
+.qersh-wc-another {
+	margin-block: 1rem;
+}
+
+.qersh-wc-help summary,
+.qersh-wc-another summary {
+	cursor: pointer;
+	font-weight: 600;
+}
+
+.qersh-wc-advice {
+	padding-block: 0.25rem;
+	padding-inline: 0.75rem;
+	border-inline-start: 4px solid #72aee6;
+	background: #f6f7f7;
+}
+
+.qersh-wc-advice p {
+	margin-block: 0.5rem;
+}
+
+.qersh-wc-url,
+.qersh-wc-link {
+	display: inline-block;
+	max-inline-size: 100%;
+	padding-block: 0.15rem;
+	padding-inline: 0.35rem;
+	overflow-wrap: anywhere;
+	word-break: break-all;
+	direction: ltr;
+	unicode-bidi: isolate;
+	text-align: start;
+}
+
+.qersh-wc-qr {
+	display: block;
+	margin-block: 0.75rem;
+	max-inline-size: 100%;
+	image-rendering: pixelated;
+}
+
+.qersh-wc-qr[hidden] {
+	display: none;
+}
+
+.qersh-wc-pending {
+	margin-block: 0.75rem;
+	padding-block: 0.25rem 0.75rem;
+	padding-inline: 0.75rem;
+	border-inline-start: 4px solid #dba617;
+	background: #fcf9e8;
+}
+
+.qersh-wc-secret-field {
+	font-family: Consolas, Monaco, monospace;
+}
+
+.qersh-wc-paste-status {
+	font-weight: 600;
+}
+
+.qersh-wc-keylink-error {
+	color: #d63638;
+}
+
+.qersh-wc-badge {
+	display: inline-block;
+	padding-block: 0.05rem;
+	padding-inline: 0.4rem;
+	border-radius: 0.2rem;
+	background: #f0f0f1;
+	color: #1d2327;
+	font-size: 0.75rem;
+	font-weight: 600;
+}
+
+.qersh-wc-badge-danger {
+	background: #d63638;
+	color: #fff;
+}
+
+.qersh-wc-danger-link {
+	color: #b32d2e;
+}
+
+.button.qersh-wc-danger,
+.button-primary.qersh-wc-danger {
+	border-color: #b32d2e;
+	background: #d63638;
+	color: #fff;
+}
+
+.qersh-wc-inline-form {
+	margin-block: 0.25rem;
+}
+
+.qersh-wc-order-field {
+	inline-size: 12rem;
+	max-inline-size: 100%;
+}
+
+.qersh-wc-suggestion {
+	margin-block: 0.25rem;
+}
+
+.qersh-wc-dismiss {
+	color: #b32d2e;
+}
+
+.qersh-wc-transfers .column-decide {
+	inline-size: 22%;
+}
+
+.qersh-wc-transfers .column-status {
+	inline-size: 22%;
+}
+
+.qersh-wc-search {
+	float: inline-end;
+}
+
+.qersh-wc-probes th,
+.qersh-wc-facts th {
+	inline-size: 35%;
+}
+
+.qersh-wc-ok {
+	color: #00a32a;
+}
+
+.qersh-wc-bad,
+.qersh-wc-warn td {
+	color: #b32d2e;
+}
+
+.qersh-wc-order-box .qersh-wc-flag {
+	padding: 0.5rem;
+	border-inline-start: 4px solid #d63638;
+	background: #fcf0f1;
+}
+
+/* The window of the link with the connection key: Escape and clicks outside do not close it. */
+.qersh-wc-modal-open {
+	overflow: hidden;
+}
+
+.qersh-wc-modal {
+	position: fixed;
+	inset: 0;
+	z-index: 100000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 1rem;
+	background: rgba(0, 0, 0, 0.6);
+}
+
+.qersh-wc-modal-dialog {
+	box-sizing: border-box;
+	inline-size: 40rem;
+	max-inline-size: 100%;
+	max-block-size: 100%;
+	overflow-y: auto;
+	padding-block: 1.25rem;
+	padding-inline: 1.5rem;
+	background: #fff;
+	box-shadow: 0 5px 30px rgba(0, 0, 0, 0.4);
+}
+
+.qersh-wc-modal-dialog h2 {
+	margin-block-start: 0;
+}
+
+.qersh-wc-modal-dialog h2:focus {
+	outline: none;
+}
+
+.qersh-wc-modal-warning {
+	padding-block: 0.5rem;
+	padding-inline: 0.75rem;
+	border-inline-start: 4px solid #d63638;
+	background: #fcf0f1;
+	color: #8a2424;
+	font-weight: 600;
+}
+
+.qersh-wc-modal-buttons {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+
+.qersh-wc-modal-status {
+	min-block-size: 1.25rem;
+}
+
+.qersh-wc-modal [hidden] {
+	display: none;
+}
+
+@media screen and (max-width: 782px) {
+	.qersh-wc-search {
+		float: none;
+	}
+
+	.qersh-wc-card-links {
+		margin-inline-start: 0;
+	}
+}
