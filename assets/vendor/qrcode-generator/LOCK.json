@@ -1,0 +1,13 @@
+{
+	"source": "qrcode-generator@2.0.4 (npm dist/qrcode.js, integrity sha512-mZSiP6RnbHl4xL2Ap5HfkjLnmxfKcPWpWe/c+5XxCuetEenqmNFf1FH/ftXPCtFG5/TDobjsjz6sSNL0Sr8Z9g==) and LICENSE from github.com/kazuhikoarase/qrcode-generator at tag js2.0.4",
+	"files": [
+		{
+			"path": "assets/vendor/qrcode-generator/qrcode.js",
+			"sha256": "79ec86f82856005b1c887905cfccfcfbec3821ca61c7fd5a952faa5f778f791c"
+		},
+		{
+			"path": "assets/vendor/qrcode-generator/LICENSE",
+			"sha256": "3a850fa5f08101db6f40676c2786e10bd2cd5fff7b12ffdf1e0c434d4e49d90c"
+		}
+	]
+}

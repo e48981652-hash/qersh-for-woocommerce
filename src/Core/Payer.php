@@ -16,30 +16,58 @@ defined( 'ABSPATH' ) || exit;
  */
 final class Payer {
 
+	/** The white space and line terminators of JavaScript's String.prototype.trim() that take one byte in UTF-8. */
+	const JS_SPACE_1 = "\t\n\x0B\f\r ";
+
+	/** The same for two bytes: U+00A0. */
+	const JS_SPACE_2 = array( "\xC2\xA0" );
+
+	/** The same for three bytes: U+1680, U+2000 to U+200A, U+2028, U+2029, U+202F, U+205F, U+3000, U+FEFF. */
+	const JS_SPACE_3 = array(
+		"\xE1\x9A\x80",
+		"\xE2\x80\x80",
+		"\xE2\x80\x81",
+		"\xE2\x80\x82",
+		"\xE2\x80\x83",
+		"\xE2\x80\x84",
+		"\xE2\x80\x85",
+		"\xE2\x80\x86",
+		"\xE2\x80\x87",
+		"\xE2\x80\x88",
+		"\xE2\x80\x89",
+		"\xE2\x80\x8A",
+		"\xE2\x80\xA8",
+		"\xE2\x80\xA9",
+		"\xE2\x80\xAF",
+		"\xE2\x81\x9F",
+		"\xE3\x80\x80",
+		"\xEF\xBB\xBF",
+	);
+
+	/** How deep the String() emulation follows nested arrays (json_decode's own default depth). */
+	const MAX_DEPTH = 512;
+
 	/**
 	 * `01xxxxxxxxx` from any spelling (+20 1…, +20 01…, 0020…, spaces, Arabic-Indic or Persian digits), or an InstaPay
 	 * handle as the app delivers it: `name@instapay` lower-case (a bare `name` gets the suffix). Null for anything
 	 * else, including a masked number such as `0111***3445`.
 	 *
+	 * The value is read as the core's `String( raw ?? '' )` reads it (see js_string()). Bytes that are not valid
+	 * UTF-8 are read as the core receives them: decoded with U+FFFD in place of each invalid sequence, as
+	 * TextDecoder and json_decode( …, JSON_INVALID_UTF8_SUBSTITUTE ) do.
+	 *
 	 * @param mixed $raw Any value.
 	 * @return string|null
 	 */
 	public static function normalize( $raw ): ?string {
-		if ( null === $raw || is_array( $raw ) || is_object( $raw ) ) {
-			$s = '';
-		} elseif ( is_bool( $raw ) ) {
-			$s = $raw ? 'true' : 'false';
-		} else {
-			$s = (string) $raw;
-		}
-		$s = self::lower( self::trim_js( $s ) );
+		$s = self::lower( self::trim_js( self::to_valid_utf8( self::js_string( $raw, 0 ) ) ) );
 		if ( '' === $s ) {
 			return null;
 		}
 		if ( false !== strpos( $s, '@' ) ) {
 			return preg_match( '/^[a-z0-9._-]{2,64}@instapay$/', $s ) ? $s : null;
 		}
-		$d = '';
+		$d     = '';
 		$chars = preg_split( '//u', $s, -1, PREG_SPLIT_NO_EMPTY );
 		foreach ( false === $chars ? array() : $chars as $ch ) {
 			$c = self::code_unit( $ch );
@@ -87,14 +115,192 @@ final class Payer {
 	}
 
 	/**
-	 * JavaScript String.prototype.trim(): removes white space and line terminators, including NBSP and BOM.
+	 * JavaScript's `String( value ?? '' )`, for the values json_decode() gives:
+	 * - null is '' (`?? ''` at the top, and Array.prototype.join() inside an array);
+	 * - booleans are `true` and `false`, strings stay as they are, numbers take PHP's string form;
+	 * - a list (keys 0 to n-1 in order, which is what json_decode() gives for a JSON array) is its elements, read
+	 *   the same way, joined with commas, as Array.prototype.join() does; so `['01012345678']` and
+	 *   `[['01012345678']]` both read as `01012345678`, in both languages;
+	 * - any other array, and any object, is `[object Object]`, which never normalises.
+	 * One shape cannot be told apart: json_decode( …, true ) also turns a JSON object whose keys are exactly "0" to
+	 * "n-1", in that order, into a list, which JavaScript would read as `[object Object]`. The schema types the
+	 * number and the handle as strings, so the phone sends neither shape.
 	 *
-	 * @param string $s Text.
+	 * @param mixed $value Value.
+	 * @param int   $depth How many arrays enclose the value.
+	 * @return string
+	 */
+	private static function js_string( $value, int $depth ): string {
+		if ( null === $value ) {
+			return '';
+		}
+		if ( is_bool( $value ) ) {
+			return $value ? 'true' : 'false';
+		}
+		if ( is_string( $value ) ) {
+			return $value;
+		}
+		if ( is_int( $value ) || is_float( $value ) ) {
+			return (string) $value;
+		}
+		if ( is_array( $value ) && self::is_list( $value ) ) {
+			if ( $depth >= self::MAX_DEPTH ) {
+				return ''; // only an array that holds a reference to itself gets here; join() reads a cycle as ''
+			}
+			$parts = array();
+			foreach ( $value as $item ) {
+				$parts[] = self::js_string( $item, $depth + 1 );
+			}
+			return implode( ',', $parts );
+		}
+		return '[object Object]';
+	}
+
+	/**
+	 * Array_is_list() for PHP 7.4: keys 0 to n-1 in order, including the empty array.
+	 *
+	 * @param array $value Array.
+	 * @return bool
+	 */
+	private static function is_list( array $value ): bool {
+		$i = 0;
+		foreach ( $value as $k => $unused ) {
+			if ( $k !== $i ) {
+				return false;
+			}
+			++$i;
+		}
+		return true;
+	}
+
+	/**
+	 * The text with each invalid UTF-8 sequence replaced by U+FFFD, as the WHATWG decoder (TextDecoder) does it: a
+	 * maximal invalid subpart becomes one U+FFFD, and the byte that ended it is read again. Valid UTF-8 comes back
+	 * unchanged.
+	 *
+	 * @param string $s Bytes.
+	 * @return string
+	 */
+	private static function to_valid_utf8( string $s ): string {
+		if ( 1 === preg_match( '//u', $s ) ) {
+			return $s;
+		}
+		$out = '';
+		$n   = strlen( $s );
+		$i   = 0;
+		while ( $i < $n ) {
+			$len = self::utf8_sequence( $s, $i, $n );
+			if ( $len > 0 ) {
+				$out .= substr( $s, $i, $len );
+				$i   += $len;
+			} else {
+				$out .= "\xEF\xBF\xBD";
+				$i   -= $len;
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * The length of the well-formed UTF-8 sequence at a byte offset (Unicode table 3-7), or minus the length of the
+	 * maximal invalid subpart there (at least one byte).
+	 *
+	 * @param string $s Bytes.
+	 * @param int    $i Offset.
+	 * @param int    $n Length of $s.
+	 * @return int
+	 */
+	private static function utf8_sequence( string $s, int $i, int $n ): int {
+		$b0 = ord( $s[ $i ] );
+		if ( $b0 < 0x80 ) {
+			return 1;
+		}
+		$lo = 0x80;
+		$hi = 0xBF;
+		if ( $b0 >= 0xC2 && $b0 <= 0xDF ) {
+			$need = 1;
+		} elseif ( 0xE0 === $b0 ) {
+			$need = 2;
+			$lo   = 0xA0;
+		} elseif ( 0xED === $b0 ) {
+			$need = 2;
+			$hi   = 0x9F;
+		} elseif ( $b0 >= 0xE1 && $b0 <= 0xEF ) {
+			$need = 2;
+		} elseif ( 0xF0 === $b0 ) {
+			$need = 3;
+			$lo   = 0x90;
+		} elseif ( 0xF4 === $b0 ) {
+			$need = 3;
+			$hi   = 0x8F;
+		} elseif ( $b0 >= 0xF1 && $b0 <= 0xF3 ) {
+			$need = 3;
+		} else {
+			return -1;
+		}
+		for ( $k = 1; $k <= $need; $k++ ) {
+			if ( $i + $k >= $n ) {
+				return -$k;
+			}
+			$b = ord( $s[ $i + $k ] );
+			if ( 1 === $k ? ( $b < $lo || $b > $hi ) : ( $b < 0x80 || $b > 0xBF ) ) {
+				return -$k;
+			}
+		}
+		return $need + 1;
+	}
+
+	/**
+	 * JavaScript String.prototype.trim(): removes its white space and line terminators (U+0009 to U+000D, U+0020,
+	 * U+00A0, U+1680, U+2000 to U+200A, U+2028, U+2029, U+202F, U+205F, U+3000, U+FEFF) from both ends, and
+	 * nothing else: U+0085, U+180E and NUL stay. It works on bytes, so it cannot fail and stays linear; the text is
+	 * valid UTF-8 here, so what it removes at either end is always a whole character.
+	 *
+	 * @param string $s Valid UTF-8.
 	 * @return string
 	 */
 	private static function trim_js( string $s ): string {
-		$out = preg_replace( '/^[\s\x{00A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]+|[\s\x{00A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]+$/u', '', $s );
-		return null === $out ? trim( $s ) : $out;
+		$start = 0;
+		$end   = strlen( $s );
+		while ( $start < $end ) {
+			$n = self::js_space_length( $s, $start, $end, true );
+			if ( 0 === $n ) {
+				break;
+			}
+			$start += $n;
+		}
+		while ( $end > $start ) {
+			$n = self::js_space_length( $s, $start, $end, false );
+			if ( 0 === $n ) {
+				break;
+			}
+			$end -= $n;
+		}
+		return (string) substr( $s, $start, $end - $start );
+	}
+
+	/**
+	 * The byte length of the JavaScript white space character that starts at $start (or ends at $end), or 0.
+	 *
+	 * @param string $s       Valid UTF-8.
+	 * @param int    $start   First byte of the remaining text.
+	 * @param int    $end     One past its last byte.
+	 * @param bool   $leading True to look at the start, false at the end.
+	 * @return int
+	 */
+	private static function js_space_length( string $s, int $start, int $end, bool $leading ): int {
+		if ( false !== strpos( self::JS_SPACE_1, $s[ $leading ? $start : $end - 1 ] ) ) {
+			return 1;
+		}
+		foreach ( array( 2 => self::JS_SPACE_2, 3 => self::JS_SPACE_3 ) as $len => $set ) {
+			if ( $end - $start < $len ) {
+				break;
+			}
+			if ( in_array( substr( $s, $leading ? $start : $end - $len, $len ), $set, true ) ) {
+				return $len;
+			}
+		}
+		return 0;
 	}
 
 	/**
