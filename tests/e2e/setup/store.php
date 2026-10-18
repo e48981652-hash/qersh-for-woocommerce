@@ -51,6 +51,23 @@ $wp_rewrite->set_permalink_structure( '/%postname%/' );
 // request rebuild them with every endpoint.
 delete_option( 'rewrite_rules' );
 
+// The "Disable REST API" plugin (the REST-off job) blocks, for visitors, only the routes it listed when it first
+// saved its settings: in wp-env that happens before this plugin is activated, so our routes stayed open (a route it
+// does not know falls to its "allow" default). Its visitor rules are rebuilt here with its own helper from every
+// route of this store, ours included, all blocked: the order page must then use the ?wc-api=qersh fallback.
+if ( class_exists( 'DRA_Helpers' ) && method_exists( 'DRA_Helpers', 'build_routes_rule' ) ) {
+	$qersh_e2e_dra = get_option( 'disable_rest_api_options' );
+	if ( is_array( $qersh_e2e_dra ) ) {
+		$qersh_e2e_dra['roles']['none'] = array(
+			'default_allow' => false,
+			'allow_list'    => DRA_Helpers::build_routes_rule( array() ),
+		);
+		update_option( 'disable_rest_api_options', $qersh_e2e_dra );
+	} else {
+		delete_option( 'disable_rest_api_options' ); // The plugin builds it again on the next request, with every route.
+	}
+}
+
 /**
  * WooCommerce's own block content of a page (what its installer writes: the blocks with all their inner blocks).
  *
