@@ -89,6 +89,7 @@ abstract class TestCase extends \WP_UnitTestCase {
 
 		$this->plugin = Plugin::instance();
 		$this->plugin->forget_config();
+		self::reset_mailer();
 
 		// register_rest_route() writes to rest_get_server(), the global: it is set before rest_api_init fires.
 		global $wp_rest_server;
@@ -101,6 +102,24 @@ abstract class TestCase extends \WP_UnitTestCase {
 		$this->server   = self::$rest;
 
 		unset( $_POST['qersh_payer'], $_POST['qersh_wallet'] );
+	}
+
+	/**
+	 * Drops WooCommerce's mailer, so the next WC()->mailer() builds it again inside this test. Each email object adds
+	 * its `<action>_notification` listener in its constructor, and the test library restores the hooks after every
+	 * test: a mailer built in an earlier test would have no listener left, and no email would be sent.
+	 */
+	private static function reset_mailer(): void {
+		foreach ( array( 'instance', '_instance' ) as $name ) {
+			if ( property_exists( \WC_Emails::class, $name ) ) {
+				$property = new \ReflectionProperty( \WC_Emails::class, $name );
+				if ( PHP_VERSION_ID < 80100 ) {
+					$property->setAccessible( true );
+				}
+				$property->setValue( null, null );
+				return;
+			}
+		}
 	}
 
 	/**

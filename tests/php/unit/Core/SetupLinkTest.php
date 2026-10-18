@@ -313,6 +313,25 @@ final class SetupLinkTest extends TestCase {
 		$this->assertSame( 'url_missing', SetupLink::validate_receiver_url( 42 )['problem'] );
 	}
 
+	public function test_invalid_punycode_hosts_are_refused(): void {
+		// An xn-- label that is not valid Punycode is no store address. Node's answer for it changed between Node 24
+		// releases, so the parity run leaves these hosts out; the plugin refuses them (ICU through intl).
+		if ( ! function_exists( 'idn_to_ascii' ) ) {
+			$this->markTestSkipped( 'intl is not loaded' );
+		}
+		foreach ( array( 'https://xn--a.com/', 'https://xn--.com/', 'https://xn--zz-zz.com/', 'https://xn--ab--cd.com/', 'https://xn--/' ) as $url ) {
+			$this->assertSame(
+				array(
+					'ok'      => false,
+					'problem' => 'url_invalid',
+				),
+				SetupLink::validate_receiver_url( $url ),
+				$url
+			);
+		}
+		$this->assertSame( array( 'ok' => true ), SetupLink::validate_receiver_url( 'https://xn--wgbh1c.xn--wgbl6a/' ) );
+	}
+
 	public function test_key_rules_match_the_app(): void {
 		$vector = self::vector();
 		$this->assertTrue( SetupLink::is_usable_secret( $vector ) );

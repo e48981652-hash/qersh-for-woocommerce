@@ -30,7 +30,9 @@ defined( 'ABSPATH' ) || exit;
  *   not give parity either: ICU would then accept `متجرshop.com`, which Node refuses;
  * - an ASCII form of 255 bytes or more: idn_to_ascii() fails with an empty $info (a fixed buffer), while WHATWG
  *   accepts any length (VerifyDnsLength off);
- * - characters whose UTS 46 mapping differs between the two Unicode versions, such as U+180E.
+ * - characters whose UTS 46 mapping differs between the two Unicode versions, such as U+180E;
+ * - an `xn--` label that is not valid Punycode (`xn--a.com`, `xn--zz-zz.com`, `xn--`): ICU refuses it, and Node's
+ *   answer depends on its version (Node 24.17 refuses it, later 24.x releases accept it).
  * Without intl, a non-ASCII host is only lower-cased (see domain_to_ascii()). Parity generators keep such hosts out,
  * or compare only whether the URL is accepted.
  */
