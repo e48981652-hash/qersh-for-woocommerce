@@ -24,6 +24,16 @@ test.describe(`Orange Cash transaction id (${CHECKOUT})`, () => {
 	test('a pasted message sends the id alone, then the delivery pays the order', async ({ page }) => {
 		const payer = randPayer();
 		const w = wallet('orange_cash');
+		// Every request of the page to our routes and its console, reported if the answer does not come.
+		const trail = [];
+		page.on('request', (r) => {
+			if (/qersh|order-txn|order-status/.test(decodeURIComponent(r.url()))) trail.push(`${r.method()} ${r.url()}`);
+		});
+		page.on('requestfinished', async (r) => {
+			if (/qersh|order-txn|order-status/.test(decodeURIComponent(r.url()))) trail.push(`done ${(await r.response())?.status()} ${r.url()}`);
+		});
+		page.on('requestfailed', (r) => trail.push(`failed ${r.url()}: ${r.failure()?.errorText}`));
+		page.on('console', (m) => trail.push(`console ${m.type()}: ${m.text()}`));
 		const order = await placeOrder(page, { product: state().products['14000'], w, payer });
 		const message = orangeMessage(payer);
 
@@ -45,13 +55,18 @@ test.describe(`Orange Cash transaction id (${CHECKOUT})`, () => {
 		});
 		const answer = page.waitForResponse(REST_OFF ? isFallbackTxn : isRestTxn);
 		await page.locator('[data-qersh-txn-send]').click();
-		const response = await answer;
+		const response = await answer.catch(async (e) => {
+			const line = await page.locator('[data-qersh-status]').textContent().catch(() => '?');
+			throw new Error(`${e.message}\nstatus line: ${line}\ntrail: ${JSON.stringify(trail, null, 1)}`);
+		});
 		expect(response.status(), JSON.stringify(seen)).toBe(200);
 		if (REST_OFF) {
-			// The REST attempt came first and was refused; only then did the page use the fallback.
+			// Either the REST attempt came first and was refused, or the page's status polling had already switched
+			// this tab to the fallback (thankyou.js remembers it), and the id went there directly.
 			expect(seen.length, JSON.stringify(seen)).toBeGreaterThanOrEqual(1);
-			expect(seen[0].url, JSON.stringify(seen)).toMatch(/order-txn/);
-			expect([401, 403], JSON.stringify(seen)).toContain(seen[0].status);
+			for (const s of seen.filter((x) => /order-txn/.test(decodeURIComponent(x.url)))) {
+				expect([401, 403], JSON.stringify(seen)).toContain(s.status);
+			}
 		}
 		const sent = JSON.parse(response.request().postData() || '{}');
 		expect(sent.txn, 'only the canonical id leaves the page').toBe(message.txn);

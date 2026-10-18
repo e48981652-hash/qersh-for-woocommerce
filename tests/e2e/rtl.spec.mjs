@@ -17,7 +17,8 @@ async function groupLefts(locator) {
 		const text = node && node.nodeType === Node.TEXT_NODE ? node.nodeValue : '';
 		const out = [];
 		let start = 0;
-		for (const part of text.split(' ')) {
+		// Format::ltr() joins the groups with a no-break space (U+00A0), which keeps the number on one line.
+		for (const part of text.split(/[ \u00A0]/)) {
 			const range = document.createRange();
 			range.setStart(node, start);
 			range.setEnd(node, start + part.length);

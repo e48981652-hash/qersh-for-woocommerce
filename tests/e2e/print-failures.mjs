@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const RESULTS = path.join(HERE, 'test-results');
-const LINES = 60;
+const LINES = 200;
 const MAX = 6;
 
 const escape = (s) => s.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
@@ -21,7 +21,10 @@ if (existsSync(RESULTS)) {
 		if (dir.endsWith('-retry1') || shown >= MAX) continue;
 		const file = path.join(RESULTS, dir, 'error-context.md');
 		if (!existsSync(file)) continue;
-		const text = readFileSync(file, 'utf8').split('\n').slice(0, LINES).map((l) => l.slice(0, 300)).join('\n');
+		const full = readFileSync(file, 'utf8');
+		// Playwright's preamble (instructions to a reader) is left out: the error and the page are what matter.
+		const from = full.indexOf('# Error details');
+		const text = (from >= 0 ? full.slice(from) : full).split('\n').slice(0, LINES).map((l) => l.slice(0, 300)).join('\n');
 		annotate(`page of ${dir}`, text);
 		shown++;
 	}
