@@ -145,8 +145,9 @@ test.describe(`our sender (${REST_OFF ? 'fallback address' : 'REST'})`, () => {
 
 	// The id decides only a transfer without a payer number, through rule 4a, by exact equality with the canonical
 	// provider_txn_id of the delivery; nothing depends on the wallet behind it.
+	// The `txn` wallet: no other scenario leaves an open order of the same amount on it (owner decision 20).
 	for (const [label, form, payerArgs] of [
-		['main', 'a name only', ['--no-payer']],
+		['txn', 'a name only', ['--no-payer']],
 		// A masked sender also marks the wallet as one whose messages hide the sender (Diagnostics): the second one.
 		['second', 'a masked number', ['--payer', '0111****445']],
 	]) {

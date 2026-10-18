@@ -45,7 +45,7 @@ jobs:
         run: composer install --no-interaction --no-progress --prefer-dist
 
       - name: Unit tests (no WordPress)
-        run: vendor/bin/phpunit -c phpunit.xml.dist --testsuite unit
+        run: bash scripts/ci-annotate.sh vendor/bin/phpunit -c phpunit.xml.dist --testsuite unit
 
   checks:
     name: Guards, JavaScript, parity, PHPCS, PHPStan

@@ -5,8 +5,11 @@
  *   wp eval-file wp-content/plugins/qersh-for-woocommerce/tests/e2e/setup/wallets.php
  *   php tests/e2e/setup/wallets.php   (a local test site, through tests/local/lib/bootstrap.php)
  *
- * Replaces the plugin's wallets with two test e-wallets told apart by their label: `main` (the store number
- * 01001234567 that the RTL test reads) and `second` (01201234567). A wallet has no type: the plugin never asks which
+ * Replaces the plugin's wallets with three test e-wallets told apart by their label: `main` (the store number
+ * 01001234567 that the RTL test reads), `second` (01201234567) and `txn` (01501234567). `txn` is used only by the
+ * scenarios where a typed transaction id must confirm an order: an open order of the same amount on the same wallet
+ * whose customer typed no id rightly blocks that (owner decision 20), and the other scenarios leave such orders on
+ * `main` and `second`. A wallet has no type: the plugin never asks which
  * operator is behind a number. Each gets a fresh test key from the plugin's own Config::new_key(); the script turns
  * the transaction-id box on and enables the method. Prints one line `QERSH_JSON={…}` with the ids, labels, numbers,
  * test keys and both webhook addresses (REST and the ?wc-api= fallback). The keys exist only in this test site and
@@ -32,6 +35,10 @@ $qersh_e2e_want   = array(
 	array(
 		'label'           => 'second',
 		'receive_address' => '01201234567',
+	),
+	array(
+		'label'           => 'txn',
+		'receive_address' => '01501234567',
 	),
 );
 

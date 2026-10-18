@@ -592,7 +592,9 @@ final class DiagnosticsTest extends TestCase {
 
 		$plugin = Plugin::instance();
 		$cached = new \ReflectionProperty( Plugin::class, 'config' );
-		$cached->setAccessible( true );
+		if ( PHP_VERSION_ID < 80100 ) {
+			$cached->setAccessible( true ); // A no-op since PHP 8.1 and deprecated in 8.5 (the unit tests turn deprecations into errors).
+		}
 		$cached->setValue(
 			$plugin,
 			array(

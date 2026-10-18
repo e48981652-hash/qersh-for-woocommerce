@@ -25,7 +25,9 @@ async function paste(locator, text) {
 test.describe(`transaction-id box (${CHECKOUT})`, () => {
 	test('a pasted message sends the id alone, then the delivery pays the order', async ({ page }) => {
 		const payer = randPayer();
-		const w = wallet('second');
+		// The `txn` wallet: an open order of the same amount left on another wallet by an earlier scenario (rtl.spec in
+		// the Arabic job) would rightly block the automatic confirmation (owner decision 20).
+		const w = wallet('txn');
 		// Every request of the page to our routes and its console, reported if the answer does not come.
 		const trail = [];
 		page.on('request', (r) => {
