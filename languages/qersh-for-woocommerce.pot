@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-18T02:30:01+00:00\n"
+"POT-Creation-Date: 2026-10-18T03:47:55+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: scripts/make-pot.php\n"
 "X-Domain: qersh-for-woocommerce\n"
@@ -2022,8 +2022,8 @@ msgstr ""
 #. translators: %d: minutes.
 #: templates/admin/settings.php:49
 #, php-format
-msgid "The deadline the customer sees, from 15 to 1440 minutes. An order with no transfer is cancelled %d minute after its deadline, so a transfer the phone held still finds it."
-msgid_plural "The deadline the customer sees, from 15 to 1440 minutes. An order with no transfer is cancelled %d minutes after its deadline, so a transfer the phone held still finds it."
+msgid "The deadline the customer sees, from 15 to 1440 minutes. An order with no transfer is cancelled %d minute after its deadline, so a transfer the phone reported late still finds it."
+msgid_plural "The deadline the customer sees, from 15 to 1440 minutes. An order with no transfer is cancelled %d minutes after its deadline, so a transfer the phone reported late still finds it."
 msgstr[0] ""
 msgstr[1] ""
 
@@ -2143,7 +2143,7 @@ msgid "“Test connection” arrives even before Qersh is activated, but the pho
 msgstr ""
 
 #: templates/admin/settings.php:146
-msgid "For a wallet whose messages state the balance (all but InstaPay and banks): on the wallet page open the ⋮ menu → “Sync balance” and enter your real balance from the wallet app or its balance code. Without it, Qersh holds the first transfers of the wallet for up to 15 minutes and asks you to check the balance; answer in “Confirm your balance” within that time and the order is confirmed on its own, otherwise the transfer goes to “Needs a decision”."
+msgid "For a wallet whose messages state the balance (all but InstaPay and banks): on the wallet page open the ⋮ menu → “Sync balance” and enter your real balance from the wallet app or its balance code. Without it, Qersh waits up to 15 minutes before it reports the first transfers of the wallet to your store, and asks you to check the balance; answer in “Confirm your balance” within that time and the order is confirmed on its own, otherwise the transfer goes to “Needs a decision”."
 msgstr ""
 
 #: templates/admin/settings.php:147

@@ -8,6 +8,13 @@
 	"login": true,
 	"steps": [
 		{
+			"step": "defineWpConfigConsts",
+			"consts": {
+				"LOGGED_IN_KEY": "qersh-playground-logged-in-key-0001",
+				"LOGGED_IN_SALT": "qersh-playground-logged-in-salt-0001"
+			}
+		},
+		{
 			"step": "installPlugin",
 			"pluginData": {
 				"resource": "url",

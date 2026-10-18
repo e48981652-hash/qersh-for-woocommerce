@@ -1,6 +1,6 @@
 // Copies the reference files this plugin must match, byte for byte, from the Qersh repository, and writes
 // fixtures.lock.json with their SHA-256 hashes. scripts/check-fixtures.mjs refuses a drifted copy in CI.
-//   node scripts/import-from-qersh.mjs "D:/qersh pay"
+//   node scripts/import-from-qersh.mjs "<path to the Qersh repository>"
 // Never edit the copies here: change the source in the Qersh repository and run this again.
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';

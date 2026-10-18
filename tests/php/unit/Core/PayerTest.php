@@ -67,7 +67,7 @@ final class PayerTest extends TestCase {
 			'12345', // digits only, no letter: not a handle
 			'a', // too short for a handle
 			'a@instapay',
-			'ab@gmail.com',
+			'ab@example.test',
 			'shop name',
 			'𝟎𝟏𝟎𝟏𝟐𝟑𝟒𝟓𝟔𝟕𝟖', // mathematical digits are not digits for the core
 			str_repeat( 'x', 65 ),

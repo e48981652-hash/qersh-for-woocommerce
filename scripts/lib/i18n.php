@@ -2,7 +2,7 @@
 /**
  * Shared helpers of the translation tools (scripts/make-pot.php, scripts/build-translations.php): reading and
  * writing PO and POT files, and the placeholder rules. Development tool only, not shipped (see .distignore and
- * scripts/build-zip.mjs). No WordPress, no gettext: this machine and CI have neither.
+ * scripts/build-zip.mjs). Needs neither WordPress nor gettext.
  *
  * PHP 7.4 syntax, like the plugin, because CI lints every PHP file on 7.4.
  *

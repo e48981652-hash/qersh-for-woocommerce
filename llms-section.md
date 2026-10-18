@@ -14,7 +14,7 @@ Plugin: **Qersh for WooCommerce** 0.1.0 (wordpress.org slug `qersh-for-woocommer
 - **Orange Cash transaction ids**: Orange Cash messages rarely name the payer, so after transferring the customer enters the operator's transaction id on the order page (`POST qersh/v1/order-txn`). The id identifies the order; it never proves the payment (the phone's `auto_confirm_ok` still decides).
 - **Admin screens** under WooCommerce, Qersh: Wallets (store URL, setup links, QR code, connection keys, delete and restore), Transfers (Needs a decision, Unmatched, Personal transfers), Settings (export and import), Status (diagnostics and "Check your store URL").
 
-What confirms on its own: Vodafone Cash and e& money (their messages name the payer; the wallet's "Send sender details" must be "Full name and number"), and Orange Cash with a transaction id. InstaPay (every notification arrives with `auto_confirm_ok: false` today) and bank SMS (no balance in the message) wait for one click. A transfer with no open order for it is filed as a personal transfer, and an order created after the money arrived is never matched to it automatically (`skew_min = 0`).
+What confirms on its own: Vodafone Cash and e& money (their messages name the payer; the wallet's "Send sender details" must be "Full name and number"), and Orange Cash with a transaction id, once the app's message templates read today's Orange Cash messages and their 14-digit ids (until then most of today's Orange Cash messages do not reach the store, and the rest wait for one click). InstaPay (every notification arrives with `auto_confirm_ok: false` today) and bank SMS (no balance in the message) wait for one click. A transfer with no open order for it is filed as a personal transfer, and an order created after the money arrived is never matched to it automatically (`skew_min = 0`).
 
 ### Requirements
 
@@ -211,6 +211,7 @@ Each prints one JSON line per response (`{label, status, ms, body}`). Give the w
 - The Qersh app: https://qersh.cfd/en/download
 - Support: the plugin's forum on wordpress.org, or support@qersh.cfd
 - Repository: https://github.com/e48981652-hash/qersh-for-woocommerce
+- Security reports: see [SECURITY.md](https://github.com/e48981652-hash/qersh-for-woocommerce/blob/main/SECURITY.md)
 - The `qersh.v1` envelope schema: [fixtures/webhook.v1.schema.json](https://github.com/e48981652-hash/qersh-for-woocommerce/blob/main/fixtures/webhook.v1.schema.json); the receiver schema: [fixtures/qersh.config.schema.json](https://github.com/e48981652-hash/qersh-for-woocommerce/blob/main/fixtures/qersh.config.schema.json)
 
 ### Warnings for agents

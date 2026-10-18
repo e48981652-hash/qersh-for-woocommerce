@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Installs WordPress, its PHPUnit test library and WooCommerce for the integration tests (CI on Linux, MySQL or
-# MariaDB reachable over TCP). Nothing here runs on the owner's machine.
+# MariaDB reachable over TCP).
 #
 #   tests/php/integration/install-wp-tests.sh <db-name> <db-user> <db-pass> <db-host> <wp> <wc>
 #
@@ -97,6 +97,10 @@ define( 'DB_PASSWORD', '${DB_PASS}' );
 define( 'DB_HOST', '${DB_HOST}' );
 define( 'DB_CHARSET', 'utf8mb4' );
 define( 'DB_COLLATE', '' );
+// Secrets seals the connection keys with a key derived from these two (src/Secrets.php); the test library's
+// bootstrap defines neither. Fixed test-only values.
+define( 'LOGGED_IN_KEY', 'qersh-integration-tests-logged-in-key-0001' );
+define( 'LOGGED_IN_SALT', 'qersh-integration-tests-logged-in-salt-0001' );
 \$table_prefix = 'wptests_';
 define( 'WP_TESTS_DOMAIN', 'example.org' );
 define( 'WP_TESTS_EMAIL', 'admin@example.org' );

@@ -1,5 +1,5 @@
 // The Orange Cash transaction-id box on the thank-you page (docs/17 §4.10, §14.1): the customer pastes the whole
-// transfer message (a real masked one from tests/vectors/txn-normalize.json, with line breaks), the page sends the
+// transfer message (an Orange Cash wording from tests/vectors/txn-normalize.json, with invented values and line breaks), the page sends the
 // id alone, the status line becomes the neutral "saved" line, and the delivery of that transfer then turns the
 // order paid without a reload. With the "Disable REST API" plugin (REST_OFF), the page's first POST to the REST route
 // is refused (401/403) and the same body goes to ?wc-api=qersh&qo=txn; the test waits for the address the job uses.

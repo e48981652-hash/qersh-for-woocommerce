@@ -1,6 +1,6 @@
 # Qersh for WooCommerce: implementation contracts
 
-The design is `docs/17-woocommerce-plugin-design.md` (v3, Arabic) in the Qersh repository, at `D:\qersh pay`. The evidence behind it is `docs/16-woocommerce-research.md` in the same repository. This file fixes the names every module shares, so parts written in parallel fit together. Where this file and docs/17 disagree, docs/17 wins on behaviour and this file wins on names; report the conflict.
+The design is `docs/17-woocommerce-plugin-design.md` (v3, Arabic) in the Qersh repository (not public). The evidence behind it is `docs/16-woocommerce-research.md` in the same repository. This file fixes the names every module shares, so parts written in parallel fit together. Where this file and docs/17 disagree, docs/17 wins on behaviour and this file wins on names; report the conflict.
 
 Reference copies of the Qersh core live in this repository; never edit them (see `fixtures.lock.json`):
 - `tests/parity/core/*.js` is the compiled core (`packages/qersh-webhook`).
@@ -8,7 +8,7 @@ Reference copies of the Qersh core live in this repository; never edit them (see
 - `fixtures/test-vectors.json`, `fixtures/webhook.v1.schema.json`, `fixtures/sink/send.mjs`, `fixtures/qersh.config.schema.json`.
 - `tests/php/fixtures/verify.php` is the kit's PHP verifier.
 
-The TypeScript sources and their tests are in `D:\qersh pay\packages\qersh-webhook\src\core` and `...\test`, and the kit tests in `D:\qersh pay\kit\tools\test-match.mjs`. Read them when you port.
+The TypeScript sources and their tests are in `packages/qersh-webhook/src/core` and `packages/qersh-webhook/test` of the Qersh repository, and the kit tests in its `kit/tools/test-match.mjs`. The same core is public in [n8n-nodes-qersh](https://github.com/e48981652-hash/n8n-nodes-qersh/tree/main/nodes/Qersh/lib/core). Read them when you port.
 
 ## 1. Rules for all code
 - PHP 7.4 syntax only. No union types, `match`, nullsafe `?->`, named arguments, enums, `readonly`, constructor promotion, `str_contains`, `str_starts_with`, `str_ends_with`, `array_is_list`, or first-class callable syntax.
@@ -30,7 +30,7 @@ The TypeScript sources and their tests are in `D:\qersh pay\packages\qersh-webho
 - **Logs:** never a key, signature, body or raw customer input. Phone numbers and transaction ids show their last three characters only (`Logger` does this).
 
 ## 2. Layout and ownership
-| Path | Owner (work package) |
+| Path | Module group |
 |---|---|
 | `qersh-for-woocommerce.php`, `src/Autoloader.php`, `src/Plugin.php` | Skeleton (given), then B extends `Plugin` |
 | `src/Core/{Payer,Time,Money}.php` | Skeleton (given; tests by A2) |
@@ -44,7 +44,7 @@ The TypeScript sources and their tests are in `D:\qersh pay\packages\qersh-webho
 | `src/Admin/*`, `src/Diagnostics.php`, `src/Privacy.php`, `src/Emails/AdminAlert.php`, `templates/emails/admin-alert*.php`, `templates/admin/*`, `assets/js/admin.js`, `assets/css/admin.css`, `assets/vendor/qrcode-generator/*`, `uninstall.php` | E |
 | `languages/*`, `readme.txt`, `README.md`, `CHANGELOG.md`, `.github/*`, `.wp-env*.json`, `scripts/*` (except import-from-qersh), `phpcs.xml.dist`, `phpstan.neon` | F |
 
-A module may call another module's public methods as listed here. If you need a method that is not listed, add it to your own module, or write it down in your report. Do not edit another package's files.
+A module calls another module only through the public methods listed here. A module that needs a method not listed here adds it to its own files, never to another module's.
 
 ## 3. Constants and bootstrap (`qersh-for-woocommerce.php`)
 - **Constants:**

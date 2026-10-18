@@ -13,7 +13,7 @@ Scripts to run Qersh for WooCommerce against a real WordPress + WooCommerce test
 | `QERSH_DB_PATH` | (the site's own database) | A SQLite file to use instead, for a run on a copy of the store. |
 | `QERSH_HOME_OVERRIDE` | (off) | `1` makes `WP_HOME`/`WP_SITEURL` equal `QERSH_BASE`, so a copy can answer on another port. |
 
-The PHP scripts also accept the site directory as their first argument (`php tests/local/run-cron.php D:/path/to/site`), as the earlier copies in `local-tools` did.
+The PHP scripts also accept the site directory as their first argument (`php tests/local/run-cron.php /path/to/site`).
 
 ## The test site
 

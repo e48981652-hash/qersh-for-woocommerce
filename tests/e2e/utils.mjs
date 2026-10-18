@@ -202,7 +202,7 @@ export function orderFromUrl(url) {
 	return { id, key: u.searchParams.get('key') };
 }
 
-/** A real masked Orange Cash message (tests/vectors/txn-normalize.json, one with line breaks) with a fresh id. */
+/** An Orange Cash message wording with invented values (tests/vectors/txn-normalize.json, one with line breaks) and a fresh id. */
 export function orangeMessage(payer) {
 	const vectors = JSON.parse(readFileSync(path.join(ROOT, 'tests/vectors/txn-normalize.json'), 'utf8'));
 	const txn = randTxn();

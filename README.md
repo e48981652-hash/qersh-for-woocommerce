@@ -14,7 +14,7 @@ This README is for developers. Merchants read [readme.txt](readme.txt) (the word
 - **Orange Cash transaction ids**: Orange Cash messages rarely name the payer, so after transferring the customer enters the operator's transaction id on the order page (`POST qersh/v1/order-txn`). The id identifies the order; it never proves the payment (the phone's `auto_confirm_ok` still decides).
 - **Admin screens** under WooCommerce, Qersh: Wallets (store URL, setup links, QR code, connection keys, delete and restore), Transfers (Needs a decision, Unmatched, Personal transfers), Settings (export and import), Status (diagnostics and "Check your store URL").
 
-What confirms on its own: Vodafone Cash and e& money (their messages name the payer; the wallet's "Send sender details" must be "Full name and number"), and Orange Cash with a transaction id. InstaPay (every notification arrives with `auto_confirm_ok: false` today) and bank SMS (no balance in the message) wait for one click. A transfer with no open order for it is filed as a personal transfer, and an order created after the money arrived is never matched to it automatically (`skew_min = 0`).
+What confirms on its own: Vodafone Cash and e& money (their messages name the payer; the wallet's "Send sender details" must be "Full name and number"), and Orange Cash with a transaction id, once the app's message templates read today's Orange Cash messages and their 14-digit ids (until then most of today's Orange Cash messages do not reach the store, and the rest wait for one click). InstaPay (every notification arrives with `auto_confirm_ok: false` today) and bank SMS (no balance in the message) wait for one click. A transfer with no open order for it is filed as a personal transfer, and an order created after the money arrived is never matched to it automatically (`skew_min = 0`).
 
 ## Requirements
 
@@ -223,7 +223,7 @@ node tests/parity/run.mjs               # the compiled core against the PHP port
 node --test tests/js/txn-normalize.test.mjs tests/js/checkout-blocks.test.mjs
 ```
 
-Rules for code are in [AGENTS.md](AGENTS.md) and [docs-dev/CONTRACTS.md](docs-dev/CONTRACTS.md): PHP 7.4 syntax, WordPress coding standards, `src/Core` pure PHP, every SQL statement prepared, late escaping, and the legal wording. Files under `fixtures/`, `tests/php/fixtures/` and `tests/parity/{core,kit}/` are copies from the Qersh repository: change them there and run `node scripts/import-from-qersh.mjs "<path to the Qersh repository>"`.
+Rules for code are in [AGENTS.md](AGENTS.md) and [docs-dev/CONTRACTS.md](docs-dev/CONTRACTS.md): PHP 7.4 syntax, WordPress coding standards, `src/Core` pure PHP, every SQL statement prepared, late escaping, and the legal wording. `docs/02`, `docs/16` and `docs/17`, cited in comments, are the maintainer's design notes in the Qersh repository, which is not public. Files under `fixtures/`, `tests/php/fixtures/` and `tests/parity/{core,kit}/` are copies from the Qersh repository: change them there and run `node scripts/import-from-qersh.mjs "<path to the Qersh repository>"`.
 
 Integration tests (WordPress test library) and the Playwright end-to-end suite run in CI on Linux (wp-env, MySQL 8.0); the nightly job adds SQLite on 32-bit PHP.
 
@@ -242,6 +242,7 @@ Integration tests (WordPress test library) and the Playwright end-to-end suite r
 - The Qersh app: https://qersh.cfd/en/download
 - Support: the plugin's forum on wordpress.org, or support@qersh.cfd
 - Repository: https://github.com/e48981652-hash/qersh-for-woocommerce
+- Security reports: see [SECURITY.md](SECURITY.md)
 - The `qersh.v1` envelope schema: [fixtures/webhook.v1.schema.json](fixtures/webhook.v1.schema.json); the receiver schema: [fixtures/qersh.config.schema.json](fixtures/qersh.config.schema.json)
 
 ## License

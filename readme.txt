@@ -43,11 +43,13 @@ The plugin's forum on wordpress.org, and support@qersh.cfd. The same two appear 
 
 = Wallets =
 
-Automatic: Vodafone Cash and e& money (keep Send sender details on Full name and number), and Orange Cash when the customer enters the transaction id (set the wallet balance once in the app; needs the app's current message templates). One click, with the payer shown: the InstaPay app (a later app version will confirm InstaPay transfers itself, with no plugin change) and bank SMS (bank messages state no balance, so Qersh cannot check them). A transfer that arrives with no open order is filed as a personal transfer, and an order created after the money arrived is never confirmed by it automatically.
+Automatic: Vodafone Cash and e& money (keep Send sender details on Full name and number), and Orange Cash when the customer enters the transaction id (set the wallet balance once in the app; needs the app's template update for today's Orange Cash messages). One click, with the payer shown: the InstaPay app (a later app version will confirm InstaPay transfers itself) and bank SMS (bank messages state no balance, so Qersh cannot check them). A transfer that arrives with no open order is filed as a personal transfer, and an order created after the money arrived is never confirmed by it automatically.
 
 = Privacy =
 
 Transfers stay on your phone and in your WordPress database (see External services); a message your customer pastes is never stored, only its transaction id. The plugin suggests privacy policy text and supports the WordPress personal data exporter and eraser. The payer's number and name of a transfer that paid no order are erased after 90 days (adjustable); its amount, time and transaction id stay for your records. Logs show only the last three digits of numbers.
+
+= Credits =
 
 Third-party code: qrcode-generator 2.0.4 by Kazuhiko Arase, MIT licence, https://github.com/kazuhikoarase/qrcode-generator
 
@@ -79,7 +81,7 @@ In the app, keep the wallet's Send sender details (Developer settings) on Full n
 
 = Orange Cash, InstaPay and bank accounts? =
 
-Orange Cash messages rarely name the payer, so the customer enters the transaction id on the order page; this needs the app's current message templates. InstaPay transfers are recognized by the payer's address but wait for your click, with the order suggested, until a later app version confirms them. Bank messages (NBE, CIB, EGBANK) state no balance, so they wait for your click too.
+Orange Cash messages rarely name the payer, so the customer enters the transaction id on the order page; this needs the app's template update for today's Orange Cash messages. InstaPay transfers are recognized by the payer's address but wait for your click, with the order suggested, until a later app version confirms them. Bank messages (NBE, CIB, EGBANK) state no balance, so they wait for your click too.
 
 = Orders I create in the admin (WhatsApp or phone sales)? =
 

@@ -1,12 +1,12 @@
 {
-	"note": "Shapes of the transaction id a customer may type, per provider. src/Core/TxnId.php must match (scripts/check-fixtures.mjs). Orange Cash: 14 digits in today's messages (the owner's real SMS, 2026-10-17, docs/16 section 5.4 in the Qersh repository) and 10 digits in the older wording. The app's template pack 2026101401 still expects 10 and cuts 14-digit ids to 10; update this file when the pack changes.",
+	"note": "Shapes of the transaction id a customer may type, per provider. src/Core/TxnId.php must match (scripts/check-fixtures.mjs). Orange Cash: 14 digits in today's messages (Orange Cash SMS wordings of 2026-10-17, docs/16 section 5.4 in the Qersh repository; the test values are invented) and 10 digits in the older wording. The app's template pack 2026101401 still expects 10 and cuts 14-digit ids to 10; update this file when the pack changes.",
 	"pack_version_seen": 2026101401,
 	"providers": {
 		"orange_cash": {
 			"pattern": "^(?:[0-9]{14}|[0-9]{10})$",
 			"lengths": [14, 10],
 			"class": "[0-9]",
-			"source": "owner's real Orange Cash SMS 2026-10-17 (14 digits); pack 2026101401 txn_id_pattern ^[0-9]{10}$ (older wording)"
+			"source": "Orange Cash SMS wordings of 2026-10-17 (14 digits); pack 2026101401 txn_id_pattern ^[0-9]{10}$ (older wording)"
 		}
 	}
 }

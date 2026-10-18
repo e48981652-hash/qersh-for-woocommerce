@@ -70,7 +70,7 @@ test('the built-in shapes equal fixtures/txn-patterns.json', () => {
 test('normalizePayer equals the core normalizePayer', () => {
 	const inputs = [
 		'01001234567', '+20 100 123 4567', '00201001234567', '201001234567', '1001234567', ' 0100 123 4567 ',
-		'٠١٠٠١٢٣٤٥٦٧', '۰۱۰۰۱۲۳۴۵۶۷', '0111***3445', 'Ahmed@InstaPay', 'ahmed', 'a', 'ahmed@gmail.com', '',
+		'٠١٠٠١٢٣٤٥٦٧', '۰۱۰۰۱۲۳۴۵۶۷', '0111***3445', 'Ahmed@InstaPay', 'ahmed', 'a', 'ahmed@example.test', '',
 		null, undefined, '   ', '0100-123-4567', '+2001001234567', '12345', 'name.with_dots-1', '0020 01001234567',
 		'01001234567x', 'abc01001234567', ' 01001234567 ', '﻿01001234567',
 	];

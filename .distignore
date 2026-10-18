@@ -20,6 +20,7 @@
 /CHANGELOG.md
 /CLAUDE.md
 /README.md
+/SECURITY.md
 /composer.json
 /composer.lock
 /fixtures.lock.json

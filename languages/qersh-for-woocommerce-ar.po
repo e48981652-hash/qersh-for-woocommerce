@@ -2046,14 +2046,14 @@ msgstr "مهلة التحويل (بالدقائق)"
 #. translators: %d: minutes.
 #: templates/admin/settings.php:49
 #, php-format
-msgid "The deadline the customer sees, from 15 to 1440 minutes. An order with no transfer is cancelled %d minute after its deadline, so a transfer the phone held still finds it."
-msgid_plural "The deadline the customer sees, from 15 to 1440 minutes. An order with no transfer is cancelled %d minutes after its deadline, so a transfer the phone held still finds it."
-msgstr[0] "الموعد الذي يراه العميل، من 15 إلى 1440 دقيقة. الطلب الذي لم يصله تحويل يُلغى بعد موعده بـ %d دقيقة، فيجد التحويلُ الذي حبسه الهاتف طلبَه."
-msgstr[1] "الموعد الذي يراه العميل، من 15 إلى 1440 دقيقة. الطلب الذي لم يصله تحويل يُلغى بعد موعده بدقيقة واحدة، فيجد التحويلُ الذي حبسه الهاتف طلبَه."
-msgstr[2] "الموعد الذي يراه العميل، من 15 إلى 1440 دقيقة. الطلب الذي لم يصله تحويل يُلغى بعد موعده بدقيقتين، فيجد التحويلُ الذي حبسه الهاتف طلبَه."
-msgstr[3] "الموعد الذي يراه العميل، من 15 إلى 1440 دقيقة. الطلب الذي لم يصله تحويل يُلغى بعد موعده بـ %d دقائق، فيجد التحويلُ الذي حبسه الهاتف طلبَه."
-msgstr[4] "الموعد الذي يراه العميل، من 15 إلى 1440 دقيقة. الطلب الذي لم يصله تحويل يُلغى بعد موعده بـ %d دقيقة، فيجد التحويلُ الذي حبسه الهاتف طلبَه."
-msgstr[5] "الموعد الذي يراه العميل، من 15 إلى 1440 دقيقة. الطلب الذي لم يصله تحويل يُلغى بعد موعده بـ %d دقيقة، فيجد التحويلُ الذي حبسه الهاتف طلبَه."
+msgid "The deadline the customer sees, from 15 to 1440 minutes. An order with no transfer is cancelled %d minute after its deadline, so a transfer the phone reported late still finds it."
+msgid_plural "The deadline the customer sees, from 15 to 1440 minutes. An order with no transfer is cancelled %d minutes after its deadline, so a transfer the phone reported late still finds it."
+msgstr[0] "الموعد الذي يراه العميل، من 15 إلى 1440 دقيقة. الطلب الذي لم يصله تحويل يُلغى بعد موعده بـ %d دقيقة، فيجد التحويلُ الذي تأخّر الهاتف في إبلاغه طلبَه."
+msgstr[1] "الموعد الذي يراه العميل، من 15 إلى 1440 دقيقة. الطلب الذي لم يصله تحويل يُلغى بعد موعده بدقيقة واحدة، فيجد التحويلُ الذي تأخّر الهاتف في إبلاغه طلبَه."
+msgstr[2] "الموعد الذي يراه العميل، من 15 إلى 1440 دقيقة. الطلب الذي لم يصله تحويل يُلغى بعد موعده بدقيقتين، فيجد التحويلُ الذي تأخّر الهاتف في إبلاغه طلبَه."
+msgstr[3] "الموعد الذي يراه العميل، من 15 إلى 1440 دقيقة. الطلب الذي لم يصله تحويل يُلغى بعد موعده بـ %d دقائق، فيجد التحويلُ الذي تأخّر الهاتف في إبلاغه طلبَه."
+msgstr[4] "الموعد الذي يراه العميل، من 15 إلى 1440 دقيقة. الطلب الذي لم يصله تحويل يُلغى بعد موعده بـ %d دقيقة، فيجد التحويلُ الذي تأخّر الهاتف في إبلاغه طلبَه."
+msgstr[5] "الموعد الذي يراه العميل، من 15 إلى 1440 دقيقة. الطلب الذي لم يصله تحويل يُلغى بعد موعده بـ %d دقيقة، فيجد التحويلُ الذي تأخّر الهاتف في إبلاغه طلبَه."
 
 #: templates/admin/settings.php:63
 msgid "Order total limits (EGP)"
@@ -2172,8 +2172,8 @@ msgid "“Test connection” arrives even before Qersh is activated, but the pho
 msgstr "يصل «اختبار الربط» ولو لم يُفعَّل قرش، لكن الهاتف لا يرسل أي تحويل قبل التفعيل، بل يحفظه حتى 30 يومًا ويرسله بعده."
 
 #: templates/admin/settings.php:146
-msgid "For a wallet whose messages state the balance (all but InstaPay and banks): on the wallet page open the ⋮ menu → “Sync balance” and enter your real balance from the wallet app or its balance code. Without it, Qersh holds the first transfers of the wallet for up to 15 minutes and asks you to check the balance; answer in “Confirm your balance” within that time and the order is confirmed on its own, otherwise the transfer goes to “Needs a decision”."
-msgstr "لمحفظة تذكر رسائلها الرصيد (كل الأنواع عدا إنستاباي والبنوك): افتح في صفحة المحفظة القائمة ⋮ ← «مزامنة الرصيد»، واكتب رصيدك الحقيقي من تطبيق المحفظة أو كود الاستعلام. فبلا ذلك يحبس قرش أول تحويلات المحفظة حتى 15 دقيقة ويطلب منك مراجعة الرصيد؛ أجب في «تأكيد الرصيد» خلال هذه المدة فيتأكد الطلب وحده، وإلا وصل التحويل إلى «تحتاج قرارًا»."
+msgid "For a wallet whose messages state the balance (all but InstaPay and banks): on the wallet page open the ⋮ menu → “Sync balance” and enter your real balance from the wallet app or its balance code. Without it, Qersh waits up to 15 minutes before it reports the first transfers of the wallet to your store, and asks you to check the balance; answer in “Confirm your balance” within that time and the order is confirmed on its own, otherwise the transfer goes to “Needs a decision”."
+msgstr "لمحفظة تذكر رسائلها الرصيد (كل الأنواع عدا إنستاباي والبنوك): افتح في صفحة المحفظة القائمة ⋮ ← «مزامنة الرصيد»، واكتب رصيدك الحقيقي من تطبيق المحفظة أو كود الاستعلام. فبلا ذلك ينتظر قرش حتى 15 دقيقة قبل أن يبلغ متجرك بأول تحويلات المحفظة، ويطلب منك مراجعة الرصيد؛ أجب في «تأكيد الرصيد» خلال هذه المدة فيتأكد الطلب وحده، وإلا وصل التحويل إلى «تحتاج قرارًا»."
 
 #: templates/admin/settings.php:147
 msgid "A transfer larger than the “Auto-confirm limit (EGP)” in the wallet settings on the phone (5,000 by default) always goes to “Needs a decision”: raise it there if your orders are larger."

@@ -2,7 +2,7 @@
 /**
  * The Orange Cash transaction id (docs/17 §4.10): typed before the transfer arrives (the delivery matches by it),
  * and after (the delivery waits as review/no_payer, the late evaluation matches it and the next reply to the
- * phone carries the status update). The pasted message is a real masked one from tests/vectors/txn-normalize.json.
+ * phone carries the status update). The pasted message is an Orange Cash wording with invented values from tests/vectors/txn-normalize.json.
  *
  * @package QershPay\WooCommerce\Tests
  */

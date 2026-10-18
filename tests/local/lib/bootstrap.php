@@ -3,8 +3,8 @@
  * Shared start of the local test scripts (tests/local/*.php): finds the test site, fakes the request a web server
  * would make and loads WordPress. Test store only; never part of the plugin package.
  *
- * The site is, in this order: the first command-line argument when it is a WordPress directory (the old calling
- * form `php script.php <site dir> …`, kept so existing notes still work), the QERSH_SITE environment variable, or
+ * The site is, in this order: the first command-line argument when it is a WordPress directory (the calling
+ * form `php script.php <site dir> …`), the QERSH_SITE environment variable, or
  * `local-site` next to this repository. QERSH_BASE (default http://127.0.0.1:8899) gives the host WordPress sees.
  *
  * Before including this file a script may set `$qersh_local_cron = true` (DOING_CRON) or

@@ -1,7 +1,7 @@
 # Nightly (docs/17 §11 in the Qersh repository): the PHP versions between the pull-request matrix's rows, the next
 # WordPress and WooCommerce releases (allowed to fail), the integration suite and the concurrency run
 # (tests/e2e/concurrency.mjs: the transaction id and the delivery together, two transfers of one payer, crossing
-# attaches) on MariaDB through wp-env, PHP-WASM (32-bit, PHP_INT_SIZE = 4, as on the owner's Playground) with SQLite,
+# attaches) on MariaDB through wp-env, PHP-WASM (32-bit, PHP_INT_SIZE = 4, as on WordPress Playground) with SQLite,
 # and PHP-FPM + nginx (allowed to fail at first).
 name: Nightly
 
@@ -114,7 +114,7 @@ jobs:
           QERSH_E2E_BASE: http://localhost:8890
           QERSH_E2E_WP_ENV_CONFIG: .wp-env.test.json
         run: |
-          npx wp-env run cli --config=.wp-env.test.json wp plugin activate qersh-for-woocommerce
+          npx wp-env run cli --config=.wp-env.test.json wp plugin activate woocommerce qersh-for-woocommerce
           npx wp-env run cli --config=.wp-env.test.json bash -c 'rm -f wp-content/debug.log'
           node tests/e2e/concurrency.mjs
 
