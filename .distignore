@@ -3,6 +3,7 @@
 /.git
 /.github
 /.wordpress-org
+/.wordpress-org-src
 /.wp-env.json
 /.wp-env.test.json
 /.gitattributes

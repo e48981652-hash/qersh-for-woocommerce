@@ -13,7 +13,7 @@ return array(
 	'plural-forms' => 'nplurals=6; plural=(n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 ? 4 : 5);',
 	'language' => 'ar',
 	'project-id-version' => 'Qersh for WooCommerce 0.1.0',
-	'pot-creation-date' => '2026-10-18T13:52:11+00:00',
+	'pot-creation-date' => '2026-10-18T16:14:03+00:00',
 	'po-revision-date' => '2026-10-18 11:56+0000',
 	'x-generator' => 'scripts/make-pot.php',
 	'messages' => array(

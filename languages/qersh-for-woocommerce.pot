@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-18T13:52:11+00:00\n"
+"POT-Creation-Date: 2026-10-18T16:14:03+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: scripts/make-pot.php\n"
 "X-Domain: qersh-for-woocommerce\n"
@@ -714,7 +714,7 @@ msgstr ""
 
 #: src/Admin/TransfersTable.php:71
 #: templates/admin/settings.php:81
-#: templates/order/txn-box.php:23
+#: templates/order/txn-box.php:27
 msgid "Transaction id"
 msgstr ""
 
@@ -2439,23 +2439,23 @@ msgstr ""
 msgid "Before: %1$s Cairo time (within %2$s)"
 msgstr ""
 
-#: templates/order/txn-box.php:21
+#: templates/order/txn-box.php:25
 msgid "After you transfer"
 msgstr ""
 
-#: templates/order/txn-box.php:25
+#: templates/order/txn-box.php:29
 msgid "Enter the transaction id from your transfer message, or paste the whole message."
 msgstr ""
 
-#: templates/order/txn-box.php:26
+#: templates/order/txn-box.php:30
 msgid "It is in the message your wallet sent you about this transfer, usually after \"transaction number\"."
 msgstr ""
 
-#: templates/order/txn-box.php:27
+#: templates/order/txn-box.php:31
 msgid "Send transaction id"
 msgstr ""
 
-#: templates/order/txn-box.php:31
+#: templates/order/txn-box.php:35
 msgid "After you transfer, you can send the store the transaction id with your order number: it helps when the store cannot see the number you transferred from."
 msgstr ""
 

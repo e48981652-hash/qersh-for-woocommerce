@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Qersh for WooCommerce · wordpress.org banner, English (LTR): banner-1544x500.png and banner-772x250.png.
+     Drawn on the 1544×500 grid; the 772×250 banner is the same file at half size, so no text is under 26 px here
+     (13 px at 772). Brand: the single permitted gradient (#1D4ED8 → #1E40AF, background only), the white Qersh mark
+     (ring r=144, stroke 36, check 188,256 → 236,304 → 330,204 on the 512 grid), IBM Plex Sans Arabic (its Latin is
+     IBM Plex Sans) and IBM Plex Mono, Latin digits, no currency sign, no amount. The card on the right is the plugin's
+     own wording for an order its transfer paid (Admin\OrderBox: "Paid by wallet transfer"; Transfers: "Matched"), with
+     the payer in the app's masked form from kit/test-vectors.json (0111***3445). Rendering: see README.md here. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1544 500" width="1544" height="500" role="img" aria-labelledby="t d">
+  <title id="t">Qersh for WooCommerce</title>
+  <desc id="d">Blue banner: the Qersh mark, the plugin name, "Confirm orders paid by e-wallet transfer, with the Qersh app on your phone", and a card for order #1042: Paid by wallet transfer, from 0111***3445, Matched.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1D4ED8"/>
+      <stop offset="1" stop-color="#1E40AF"/>
+    </linearGradient>
+  </defs>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@500&amp;display=swap');
+    .ar   { font-family: 'IBM Plex Sans Arabic', 'IBM Plex Sans', sans-serif; }
+    .mono { font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; }
+  </style>
+
+  <rect width="1544" height="500" fill="url(#bg)"/>
+
+  <!-- the mark: 512 grid at 0.5 (ring outer diameter 162), centred on y=250 -->
+  <g transform="translate(72 122) scale(0.5)" fill="none" stroke="#FFFFFF" stroke-width="36" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="256" cy="256" r="144"/>
+    <path d="M188 256 L236 304 L330 204"/>
+  </g>
+
+  <!-- text column, left edge x=360 -->
+  <text class="ar" x="360" y="158" font-size="30" font-weight="600" fill="#FFFFFF" fill-opacity="0.85">&#x2067;قرش&#x2069; - Qersh Pay</text>
+  <text class="ar" x="358" y="236" font-size="56" font-weight="700" fill="#FFFFFF">Qersh for WooCommerce</text>
+  <text class="ar" x="360" y="300" font-size="36" font-weight="400" fill="#FFFFFF">Confirm orders paid by e-wallet transfer,</text>
+  <text class="ar" x="360" y="348" font-size="36" font-weight="400" fill="#FFFFFF">with the Qersh app on your phone.</text>
+
+  <!-- card: an order the plugin marked paid (x 1052 to 1464) -->
+  <g id="card">
+    <rect x="1052" y="138" width="412" height="224" rx="24" fill="#FFFFFF"/>
+    <circle cx="1108" cy="196" r="24" fill="#047857"/>
+    <path d="M1096 196 L1105 205 L1121 187" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text class="mono" x="1148" y="207" font-size="30" font-weight="500" fill="#111827">Order #1042</text>
+    <text class="ar" x="1084" y="276" font-size="32" font-weight="700" fill="#047857">Paid by wallet transfer</text>
+    <text class="ar" x="1084" y="322" font-size="26" font-weight="500" fill="#4B5563">from <tspan class="mono">0111***3445</tspan> · Matched</text>
+  </g>
+</svg>

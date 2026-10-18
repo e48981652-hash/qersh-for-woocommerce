@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Qersh for WooCommerce · wordpress.org plugin icon (icon.svg; icon-128x128.png and icon-256x256.png are its PNG renders).
+     The Qersh mark (brand/logo-mark-white.svg in the Qersh repository: ring centreline r=144, stroke 36, check
+     188,256 → 236,304 → 330,204, round caps and joins, 512 grid) in white on a flat #1D4ED8 square. The ring's outer
+     diameter is 63% of the square, the geometry the brand guide (§1.2, §1.5) sets for the app icon. No text, no
+     gradient on the mark, no currency sign.
+     The PNGs are rendered from this file at 128 and 256 px with marketing/render/render.mjs of the Qersh repository
+     (its one-file mode); see .wordpress-org-src/README.md. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="256" height="256" role="img" aria-labelledby="t">
+  <title id="t">Qersh for WooCommerce</title>
+  <rect width="512" height="512" fill="#1D4ED8"/>
+  <g fill="none" stroke="#FFFFFF" stroke-width="36" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="256" cy="256" r="144"/>
+    <path d="M188 256 L236 304 L330 204"/>
+  </g>
+</svg>

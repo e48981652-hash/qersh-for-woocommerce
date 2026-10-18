@@ -16,6 +16,10 @@
  */
 
 defined( 'ABSPATH' ) || exit;
+
+// The theme's button look on a block theme (`wp-element-button`, as WooCommerce's own templates do); empty on a
+// classic theme, which styles `.button`.
+$qersh_wc_button = function_exists( 'wc_wp_theme_get_element_class_name' ) ? (string) wc_wp_theme_get_element_class_name( 'button' ) : '';
 ?>
 <section class="qersh-txn" id="qersh-txn" data-qersh-txn aria-labelledby="qersh-txn-title">
 	<h3 class="qersh-txn__title" id="qersh-txn-title"><?php esc_html_e( 'After you transfer', 'qersh-for-woocommerce' ); ?></h3>
@@ -24,7 +28,7 @@ defined( 'ABSPATH' ) || exit;
 		<input type="text" class="input-text qersh-txn__input" id="qersh_txn" name="qersh_txn" dir="ltr" inputmode="text" autocapitalize="characters" autocomplete="off" spellcheck="false" maxlength="400" aria-describedby="qersh_txn_help qersh_txn_hint qersh_txn_msg" />
 		<span class="qersh-help" id="qersh_txn_help"><?php esc_html_e( 'Enter the transaction id from your transfer message, or paste the whole message.', 'qersh-for-woocommerce' ); ?></span>
 		<span class="qersh-help" id="qersh_txn_hint"><?php esc_html_e( 'It is in the message your wallet sent you about this transfer, usually after "transaction number".', 'qersh-for-woocommerce' ); ?></span>
-		<button type="button" class="button qersh-txn__send" data-qersh-txn-send><?php esc_html_e( 'Send transaction id', 'qersh-for-woocommerce' ); ?></button>
+		<button type="button" class="<?php echo esc_attr( '' === $qersh_wc_button ? 'button qersh-txn__send' : 'button ' . $qersh_wc_button . ' qersh-txn__send' ); ?>" data-qersh-txn-send><?php esc_html_e( 'Send transaction id', 'qersh-for-woocommerce' ); ?></button>
 		<span class="qersh-txn__msg" id="qersh_txn_msg" data-qersh-txn-msg role="status" aria-live="polite"></span>
 	</div>
 	<noscript>

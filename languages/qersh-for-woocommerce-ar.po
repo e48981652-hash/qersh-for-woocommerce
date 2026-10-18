@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Qersh for WooCommerce 0.1.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/qersh-for-woocommerce\n"
-"POT-Creation-Date: 2026-10-18T13:52:11+00:00\n"
+"POT-Creation-Date: 2026-10-18T16:14:03+00:00\n"
 "PO-Revision-Date: 2026-10-18 11:56+0000\n"
 "Last-Translator: Qersh <support@qersh.cfd>\n"
 "Language-Team: Arabic\n"
@@ -717,7 +717,7 @@ msgstr "المحفظة"
 
 #: src/Admin/TransfersTable.php:71
 #: templates/admin/settings.php:81
-#: templates/order/txn-box.php:23
+#: templates/order/txn-box.php:27
 msgid "Transaction id"
 msgstr "رقم العملية"
 
@@ -2466,23 +2466,23 @@ msgstr "انسخ الرقم الذي تحوّل إليه"
 msgid "Before: %1$s Cairo time (within %2$s)"
 msgstr "قبل: %1$s بتوقيت القاهرة (خلال %2$s)"
 
-#: templates/order/txn-box.php:21
+#: templates/order/txn-box.php:25
 msgid "After you transfer"
 msgstr "بعد التحويل"
 
-#: templates/order/txn-box.php:25
+#: templates/order/txn-box.php:29
 msgid "Enter the transaction id from your transfer message, or paste the whole message."
 msgstr "اكتب رقم العملية من رسالة التحويل، أو الصق الرسالة كلها."
 
-#: templates/order/txn-box.php:26
+#: templates/order/txn-box.php:30
 msgid "It is in the message your wallet sent you about this transfer, usually after \"transaction number\"."
 msgstr "تجده في الرسالة التي أرسلتها إليك محفظتك عن هذا التحويل، وعادةً بعد «رقم العملية» أو «رقم المعاملة»."
 
-#: templates/order/txn-box.php:27
+#: templates/order/txn-box.php:31
 msgid "Send transaction id"
 msgstr "أرسل رقم العملية"
 
-#: templates/order/txn-box.php:31
+#: templates/order/txn-box.php:35
 msgid "After you transfer, you can send the store the transaction id with your order number: it helps when the store cannot see the number you transferred from."
 msgstr "بعد التحويل تستطيع أن ترسل رقم العملية إلى المتجر مع رقم طلبك: فهو يساعد حين لا يرى المتجر الرقم الذي حوّلت منه."
 

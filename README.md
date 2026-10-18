@@ -22,7 +22,7 @@ The plugin works with any e-wallet the Qersh app reads (Vodafone Cash, Orange Ca
 - Store currency EGP, HTTPS (the app sends to `http://` only for private hosts: `localhost`, `127.x`, RFC 1918 addresses and single-label `.local` names).
 - MySQL or MariaDB with InnoDB (the row locks need it), or SQLite through the SQLite Database Integration plugin.
 - HPOS on or off. No runtime dependency: the plugin ships its own autoloader and one vendored library (qrcode-generator 2.0.4, MIT).
-- On the merchant's side: the paid Qersh Android app (https://qersh.cfd/en/download) on the phone that receives the wallet's messages.
+- On the merchant's side: the paid Qersh Android app (https://qersh.cfd/en/download) on the phone that receives the wallet's messages. It is a subscription: signing in to the app with a Google account starts the free trial, then the merchant chooses a plan (https://qersh.cfd/en/pricing). The plugin itself is free, locks nothing and never checks the subscription; the phone sends transfers only while the subscription is active.
 
 ## Install
 
@@ -38,6 +38,8 @@ Activation creates five tables (`{prefix}qersh_deliveries`, `_transfers`, `_orde
 2. **With the key (default):** "Generate your developer's link with the connection key". The store creates the connection key (`qsk_` + 43 base64url characters) and shows a `qersh://setup?…&secret=…` link once, with a QR code. Open it on the wallet's phone in the Qersh app, save the wallet (or "Update wallet"), then tap "Test connection". Nothing needs pasting back. For a wallet that already has a key, the new key is pending until the first delivery signed with it arrives; the old key stays valid meanwhile and for 24 hours after.
 3. **Without the key:** "Another way: your developer's link". The link carries the URL and label only. Paste it in the app (Add wallet, "Have a link from your developer?"); the phone generates the key, and the merchant pastes the key, or the whole message the phone shares, into "Connection key or the wallet link from the phone".
 4. On the phone, "Test connection" sends a `webhook.test` delivery and two negative probes. The wallet card in the store then shows the test, the app version and what the phone reports about its permissions.
+5. In the app, activate Qersh and set the wallet balance once ("Sync balance"). "Test connection" works before activation, but the phone sends no transfer until then (it keeps them for up to 30 days).
+6. Enable the method in WooCommerce, Settings, Payments, "Wallet transfer (Qersh)": the gateway's `enabled` defaults to `no`. Checkout then offers it while the store currency is EGP, at least one wallet is enabled and the total is within the optional `store.min_total_minor` and `max_total_minor`.
 
 The setup link (the app calls it "your developer's link") never carries `events` (listing events switches off every event that is not listed) and never carries `provider`: the plugin does not know the wallet type. A store URL change (domain, `www`, https, permalinks) is fixed with a new link without the key, which updates the URL and keeps the key. The setting `store.allow_key_link` switches the key link off; it also disappears when the wallet's key comes from `wp-config.php`.
 
@@ -243,10 +245,12 @@ Integration tests (WordPress test library) and the Playwright end-to-end suite r
 4. Tag with the bare version, never a `v` prefix: `git tag 0.1.0 && git push origin 0.1.0`. The release workflow builds the same zip and attaches it to the GitHub release.
 5. After wordpress.org accepts the plugin, the deploy workflow pushes the tag to SVN, and the owner confirms the release from the wordpress.org email. The deploy action, the only third-party code that sees the SVN credentials, is pinned to a full commit SHA (`scripts/check-workflows.mjs` fails on a tag); to move to a newer release, read its `deploy.sh` first. A confirmed tag never changes, so even raising `Tested up to` is a patch release.
 
+`.wordpress-org/` holds the wordpress.org listing images (icons, banners, and `screenshot-1.png` to `screenshot-6.png` in the order of the readme's captions), which the deploy workflow sends to SVN `assets/`; `.wordpress-org-src/` holds their sources and how to remake them (see [its README](.wordpress-org-src/README.md)). Neither folder is in the zip.
+
 ## Links
 
 - Integration page: https://qersh.cfd/en/integrations/woocommerce
-- The Qersh app: https://qersh.cfd/en/download
+- The Qersh app: https://qersh.cfd/en/download (plans and the free trial: https://qersh.cfd/en/pricing)
 - Support: the plugin's forum on wordpress.org, or support@qersh.cfd
 - Repository: https://github.com/e48981652-hash/qersh-for-woocommerce
 - Security reports: see [SECURITY.md](SECURITY.md)

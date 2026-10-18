@@ -167,16 +167,30 @@
 	border: 0;
 }
 
+/*
+ * The copy buttons: a small outline button in the theme's own font and text colour, so it sits on the line without
+ * outweighing the store's main button. The browser's (or the theme's) focus ring is left as it is.
+ */
 .qersh-copy {
+	display: inline-block;
 	margin-inline-start: 0.5em;
-	padding: 0.1em 0.6em;
-	font-size: 0.8em;
-	line-height: 1.6;
+	padding: 0.15em 0.75em;
 	border: 1px solid currentColor;
-	border-radius: 3px;
+	border-radius: 4px;
 	background: transparent;
 	color: inherit;
+	font-family: inherit;
+	font-size: 0.8em;
+	font-weight: inherit;
+	letter-spacing: inherit;
+	line-height: 1.5;
+	text-transform: none;
+	vertical-align: 0.1em;
 	cursor: pointer;
+}
+
+.qersh-copy:hover {
+	background: rgba(127, 127, 127, 0.12);
 }
 
 /*
@@ -211,12 +225,61 @@
 	gap: 0.4em;
 }
 
-.qersh-txn__label {
+/* Beats WooCommerce's `.woocommerce-page label` margin on block themes; the form's gap spaces the parts. */
+.qersh-txn__form .qersh-txn__label {
+	margin: 0;
 	font-weight: 600;
 }
 
+/*
+ * The transaction-id field. Block themes leave text inputs to the browser, so it gets the look of the checkout's
+ * fields here: the theme's font and text colour, a 1px border, rounded corners and a comfortable height. These
+ * rules are one class strong on purpose: a classic theme's own `input[type="text"]` rules (Storefront and most
+ * others) are stronger and keep their look.
+ */
+.qersh-txn__input {
+	min-block-size: 2.75em;
+	margin: 0;
+	padding: 0.5em 0.75em;
+	border: 1px solid currentColor;
+	border-radius: 4px;
+	background: transparent;
+	color: inherit;
+	font-family: inherit;
+	font-weight: inherit;
+	letter-spacing: inherit;
+	line-height: 1.4;
+}
+
+/*
+ * The section's text size, not the "small" size WooCommerce gives every `.input-text` on a block theme
+ * (`.woocommerce-page .input-text`), which would sit under a label half again its size.
+ */
+.qersh-txn input.qersh-txn__input {
+	font-size: inherit;
+}
+
+.qersh-txn__input:focus {
+	outline: 2px solid currentColor;
+	outline-offset: 1px;
+}
+
+/*
+ * The send button takes the theme's button look: `wp-element-button` on a block theme (the theme.json button
+ * styles), `.button` on a classic one (WooCommerce's or the theme's). Only its spacing is set here. The rule
+ * under it has no weight at all: it fills in for a theme that styles neither, and gives way to any rule a theme has.
+ */
 .qersh-txn__send {
-	margin-block-start: 0.25em;
+	margin-block-start: 0.35em;
+	max-inline-size: 100%;
+}
+
+:where(.qersh-txn__send) {
+	padding: 0.6em 1.25em;
+	font-family: inherit;
+	font-size: inherit;
+	line-height: 1.4;
+	cursor: pointer;
 }
 
 .qersh-status {

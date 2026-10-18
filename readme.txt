@@ -19,8 +19,9 @@ Qersh (Qersh Pay) is an Android app that reads the incoming-transfer notificatio
 1. Add your wallet in WooCommerce, Qersh, Wallets: the e-wallet number your customers transfer to.
 2. Generate your developer's link with the connection key and open it on the wallet's phone in the Qersh app, then tap "Test connection".
 3. Activate Qersh and set the wallet balance once in the app ("Sync balance").
-4. At checkout your customer chooses "E-wallet transfer", enters the wallet number they will transfer from, and sees the amount, your wallet and the deadline.
-5. When the transfer arrives, your phone sends it to your store, signed. The plugin matches it to the order by the payer's number and the time the money arrived, and the order is paid, usually within minutes.
+4. Enable "Wallet transfer (Qersh)" in WooCommerce, Settings, Payments.
+5. At checkout your customer chooses "E-wallet transfer", enters the wallet number they will transfer from, and sees the amount, your wallet and the deadline.
+6. When the transfer arrives, your phone sends it to your store, signed. The plugin matches it to the order by the payer's number and the time the money arrived, and the order is paid, usually within minutes.
 
 = What your customer does =
 
@@ -31,11 +32,11 @@ One field, then a transfer: no screenshot. When the transfer message shows the n
 * Only your phone: no hosted payment page, and no cloud copy of your transfers.
 * Matching by the payer's number and the time the money arrived.
 * Checkout never calls an outside service, so customers can always place an order.
-* A notification tool, not a payment gateway: the money goes from your customer's wallet straight to yours.
+* A notification tool, not a payment gateway.
 
 = What you need =
 
-The paid Qersh Android app with a subscription, on the phone that receives your wallet's messages: [get the app](https://qersh.cfd/en/download). The plugin itself is free and complete; nothing in it is locked.
+The paid Qersh Android app with a subscription, on the phone that receives your wallet's messages: [get the app](https://qersh.cfd/en/download). Sign in to the app with a Google account to start the free trial, then choose a plan on the [pricing page](https://qersh.cfd/en/pricing). The plugin itself is free and complete; nothing in it is locked.
 
 = Support =
 
@@ -55,7 +56,11 @@ Third-party code: qrcode-generator 2.0.4 by Kazuhiko Arase, MIT licence, https:/
 
 == External services ==
 
-This plugin never contacts Qersh or any other outside service, and sends no analytics. It receives signed HTTPS requests sent directly by your own phone running the Qersh app, and stores what it needs to match them (amount, payer number, payer name, operator transaction id, time, and the transaction id your customer enters on the order page) in your WordPress database. Nothing passes through Qersh servers. The only requests the plugin sends itself come from the "Check your store URL" button (Status tab, or a wallet card): when an administrator clicks it, the plugin sends test requests with no order or customer data (an empty body or a placeholder order key, with a deliberately invalid signature) to your store's own addresses, the current one and the one your phone last used (through your CDN or firewall, such as Cloudflare, if you use one), to show what blocks them. Qersh app: https://qersh.cfd/en/ — Terms: https://qersh.cfd/en/terms — Privacy: https://qersh.cfd/en/privacy
+This plugin never contacts Qersh or any other outside service, and sends no analytics. It receives signed HTTPS requests sent directly by your own phone running the Qersh app, and stores what it needs to match them (amount, payer number, payer name, operator transaction id, time, and the transaction id your customer enters on the order page) in your WordPress database. No transfer passes through Qersh servers; the app itself contacts them only for your account and subscription.
+
+The only requests the plugin sends itself come from the "Check your store URL" button (Status tab, or a wallet card): when an administrator clicks it, the plugin sends test requests with no order or customer data (an empty body or a placeholder order key, with a deliberately invalid signature) to your store's own addresses, the current one and the one your phone last used (through your CDN or firewall, such as Cloudflare, if you use one), to show what blocks them.
+
+Qersh app: https://qersh.cfd/en/ — Terms: https://qersh.cfd/en/terms — Privacy: https://qersh.cfd/en/privacy
 
 == Frequently Asked Questions ==
 
@@ -65,7 +70,7 @@ Not at checkout. After the transfer, the order page asks for it, on every wallet
 
 = Can a customer use someone else's transaction id? =
 
-Not to get an order confirmed. The id alone is never enough: the amount must match, the wallet must be the one that customer chose, the order must predate the money, the id must be entered after the operator's message, and no other unpaid order may compete. Otherwise it waits for your click. A transfer with no open order is a personal transfer, and a later order never takes it on its own.
+Not to get an order confirmed. The id alone is never enough: the amount must match, the wallet must be the one that customer chose, the order must predate the money, the id must be entered after the operator's message, and no other unpaid order may compete. Otherwise it waits for your click.
 
 = What if my phone is offline or my Qersh subscription has ended? =
 
@@ -73,7 +78,7 @@ Checkout keeps working and orders wait. The app keeps what it could not send for
 
 = Does the plugin check my Qersh subscription? =
 
-No. It never contacts Qersh and locks nothing. Your phone sends transfers only while its subscription is active.
+No, and it locks nothing. Your phone sends transfers only while its subscription is active.
 
 = Orders are not confirmed automatically =
 
@@ -81,7 +86,7 @@ In the app, keep the wallet's Send sender details (Developer settings) on Full n
 
 = Which wallets work? =
 
-Any e-wallet the Qersh app reads: Vodafone Cash, Orange Cash, e& money and others, all the same way, since the plugin never looks at the wallet type. A store wallet is its 11-digit number (01…), never an address or a bank account.
+Any e-wallet the Qersh app reads: Vodafone Cash, Orange Cash, e& money and others, all the same way. A store wallet is its 11-digit number (01…), never an address or a bank account.
 
 = Orders I create in the admin (WhatsApp or phone sales)? =
 
@@ -113,7 +118,7 @@ No. Qersh is a wallet notification relay, not a payment gateway: the money goes 
 
 = Fees? =
 
-Qersh takes nothing from any transfer; the subscription is a fixed monthly fee. Your customer's wallet may charge its usual transfer fee.
+Qersh takes nothing from any transfer; the subscription is a flat monthly fee, by plan. Your customer's wallet may charge its usual transfer fee.
 
 == Screenshots ==
 

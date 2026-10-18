@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Qersh for WooCommerce · wordpress.org banner, Arabic (RTL): banner-1544x500-rtl.png and banner-772x250-rtl.png, which
+     wordpress.org shows on right-to-left locales. The mirror of banner.svg (the mark is never flipped), on the same
+     1544×500 grid, so no text is under 26 px (13 px at 772). The words are the plugin's own Arabic: its description
+     in languages/qersh-for-woocommerce-ar.po (“يؤكد طلبات WooCommerce المدفوعة بتحويل من محفظة إلكترونية، بتطبيق
+     قرش …”), “مدفوع بتحويل محفظة” (Admin\OrderBox) and “مطابق” (Transfers). Latin digits, no currency sign, no amount,
+     the payer in the app's masked form (0111***3445).
+     RTL convention of the brand renderer (resvg has no direction="rtl"): text-anchor="end" puts the right edge at x;
+     every Arabic line is wrapped in U+2067 RLI … U+2069 PDI; the masked number is wrapped in U+200E so the asterisks
+     do not split it. Rendering: see README.md here. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1544 500" width="1544" height="500" role="img" aria-labelledby="t d">
+  <title id="t">قرش لمتاجر WooCommerce</title>
+  <desc id="d">لافتة زرقاء: علامة قرش، واسم الإضافة، وسطر «تأكيد الطلبات المدفوعة بتحويل من محفظة إلكترونية، بتطبيق قرش على هاتفك»، وبطاقة للطلب ‎#1042‎: مدفوع بتحويل محفظة، من ‎0111***3445‎، مطابق.</desc>
+  <defs>
+    <!-- the single permitted gradient, mirrored with the layout: light at the top right -->
+    <linearGradient id="bg" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1D4ED8"/>
+      <stop offset="1" stop-color="#1E40AF"/>
+    </linearGradient>
+  </defs>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@500&amp;display=swap');
+    .ar   { font-family: 'IBM Plex Sans Arabic', 'IBM Plex Sans', sans-serif; }
+    .mono { font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; }
+  </style>
+
+  <rect width="1544" height="500" fill="url(#bg)"/>
+
+  <!-- the mark at the right: 512 grid at 0.5 (ring outer diameter 162), centred on y=250 -->
+  <g transform="translate(1216 122) scale(0.5)" fill="none" stroke="#FFFFFF" stroke-width="36" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="256" cy="256" r="144"/>
+    <path d="M188 256 L236 304 L330 204"/>
+  </g>
+
+  <!-- text column, right edge x=1184 -->
+  <text class="ar" x="1184" y="142" text-anchor="end" font-size="30" font-weight="600" fill="#FFFFFF" fill-opacity="0.85">Qersh for WooCommerce</text>
+  <text class="ar" x="1186" y="218" text-anchor="end" font-size="52" font-weight="700" fill="#FFFFFF">&#x2067;قرش لمتاجر WooCommerce&#x2069;</text>
+  <text class="ar" x="1184" y="276" text-anchor="end" font-size="36" font-weight="400" fill="#FFFFFF">&#x2067;تأكيد الطلبات المدفوعة&#x2069;</text>
+  <text class="ar" x="1184" y="322" text-anchor="end" font-size="36" font-weight="400" fill="#FFFFFF">&#x2067;بتحويل من محفظة إلكترونية،&#x2069;</text>
+  <text class="ar" x="1184" y="368" text-anchor="end" font-size="36" font-weight="400" fill="#FFFFFF">&#x2067;بتطبيق قرش على هاتفك.&#x2069;</text>
+
+  <!-- card at the left (x 80 to 492): an order the plugin marked paid -->
+  <g id="card">
+    <rect x="80" y="138" width="412" height="224" rx="24" fill="#FFFFFF"/>
+    <circle cx="436" cy="196" r="24" fill="#047857"/>
+    <path d="M424 196 L433 205 L449 187" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text class="ar" x="396" y="207" text-anchor="end" font-size="30" font-weight="600" fill="#111827">&#x2067;الطلب&#x2069;</text>
+    <text class="mono" x="306" y="207" text-anchor="end" font-size="30" font-weight="500" fill="#111827">#1042</text>
+    <text class="ar" x="460" y="276" text-anchor="end" font-size="32" font-weight="700" fill="#047857">&#x2067;مدفوع بتحويل محفظة&#x2069;</text>
+    <text class="ar" x="460" y="322" text-anchor="end" font-size="26" font-weight="500" fill="#4B5563">&#x2067;من &#x200E;0111***3445&#x200E; · مطابق&#x2069;</text>
+  </g>
+</svg>
