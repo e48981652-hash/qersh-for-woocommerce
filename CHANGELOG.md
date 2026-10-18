@@ -2,11 +2,11 @@
 
 All notable changes to Qersh for WooCommerce. Versions are bare tags (`0.1.0`, never `v0.1.0`), and each one matches `Version` in `qersh-for-woocommerce.php` and `Stable tag` in `readme.txt`. The wordpress.org changelog in `readme.txt` is the short form of this file, for the newest versions that fit in its 10 KB; this file keeps every version.
 
-## 0.1.0 (unreleased)
+## 0.1.0 (2026-10-19)
 
 First release, for submission to wordpress.org.
 
-The plugin works with any e-wallet the Qersh app reads (Vodafone Cash, Orange Cash, e& money and others) and never looks at the wallet type (the owner's decision of 2026-10-18). It decides each transfer from the webhook alone: the sender's number, the transaction id, the amount, the time the money arrived and the app's `auto_confirm_ok`. The same delivery gets the same verdict whatever its `wallet.provider` says; that value is kept in `qersh_transfers.provider` as information only, and no rule reads it.
+The plugin works with any e-wallet the Qersh app reads (Vodafone Cash, Orange Cash, e& money and others) and never looks at the wallet type. It decides each transfer from the webhook alone: the sender's number, the transaction id, the amount, the time the money arrived and the app's `auto_confirm_ok`. The same delivery gets the same verdict whatever its `wallet.provider` says; that value is kept in `qersh_transfers.provider` as information only, and no rule reads it.
 
 ### Checkout
 
