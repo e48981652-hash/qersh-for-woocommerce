@@ -90,19 +90,19 @@ jobs:
           node scripts/build-llms-section.mjs --check
 
       - name: Transaction-id normaliser and Blocks field (Node)
-        run: node --test tests/js/txn-normalize.test.mjs tests/js/checkout-blocks.test.mjs
+        run: bash scripts/ci-annotate.sh node --test tests/js/txn-normalize.test.mjs tests/js/checkout-blocks.test.mjs
 
       - name: Parity with the compiled Qersh core
-        run: node tests/parity/run.mjs
+        run: bash scripts/ci-annotate.sh node tests/parity/run.mjs
 
       - name: PHPCS (WordPress, WooCommerce, PHPCompatibilityWP 7.4-)
-        run: composer lint:phpcs
+        run: bash scripts/ci-annotate.sh composer lint:phpcs
 
       - name: The PHPCS part of Plugin Check (plugin_repo sniffs, phpcs-plugin-check.xml)
-        run: composer lint:plugin-check
+        run: bash scripts/ci-annotate.sh composer lint:plugin-check
 
       - name: PHPStan
-        run: composer analyse
+        run: bash scripts/ci-annotate.sh composer analyse
 
   package:
     name: Package and Plugin Check
@@ -119,7 +119,7 @@ jobs:
           node-version: '24'
 
       - name: Build the release zip from the allow-list (fails without the compiled translations)
-        run: node scripts/build-zip.mjs --release
+        run: bash scripts/ci-annotate.sh node scripts/build-zip.mjs --release
 
       - name: Unpack it into a folder named like the slug
         run: |
