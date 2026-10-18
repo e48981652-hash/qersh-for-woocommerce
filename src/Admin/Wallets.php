@@ -8,6 +8,7 @@
 
 namespace QershPay\WooCommerce\Admin;
 
+use QershPay\WooCommerce\ConfigStore;
 use QershPay\WooCommerce\Core\Config;
 use QershPay\WooCommerce\Core\Payer;
 use QershPay\WooCommerce\Core\SetupLink;
@@ -378,9 +379,9 @@ final class Wallets {
 		$id       = isset( $_POST['wallet'] ) ? sanitize_key( wp_unslash( $_POST['wallet'] ) ) : '';
 		$provider = isset( $_POST['provider'] ) ? sanitize_key( wp_unslash( $_POST['provider'] ) ) : '';
 		$address  = isset( $_POST['receive_address'] ) ? sanitize_text_field( wp_unslash( $_POST['receive_address'] ) ) : '';
-		$label    = isset( $_POST['label'] ) ? sanitize_text_field( wp_unslash( $_POST['label'] ) ) : '';
-		$enabled  = ! empty( $_POST['enabled'] );
-		$label    = function_exists( 'mb_substr' ) ? (string) mb_substr( $label, 0, 60, 'UTF-8' ) : substr( $label, 0, 60 );
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- ConfigStore::clean_label() runs sanitize_text_field() and cuts to LABEL_MAX, the rule ConfigStore::clean() applies to an import.
+		$label   = isset( $_POST['label'] ) && is_string( $_POST['label'] ) ? ConfigStore::clean_label( wp_unslash( $_POST['label'] ) ) : '';
+		$enabled = ! empty( $_POST['enabled'] );
 
 		$config  = $store->get();
 		$wallets = array_values( is_array( $config['wallets'] ) ? $config['wallets'] : array() );

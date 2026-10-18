@@ -118,6 +118,15 @@ final class CheckoutTest extends TestCase {
 		}
 	}
 
+	/** In WooCommerce's plain emails an apostrophe is typographic, so their entity catch-all never deletes it. */
+	public function test_plain_apostrophes(): void {
+		$this->assertSame( "Votre transfert de l\u{2019}ordre", Checkout::plain_apostrophes( "Votre transfert de l'ordre" ) );
+		$this->assertSame( "l\u{2019}a, l\u{2019}b", Checkout::plain_apostrophes( "l'a, l\u{2019}b" ) );
+		$text = "وصل تحويلك من \u{2066}0111***445\u{2069} وتمّ تأكيد طلبك.";
+		$this->assertSame( $text, Checkout::plain_apostrophes( $text ), 'nothing else changes' );
+		$this->assertStringNotContainsString( '&', Checkout::plain_apostrophes( "it's" ) );
+	}
+
 	/** Without a row, the WooCommerce status decides. */
 	public function test_status_without_row(): void {
 		$this->assertSame( 'waiting', Checkout::status_of( null, 'pending' ) );

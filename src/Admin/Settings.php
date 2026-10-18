@@ -208,7 +208,7 @@ final class Settings {
 			Module::flash( 'error', esc_html__( 'These settings are set in wp-config.php (QERSH_WC_CONFIG) and cannot be changed here.', 'qersh-for-woocommerce' ) );
 			Module::redirect( 'settings' );
 		}
-		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- JSON is decoded and every value validated by Core\Config.
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- raw JSON text, which sanitizing would corrupt; its values are sanitized after decoding (ConfigStore::clean() runs ConfigStore::clean_label() on every label) and validated by Core\Config.
 		$raw = isset( $_POST['config_json'] ) && is_string( $_POST['config_json'] ) ? (string) wp_unslash( $_POST['config_json'] ) : '';
 		if ( strlen( $raw ) > self::IMPORT_MAX ) {
 			$raw = '';

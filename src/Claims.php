@@ -121,6 +121,7 @@ final class Claims {
 		// Step 1: the shape, before any database write.
 		$read = TxnId::canonical_typed( self::PROVIDER, $raw, (string) $row['payer_key'], $this->store_numbers() );
 		if ( empty( $read['ok'] ) ) {
+			$this->count_long_run( (string) $read['error'], $raw, $id, (string) $row['payer_key'] );
 			return self::refusal( 400, (string) $read['error'], $order );
 		}
 		$txn = (string) $read['txn'];
@@ -486,6 +487,43 @@ final class Claims {
 	public static function personal( array $tr ): bool {
 		return 'unmatched' === $tr['outcome'] && isset( $tr['reason'] ) && 'personal' === $tr['reason'] && null === $tr['order_id']
 			&& ( ! isset( $tr['flag'] ) || '' === $tr['flag'] );
+	}
+
+	/**
+	 * Which refusals of step 1 may hold an id one or two digits longer than the shape (TxnId::long_run()): what was
+	 * read had no id of the shape (qersh_txn_format), or only wallet numbers besides (qersh_txn_wallet_number: an
+	 * Orange message carries the sender's 0020 number). Not an empty or too long text, nor several ids. Pure.
+	 *
+	 * @param string $code Refusal code of TxnId::canonical_typed().
+	 * @return bool
+	 */
+	public static function counts_long_run( string $code ): bool {
+		return in_array( $code, array( 'qersh_txn_format', 'qersh_txn_wallet_number' ), true );
+	}
+
+	/**
+	 * The second drift trigger of docs/17 §4.9: a step-1 refusal of a text with a number one or two digits longer
+	 * than the shape is counted (Diagnostics::record_txn_refusal(), only order ids, a tag of the payer and times),
+	 * so the store learns when the operator lengthened its ids. The order page sends that number alone after its
+	 * own refusal (thankyou.js). Nothing the customer typed is kept. Never throws.
+	 *
+	 * @param string $code      Refusal code.
+	 * @param mixed  $raw       What the customer sent.
+	 * @param int    $order_id  The order.
+	 * @param string $payer_key The order's payer key.
+	 */
+	private function count_long_run( string $code, $raw, int $order_id, string $payer_key ): void {
+		if ( ! self::counts_long_run( $code ) ) {
+			return;
+		}
+		try {
+			$run = TxnId::long_run( self::PROVIDER, $raw );
+			if ( null !== $run ) {
+				$this->plugin->diagnostics()->record_txn_refusal( self::PROVIDER, $run, $order_id, $payer_key );
+			}
+		} catch ( \Throwable $e ) {
+			$this->plugin->logger()->warning( 'qersh: a refused transaction id could not be counted', array( 'error' => get_class( $e ) ) );
+		}
 	}
 
 	/**

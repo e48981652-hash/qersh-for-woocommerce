@@ -19,7 +19,8 @@ defined( 'ABSPATH' ) || exit;
  * - a row still `open` whose customer typed a transaction id that a transfer waiting for the merchant carries
  *   (review or personal, no order, no flag: holds_for_claim()) is not cancelled: the order stays pending, the
  *   transfer gets `claim_overdue` in "Needs a decision", the row `review`, the customer a note and the admin an alert;
- * - every customer note is added after COMMIT, so its email never goes out while the locks are held;
+ * - every customer note is added after COMMIT, so its email never goes out while the locks are held, and so is the
+ *   admin's "Cancelled order" email when the store wants it (filter_admin_cancel_email());
  * - otherwise `UPDATE … SET state = 'expired' WHERE state = 'open'` and, only when it hit the row, the order is
  *   cancelled if it is still pending with our method and not in the trash (else the row is corrected alone):
  *   `_qersh_expired_at`, an internal note, and a customer note by the kind of wallet;
@@ -60,6 +61,14 @@ final class Expiry {
 	private static $cancelling = 0;
 
 	/**
+	 * The order whose admin "Cancelled order" email WooCommerce tried to send inside our expiry's transaction while
+	 * store.admin_cancel_email_on_expiry is false: held back there, and sent after COMMIT (send_held_email()).
+	 *
+	 * @var int
+	 */
+	private static $held_email = 0;
+
+	/**
 	 * Builds the service.
 	 *
 	 * @param Plugin|null $plugin The plugin.
@@ -95,8 +104,9 @@ final class Expiry {
 		}
 		$db = $this->plugin->db();
 		for ( $attempt = 0; $attempt < 2; $attempt++ ) {
-			$alert = null;
-			$note  = null;
+			$alert            = null;
+			$note             = null;
+			self::$held_email = 0; // A rolled-back try sends nothing: its cancellation is undone.
 			try {
 				$done = $this->run_once( $order_id, $alert, $note );
 			} catch ( LockTimeout $e ) {
@@ -104,6 +114,7 @@ final class Expiry {
 				continue;
 			} catch ( \Throwable $e ) {
 				$db->rollback();
+				self::$held_email = 0;
 				throw $e;
 			}
 			if ( ! $done ) {
@@ -112,6 +123,7 @@ final class Expiry {
 			if ( null !== $note ) {
 				$this->customer_note_after_commit( $order_id, $note );
 			}
+			$this->send_held_email( $order_id );
 			if ( null !== $alert ) {
 				$this->plugin->orders()->alert( $alert[0], $alert[1] );
 			}
@@ -228,7 +240,9 @@ final class Expiry {
 	/**
 	 * Filters woocommerce_email_enabled_cancelled_order: store.admin_cancel_email_on_expiry, on by default, turns off
 	 * the admin's "Cancelled order" email when our expiry alone cancelled the order (docs/17 §4.2, §4.7); off, the
-	 * email goes as WooCommerce sends it. Every other cancellation keeps it.
+	 * email goes, though never from inside our transaction (cancel_email_now()): WooCommerce sends it there when it
+	 * does not defer emails (Action Scheduler, cron), so it is held back and sent after COMMIT, and SMTP never runs
+	 * while the payer lock is held. Every other cancellation keeps it.
 	 *
 	 * @param bool           $enabled Whether the email is enabled.
 	 * @param \WC_Order|null $order   Order.
@@ -239,12 +253,16 @@ final class Expiry {
 			return $enabled;
 		}
 		$plugin = Plugin::instance();
-		if ( ! self::mutes_admin_cancel_email( $plugin->config() ) ) {
-			return $enabled;
-		}
-		$id = (int) $order->get_id();
+		$mutes  = self::mutes_admin_cancel_email( $plugin->config() );
+		$id     = (int) $order->get_id();
 		if ( self::$cancelling === $id ) {
+			if ( 'after_commit' === self::cancel_email_now( $mutes ) ) {
+				self::$held_email = $id;
+			}
 			return false;
+		}
+		if ( ! $mutes ) {
+			return $enabled;
 		}
 		$expired_at = (int) $order->get_meta( '_qersh_expired_at', true );
 		if ( 'cancelled' !== $order->get_status() || $expired_at <= 0 || time() - $expired_at > self::EMAIL_WINDOW_SEC || ! $plugin->tables_ready() ) {
@@ -267,6 +285,48 @@ final class Expiry {
 	 */
 	public static function mutes_admin_cancel_email( array $config ): bool {
 		return ! isset( $config['store']['admin_cancel_email_on_expiry'] ) || false !== $config['store']['admin_cancel_email_on_expiry'];
+	}
+
+	/**
+	 * What becomes of the admin's "Cancelled order" email that WooCommerce sends while our expiry cancels the order,
+	 * inside its transaction: `mute` when mutes_admin_cancel_email() (never sent), else `after_commit` (held back,
+	 * then sent once the transaction is committed). A deferred email is not sent there at all: it goes later, through
+	 * the filter's other rules. Pure.
+	 *
+	 * @param bool $mutes mutes_admin_cancel_email().
+	 * @return string `mute` or `after_commit`.
+	 */
+	public static function cancel_email_now( bool $mutes ): string {
+		return $mutes ? 'mute' : 'after_commit';
+	}
+
+	/**
+	 * After COMMIT: the admin's "Cancelled order" email that the filter held back inside the transaction, sent once
+	 * through WooCommerce's own email (its other listeners of the status change ran already). Never throws.
+	 *
+	 * @param int $order_id Order id.
+	 */
+	private function send_held_email( int $order_id ): void {
+		if ( self::$held_email !== $order_id ) {
+			return;
+		}
+		self::$held_email = 0;
+		try {
+			$emails = function_exists( 'WC' ) ? WC()->mailer()->get_emails() : array();
+			$order  = wc_get_order( $order_id );
+			$email  = isset( $emails['WC_Email_Cancelled_Order'] ) ? $emails['WC_Email_Cancelled_Order'] : null;
+			if ( $email instanceof \WC_Email_Cancelled_Order && $order instanceof \WC_Order ) {
+				$email->trigger( $order_id, $order );
+			}
+		} catch ( \Throwable $e ) {
+			$this->plugin->logger()->error(
+				'qersh: the admin email of an expiry failed',
+				array(
+					'order' => $order_id,
+					'error' => get_class( $e ),
+				)
+			);
+		}
 	}
 
 	/**

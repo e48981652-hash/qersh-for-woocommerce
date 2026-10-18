@@ -19,8 +19,9 @@ defined( 'ABSPATH' ) || exit;
  *   host can finish the response early; (b) inline, inside a webhook request that is younger than six seconds; or
  *   (c) the `qersh_wc_complete` Action Scheduler action, unique per order.
  * - run() is the claimed path and the action handler. It claims the row (completion = running), then:
- *   1. under the payer lock, reads the order and its row again and decides. A completion left without the call
- *      corrects the row and the paying transfers right there ("Needs decision", their phone status to be
+ *   1. under the payer lock, reads the order and its row again and decides (decide(): pending, failed, cancelled by
+ *      our expiry with the stock there, or on hold when the merchant's attach paid it). A completion left without
+ *      the call corrects the row and the paying transfers right there ("Needs decision", their phone status to be
  *      corrected), so the order-status route never tells a customer "your order is confirmed" for a cancelled
  *      order. Then COMMIT.
  *   2. outside any transaction, calls payment_complete() once. The claim keeps every other path out, and neither our
@@ -107,6 +108,14 @@ final class Completion {
 	 * Reason of a completion left on an on-hold order without the forgery flag.
 	 */
 	const REASON_ON_HOLD = 'order_on_hold';
+
+	/**
+	 * Order meta that Orders::apply_attach() writes when the merchant's attach pays an on-hold order: the row's
+	 * paid_at of that decision. While it equals the row's paid_at, decide() completes the on-hold order (the fact
+	 * `merchant_hold`, docs/17 §4.6 lists on-hold among the orders an attach accepts); the completion removes it once
+	 * the decision is settled. Any other on-hold order (the forgery stop, the merchant's own hold) is never completed.
+	 */
+	const ATTACH_HOLD_META = '_qersh_attach_hold';
 
 	/**
 	 * Reason of a completion left to the merchant after MAX_ATTEMPTS calls of payment_complete().
@@ -224,7 +233,7 @@ final class Completion {
 	/**
 	 * The sweep (every 15 minutes): completes decisions paid two minutes ago or more whose completion is still due,
 	 * or running for longer than the claim allows, whatever the WooCommerce status; run() never completes an on-hold
-	 * order. Never throws.
+	 * order, except one whose paid decision is the merchant's attach (ATTACH_HOLD_META). Never throws.
 	 */
 	public function sweep(): void {
 		if ( ! $this->plugin->wc_ready() || ! $this->plugin->tables_ready() ) {
@@ -326,8 +335,11 @@ final class Completion {
 	 * Fact keys: `exists` (the order was found), `method` (payment method id), `status` (WooCommerce status without
 	 * `wc-`), `flagged` (`_qersh_flag` is set, or a transfer that paid the order is flagged as forged), `row_state`
 	 * (qersh_orders.state now), `expired` (`_qersh_expired_at` is set), `stock_ok` (only read for an order our expiry
-	 * cancelled: true when its stock still suffices) and `attempts` (payment_complete() calls already made for this
-	 * decision).
+	 * cancelled: true when its stock still suffices), `merchant_hold` (the paid decision is the merchant's attach to
+	 * this on-hold order: merchant_hold()) and `attempts` (payment_complete() calls already made for this decision).
+	 *
+	 * Completed: pending or failed; cancelled by our expiry when the stock suffices; on-hold only with merchant_hold
+	 * (the merchant chose that order for the transfer, docs/17 §4.6). The flag and a row no longer paid come first.
 	 *
 	 * @param array $facts Facts.
 	 * @return array `[ 'action' => 'complete'|'already'|'leave', 'row_state' => 'review'|'closed'|null,
@@ -338,14 +350,15 @@ final class Completion {
 	public static function decide( array $facts ): array {
 		$f = array_merge(
 			array(
-				'exists'    => false,
-				'method'    => '',
-				'status'    => '',
-				'flagged'   => false,
-				'row_state' => null,
-				'expired'   => false,
-				'stock_ok'  => null,
-				'attempts'  => 0,
+				'exists'        => false,
+				'method'        => '',
+				'status'        => '',
+				'flagged'       => false,
+				'row_state'     => null,
+				'expired'       => false,
+				'stock_ok'      => null,
+				'merchant_hold' => false,
+				'attempts'      => 0,
 			),
 			$facts
 		);
@@ -361,7 +374,7 @@ final class Completion {
 		if ( 'paid' !== $f['row_state'] ) {
 			return self::verdict( 'leave', null, 'closed_order' ); // The row says why already (closed or review).
 		}
-		$completable = in_array( $f['status'], self::COMPLETABLE, true );
+		$completable = in_array( $f['status'], self::COMPLETABLE, true ) || ( 'on-hold' === $f['status'] && true === $f['merchant_hold'] );
 		if ( 'cancelled' === $f['status'] && ! empty( $f['expired'] ) ) {
 			if ( true !== $f['stock_ok'] ) {
 				return self::verdict( 'leave', 'review', 'stock_short' );
@@ -426,6 +439,20 @@ final class Completion {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * The `merchant_hold` fact of decide(): the order's ATTACH_HOLD_META names the paid decision the row holds now
+	 * (its paid_at), so it was the merchant's attach that paid this on-hold order. A meta of an earlier decision, or
+	 * a row without paid_at, is not. Pure.
+	 *
+	 * @param mixed $meta The order's ATTACH_HOLD_META ('' when missing).
+	 * @param array $row  The qersh_orders row, read under the lock.
+	 * @return bool
+	 */
+	public static function merchant_hold( $meta, array $row ): bool {
+		$paid_at = isset( $row['paid_at'] ) && is_numeric( $row['paid_at'] ) ? (int) $row['paid_at'] : 0;
+		return $paid_at > 0 && is_scalar( $meta ) && (string) $paid_at === (string) $meta;
 	}
 
 	/**
@@ -527,6 +554,7 @@ final class Completion {
 		if ( 'call' === $plan['do'] && $plan['order'] instanceof \WC_Order ) {
 			return $plan;
 		}
+		$this->forget_hold( $order_id ); // The completion of this decision ended without the call.
 		if ( $plan['attempts'] > 0 ) {
 			$this->forget_attempts( $order_id );
 		}
@@ -612,6 +640,9 @@ final class Completion {
 			if ( 'cancelled' === $facts['status'] && $facts['expired'] ) {
 				$facts['stock_ok'] = self::stock_enough( self::stock_lines( $order ) );
 			}
+			if ( 'on-hold' === $facts['status'] ) {
+				$facts['merchant_hold'] = self::merchant_hold( $order->get_meta( self::ATTACH_HOLD_META, true ), $row );
+			}
 		}
 		$verdict = self::decide( $facts );
 
@@ -674,6 +705,9 @@ final class Completion {
 		}
 		if ( 'due' !== $settled['completion'] ) {
 			$this->forget_attempts( $order_id );
+			if ( $settled['mine'] ) {
+				$this->forget_hold( $order_id ); // Settled; a stale-claim takeover still reads it for its own decision.
+			}
 		}
 		if ( $settled['stop'] ) {
 			$this->stop_paid_order( $order_id );
@@ -914,6 +948,25 @@ final class Completion {
 			delete_transient( self::ATTEMPTS_TRANSIENT . $order_id );
 		} catch ( \Throwable $e ) {
 			unset( $e ); // It expires after a day.
+		}
+	}
+
+	/**
+	 * Removes ATTACH_HOLD_META once the completion of its decision is settled (outside any transaction). A meta left
+	 * behind would still never complete a later decision: merchant_hold() compares it with the row's paid_at. Never
+	 * throws.
+	 *
+	 * @param int $order_id Order id.
+	 */
+	private function forget_hold( int $order_id ): void {
+		try {
+			$order = wc_get_order( $order_id );
+			if ( $order instanceof \WC_Order && '' !== (string) $order->get_meta( self::ATTACH_HOLD_META, true ) ) {
+				$order->delete_meta_data( self::ATTACH_HOLD_META );
+				$order->save_meta_data();
+			}
+		} catch ( \Throwable $e ) {
+			$this->log_failure( 'hold meta', $order_id, $e );
 		}
 	}
 

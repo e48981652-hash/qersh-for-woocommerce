@@ -10,7 +10,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "10 digits (older wording)",
@@ -23,7 +24,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "7700031948"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "leading zeros kept, 10 digits",
@@ -36,7 +38,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "0012345678"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "leading zeros kept, 14 digits",
@@ -49,7 +52,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "00012345678901"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "spaces inside",
@@ -62,7 +66,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "hyphens inside",
@@ -75,7 +80,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "dots, number sign and colon",
@@ -88,7 +94,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "en dashes inside",
@@ -101,7 +108,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "white space around, tab and NBSP inside",
@@ -114,7 +122,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "Arabic-Indic digits",
@@ -127,7 +136,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "Persian digits",
@@ -140,7 +150,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "mixed digit scripts",
@@ -153,7 +164,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "RLM and LRM around",
@@ -166,7 +178,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "bidi isolates and embeddings inside",
@@ -179,7 +192,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "zero-width space inside",
@@ -192,7 +206,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "tatweel inside Arabic-Indic digits",
@@ -205,7 +220,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "BOM and Arabic letter mark before",
@@ -218,7 +234,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "label and full-width colon before",
@@ -231,7 +248,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "C1 «تم استلام مبلغ» (name, balance)",
@@ -244,7 +262,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "C2 «لقد استقبلت تحويل أموال», sender is the order's payer",
@@ -257,7 +276,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25005172944183"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "C2, sender is another number (0020 form is a phone number, never an id)",
@@ -270,7 +290,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25005172944183"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "C3 «تم استلام عملية تحويل أموال»",
@@ -283,7 +304,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25004617383051"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "cashback note before C3",
@@ -296,7 +318,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25004617383051"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "advert block before C1",
@@ -309,7 +332,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "advert block before C2",
@@ -322,7 +346,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25005172944183"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "older wording, 10-digit id",
@@ -335,7 +360,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "7700031948"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "older wording, Arabic-Indic digits",
@@ -348,7 +374,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "2995831338"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "the customer's own debit SMS (store number inside)",
@@ -361,7 +388,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25006831596394"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "debit SMS with «رقم العملية» and a link tail",
@@ -374,7 +402,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25006831596394"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "C1 with RLM marks around the numbers",
@@ -387,7 +416,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "C1 in Arabic-Indic digits",
@@ -400,7 +430,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "order's number written 1xxxxxxxxx next to the id",
@@ -413,7 +444,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "store number written 1xxxxxxxxx next to the id",
@@ -426,7 +458,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "order's number 01xxxxxxxxx next to the id",
@@ -439,7 +472,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "only the order's number as a 10-digit run in a sentence",
@@ -452,7 +486,8 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_wallet_number"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "order's number in a sentence",
@@ -465,7 +500,8 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_wallet_number"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "two 14-digit runs",
@@ -478,7 +514,8 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_several"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "a 14-digit and a 10-digit run",
@@ -491,7 +528,8 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_several"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "two messages pasted together",
@@ -504,7 +542,8 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_several"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "the same id twice counts once",
@@ -517,7 +556,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "the same message twice",
@@ -530,7 +570,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "order's number",
@@ -543,7 +584,8 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_wallet_number"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "order's number as 1xxxxxxxxx (has the 10-digit shape)",
@@ -556,7 +598,8 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_wallet_number"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "order's number as +20 with spaces",
@@ -569,7 +612,8 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_wallet_number"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "order's number as 0020 (has the 14-digit shape)",
@@ -582,7 +626,8 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_wallet_number"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "order's number in Arabic-Indic digits",
@@ -595,7 +640,8 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_wallet_number"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "store number",
@@ -608,7 +654,8 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_wallet_number"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "store number as 1xxxxxxxxx",
@@ -621,7 +668,8 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_wallet_number"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "another mobile number, 01xxxxxxxxx",
@@ -634,7 +682,8 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_wallet_number"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "another mobile number, 0020 form",
@@ -647,7 +696,8 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_wallet_number"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "10-digit id starting with 1 that is not a known number",
@@ -660,7 +710,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "1234567890"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "1xxxxxxxxx without a payer key or store numbers is an id",
@@ -671,7 +722,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "1001234567"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "13 digits",
@@ -684,7 +736,8 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_format"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "15 digits",
@@ -697,7 +750,8 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_format"
-		}
+		},
+		"long_run": "250072940674051"
 	},
 	{
 		"name": "letters only",
@@ -710,7 +764,8 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_format"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "id split by spaces inside a sentence",
@@ -723,7 +778,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "id split 10 + 4 by a space in a sentence is never its first 10 digits",
@@ -736,7 +792,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25005172944183"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "id split 10 + 4 by a hyphen in a sentence",
@@ -749,7 +806,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25005172944183"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "id split 4 + 10 by a hyphen in a sentence",
@@ -762,7 +820,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "10-digit id and a number on the same line that join to 13 digits",
@@ -775,7 +834,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "7700031948"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "a line break never joins numbers",
@@ -788,7 +848,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "7700031948"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "a paragraph separator never joins numbers",
@@ -801,7 +862,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "7700031948"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "order's number split by spaces next to the id",
@@ -814,7 +876,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "only the order's number split by spaces in a sentence",
@@ -827,7 +890,8 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_wallet_number"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "a message without an id",
@@ -840,7 +904,8 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_format"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "empty",
@@ -853,7 +918,8 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_empty"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "white space only",
@@ -866,7 +932,8 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_empty"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "marks only",
@@ -879,7 +946,8 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_empty"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "separators only",
@@ -892,7 +960,8 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_empty"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "null",
@@ -905,7 +974,8 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_empty"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "a number instead of text",
@@ -918,7 +988,8 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_format"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "exactly 400 characters",
@@ -931,7 +1002,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "401 characters",
@@ -944,7 +1016,8 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_too_long"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "400 Arabic letters",
@@ -957,7 +1030,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "401 Arabic letters",
@@ -970,7 +1044,8 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_too_long"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "emoji count two units: 400",
@@ -983,7 +1058,8 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "emoji count two units: 402",
@@ -996,7 +1072,8 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_too_long"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "401 spaces is too long, not empty",
@@ -1009,7 +1086,8 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_too_long"
-		}
+		},
+		"long_run": null
 	},
 	{
 		"name": "provider without a shape",
@@ -1022,6 +1100,161 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_format"
-		}
+		},
+		"long_run": null
+	},
+	{
+		"name": "longer id: 16 digits",
+		"provider": "orange_cash",
+		"raw": "2500729406740512",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_format"
+		},
+		"long_run": "2500729406740512"
+	},
+	{
+		"name": "longer id: 17 digits is not one",
+		"provider": "orange_cash",
+		"raw": "25007294067405123",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_format"
+		},
+		"long_run": null
+	},
+	{
+		"name": "longer id: 15 digits split by spaces",
+		"provider": "orange_cash",
+		"raw": "2500 7294 0674 051",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_format"
+		},
+		"long_run": "250072940674051"
+	},
+	{
+		"name": "longer id: 15 Arabic-Indic digits with RLM marks",
+		"provider": "orange_cash",
+		"raw": "\u200f٢٥٠٠٧٢٩٤٠٦٧٤٠٥١\u200f",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_format"
+		},
+		"long_run": "250072940674051"
+	},
+	{
+		"name": "longer id: C1 with a 15-digit id",
+		"provider": "orange_cash",
+		"raw": "تم استلام مبلغ 11.00 جنيه من AHMED M.، رصيدك الحالي 288.40 جنية، رقم المعاملة 250072940674051.",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_format"
+		},
+		"long_run": "250072940674051"
+	},
+	{
+		"name": "longer id: C2 with a 15-digit id (the sender's 0020 number left out, so a wallet number)",
+		"provider": "orange_cash",
+		"raw": "لقد استقبلت تحويل أموال بمبلغ 25.00 جنيه من 00201001234567 رصيد اورنچ كاش الجديد 19.07 جنيه رقم المعاملة 250051729441831",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_wallet_number"
+		},
+		"long_run": "250051729441831"
+	},
+	{
+		"name": "longer id: a mobile number written 0020 01xxxxxxxxx is never one",
+		"provider": "orange_cash",
+		"raw": "002001001234567",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_wallet_number"
+		},
+		"long_run": null
+	},
+	{
+		"name": "longer id: another mobile number written 0020 01xxxxxxxxx in a sentence is never one",
+		"provider": "orange_cash",
+		"raw": "من 002001112223334",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_format"
+		},
+		"long_run": null
+	},
+	{
+		"name": "longer id: a line break never joins one",
+		"provider": "orange_cash",
+		"raw": "25007294\n0674051",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_format"
+		},
+		"long_run": null
+	},
+	{
+		"name": "longer id: found next to an id that is read (only a refusal records it)",
+		"provider": "orange_cash",
+		"raw": "رقم المعاملة 25007294067405 مرجع 250072940674059",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25007294067405"
+		},
+		"long_run": "250072940674059"
+	},
+	{
+		"name": "longer id: none for a provider without a shape",
+		"provider": "vodafone_cash",
+		"raw": "250072940674051",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_format"
+		},
+		"long_run": null
 	}
 ]

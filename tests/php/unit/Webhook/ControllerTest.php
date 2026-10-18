@@ -221,6 +221,16 @@ final class ControllerTest extends TestCase {
 		$this->assertSame( array( 'code' => 'qersh_unavailable' ), $off['body'] );
 	}
 
+	/** A failure after a query found a table missing answers 503 as docs/17 §4.4 step 1 says; any other one 500. */
+	public function test_after_throwable(): void {
+		$this->assertSame( Controller::failure( 500, 'qersh_internal_error' ), Controller::after_throwable( true ) );
+		$lost = Controller::after_throwable( false );
+		$this->assertSame( Controller::unavailable(), $lost );
+		$this->assertSame( 503, $lost['http'] );
+		$this->assertSame( array( 'code' => 'qersh_unavailable' ), $lost['body'] );
+		$this->assertSame( array( 'Cache-Control' => 'no-store, private' ), $lost['headers'] );
+	}
+
 	/** A fence that hits no row (the stale claim was taken over) answers busy with Retry-After 30, never our reply. */
 	public function test_fenced_out_is_busy(): void {
 		$this->assertSame(

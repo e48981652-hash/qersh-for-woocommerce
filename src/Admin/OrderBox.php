@@ -7,6 +7,7 @@
 
 namespace QershPay\WooCommerce\Admin;
 
+use QershPay\WooCommerce\Claims;
 use QershPay\WooCommerce\Core\TxnId;
 
 defined( 'ABSPATH' ) || exit;
@@ -238,7 +239,11 @@ final class OrderBox {
 					$status = sprintf( esc_html__( 'Already paid order %s', 'qersh-for-woocommerce' ), View::order_link( (int) $transfer['order_id'] ) );
 					break;
 				}
-				$status = esc_html__( 'Waits for your decision in “Needs a decision”', 'qersh-for-woocommerce' );
+				// The list it is in, as the Claims note names it: a personal transfer stays under "Personal transfers"
+				// until the order's deadline moves it to "Needs a decision" (Expiry::holds_for_claim(), claim_overdue).
+				$status = Claims::personal( $transfer )
+					? esc_html__( 'Waits for your decision in “Personal transfers”', 'qersh-for-woocommerce' )
+					: esc_html__( 'Waits for your decision in “Needs a decision”', 'qersh-for-woocommerce' );
 			}
 		} catch ( \Throwable $e ) {
 			unset( $e );

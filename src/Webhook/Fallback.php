@@ -53,7 +53,7 @@ final class Fallback {
 			$result = self::answer( self::target( $qw, $qo ) );
 		} catch ( \Throwable $e ) {
 			Controller::log_throwable( 'fallback', $e );
-			$result = Controller::failure( 500, 'qersh_internal_error' );
+			$result = Controller::after_throwable( ! Controller::found_unready() );
 		}
 		self::send( $result );
 	}
@@ -81,8 +81,8 @@ final class Fallback {
 	}
 
 	/**
-	 * The X-Qersh-* request headers from server variables (already unslashed), with lower-case names. Values are
-	 * kept as they are: the signature is checked byte for byte, the others are validated where they are read. Pure.
+	 * The X-Qersh-* request headers from server variables (as server_headers() read them), with lower-case names.
+	 * Only string values are kept, as they are. Pure.
 	 *
 	 * @param array $server Server variables.
 	 * @return array<string, string>
@@ -93,6 +93,29 @@ final class Fallback {
 			if ( isset( $server[ $variable ] ) && is_string( $server[ $variable ] ) ) {
 				$out[ $name ] = $server[ $variable ];
 			}
+		}
+		return $out;
+	}
+
+	/**
+	 * The server variables of SERVER_HEADERS, and only those, unslashed. X-Qersh-Signature is kept as it came: it is
+	 * the input of the HMAC check (Verifier parses it strictly and compares each v1 value with hash_equals()), never
+	 * stored or output, and sanitizing could turn a malformed header into a well-formed one. The others go through
+	 * sanitize_text_field() and are validated again where they are read (Envelope::delivery_headers()).
+	 *
+	 * @return array<string, string>
+	 */
+	private static function server_headers(): array {
+		$out = array();
+		foreach ( array_keys( self::SERVER_HEADERS ) as $variable ) {
+			if ( ! isset( $_SERVER[ $variable ] ) || ! is_string( $_SERVER[ $variable ] ) ) {
+				continue;
+			}
+			if ( 'HTTP_X_QERSH_SIGNATURE' === $variable ) {
+				$out[ $variable ] = (string) wp_unslash( $_SERVER[ $variable ] ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- HMAC check input, compared with hash_equals(), never stored or output (see above).
+				continue;
+			}
+			$out[ $variable ] = sanitize_text_field( wp_unslash( $_SERVER[ $variable ] ) );
 		}
 		return $out;
 	}
@@ -124,8 +147,7 @@ final class Fallback {
 			return self::too_large( $target['kind'] );
 		}
 		if ( 'webhook' === $target['kind'] ) {
-			$server = wp_unslash( $_SERVER ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- only the X-Qersh-* headers are taken; the signature is verified byte for byte and never output.
-			return Controller::handle_fallback( $target['wallet'], $raw, self::qersh_headers( is_array( $server ) ? $server : array() ) );
+			return Controller::handle_fallback( $target['wallet'], $raw, self::qersh_headers( self::server_headers() ) );
 		}
 		return self::storefront( $target['kind'], $raw );
 	}

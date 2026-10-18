@@ -1,5 +1,6 @@
 // The JavaScript normaliser of the order page (assets/js/txn-normalize.js) against the vectors Core\TxnId reads
-// (tests/vectors/txn-normalize.json), the shapes of fixtures/txn-patterns.json, and the core's normalizePayer.
+// (tests/vectors/txn-normalize.json: canonicalTyped() and longRun() against each vector's `expect` and `long_run`), the
+// shapes of fixtures/txn-patterns.json, and the core's normalizePayer.
 // Then hasRtl() (Format::has_rtl(); FormatTest checks that both tables hold the same code points), and the two places
 // of the order page (assets/js/thankyou.js) that use the normaliser for display, in a small stand-in for the DOM: the
 // deadline's direction, and the "We will send: …" preview of the transaction id. Then the live box of thankyou.js
@@ -27,16 +28,33 @@ for (const v of vectors) {
 	test(`canonicalTyped: ${v.name}`, () => {
 		assert.deepEqual(N.canonicalTyped(v.provider, v.raw, v.payer_key, v.store_numbers), v.expect);
 	});
+	test(`longRun: ${v.name}`, () => {
+		assert.equal(N.longRun(v.provider, v.raw), v.long_run);
+	});
 }
 
-test('canonicalTyped gives the same answers with the shapes the page passes from the server', () => {
+test('canonicalTyped and longRun give the same answers with the shapes the page passes from the server', () => {
 	const shapes = {};
 	for (const [provider, spec] of Object.entries(read('../../fixtures/txn-patterns.json').providers)) {
 		shapes[provider] = { pattern: spec.pattern, lengths: spec.lengths, cls: spec.class };
 	}
 	for (const v of vectors) {
 		assert.deepEqual(N.canonicalTyped(v.provider, v.raw, v.payer_key, v.store_numbers, shapes), v.expect, v.name);
+		assert.equal(N.longRun(v.provider, v.raw, shapes), v.long_run, v.name);
 	}
+});
+
+test('longRun outside the vectors, as TxnIdTest reads them', () => {
+	assert.equal(N.longRun('orange_cash', null), null);
+	assert.equal(N.longRun('orange_cash', 250072940674051), null, 'a JSON number is never read');
+	assert.equal(N.longRun('orange_cash', ''), null);
+	assert.equal(N.longRun('orange_cash', ' '.repeat(386) + '250072940674051'), null, '401 characters');
+	assert.equal(N.longRun('orange_cash', ' '.repeat(385) + '250072940674051'), '250072940674051');
+	assert.equal(N.longRun('orange_cash', '25007294067405'), null, 'the shape itself');
+	assert.equal(N.longRun('orange_cash', '250072940674051 و 2500729406740512'), '250072940674051');
+	assert.equal(N.longRun('orange_cash', 'رقم 2500517294-418312'), '2500517294418312');
+	assert.equal(N.longRun('orange_cash', '100\n250072940674051'), '250072940674051');
+	assert.equal(N.longRun('orange_cash', '250072940674051-25007294067405123'), '250072940674051');
 });
 
 test('the built-in shapes equal fixtures/txn-patterns.json', () => {
@@ -614,6 +632,51 @@ test('thankyou.js: a copy is said in the live region, and said again on the next
 	await p.advance(2);
 	assert.equal(p.said.textContent, '');
 	assert.equal(button.textContent, 'Copy');
+});
+
+test('thankyou.js: a refused id one or two digits longer than the shape is sent alone, so the server counts it; other refusals stay on the page', async () => {
+	const errors = { qersh_txn_format: 'Not a transaction id', qersh_txn_wallet_number: 'A wallet number', other: 'Try again' };
+	const flush = async () => {
+		for (let i = 0; i < 6; i++) await new Promise((r) => setImmediate(r));
+	};
+	let p = null;
+	const answers = () => (p && p.calls.at(-1).url === '/txn' ? { code: 'qersh_txn_format', message: 'm' } : { status: 'waiting', claim: false });
+	p = livePage({
+		cfg: cfgOf({
+			orange: true,
+			txn_open: true,
+			txn: { provider: 'orange_cash', payer_key: '01001234567', store_numbers: ['01212345678'] },
+			strings: { ...STRINGS, txn_errors: errors },
+		}),
+		answers,
+	});
+	const send = p.txn.querySelector('[data-qersh-txn-send]');
+	const msg = p.txn.querySelector('[data-qersh-txn-msg]');
+	const sent = () => p.calls.filter((c) => c.url === '/txn').map((c) => c.body);
+
+	// A pasted message whose id is 15 digits (format), and one with the sender's number (wallet number): only the
+	// long number leaves the page, and the server's refusal is shown.
+	for (const name of ['longer id: C1 with a 15-digit id', "longer id: C2 with a 15-digit id (the sender's 0020 number left out, so a wallet number)"]) {
+		const v = vectors.find((x) => x.name === name);
+		assert.ok(v && v.long_run, name);
+		p.input.value = v.raw;
+		send.listeners.click[0]();
+		await flush();
+		assert.deepEqual(sent().at(-1), { order_id: 9, key: 'wc_order_k', txn: v.long_run }, name);
+		assert.equal(msg.textContent, errors.qersh_txn_format, name);
+		assert.equal(msg.getAttribute('role'), 'alert');
+		assert.equal(send.disabled, false);
+	}
+	assert.equal(sent().length, 2);
+
+	// Refusals without such a number are not sent.
+	for (const [raw, code] of [['2500729406114', 'qersh_txn_format'], ['25007294067405123', 'qersh_txn_format'], ['002001001234567', 'qersh_txn_wallet_number'], ['', 'qersh_txn_empty']]) {
+		p.input.value = raw;
+		send.listeners.click[0]();
+		await flush();
+		assert.equal(sent().length, 2, raw);
+		assert.equal(msg.textContent, errors[code] || errors.other, raw);
+	}
 });
 
 // ---- payer-field.js: the classic checkout's field, as templates/checkout/payer-field.php draws it.

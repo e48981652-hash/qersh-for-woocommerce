@@ -13,8 +13,8 @@ return array(
 	'plural-forms' => 'nplurals=6; plural=(n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 ? 4 : 5);',
 	'language' => 'ar',
 	'project-id-version' => 'Qersh for WooCommerce 0.1.0',
-	'pot-creation-date' => '2026-10-18T01:39:58+00:00',
-	'po-revision-date' => '2026-10-18 01:45+0000',
+	'pot-creation-date' => '2026-10-18T02:30:01+00:00',
+	'po-revision-date' => '2026-10-18 02:31+0000',
 	'x-generator' => 'scripts/make-pot.php',
 	'messages' => array(
 		'Qersh for WooCommerce' => 'Qersh for WooCommerce',
@@ -43,6 +43,7 @@ return array(
 		'No transfer with this transaction id has arrived yet' => 'لم يصل تحويل بهذا الرقم بعد',
 		'Matched transfer %s' => 'طابق التحويل %s',
 		'Already paid order %s' => 'دفع الطلب %s من قبل',
+		'Waits for your decision in “Personal transfers”' => 'ينتظر قرارك في «تحويلات شخصية»',
 		'Waits for your decision in “Needs a decision”' => 'ينتظر قرارك في «تحتاج قرارًا»',
 		'Transaction id from the customer: %1$s (%2$s) · %3$s' => 'رقم العملية من العميل: %1$s (%2$s) · %3$s',
 		'Waiting for the transfer' => 'بانتظار التحويل',

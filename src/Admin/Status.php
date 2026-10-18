@@ -207,7 +207,9 @@ final class Status {
 		$no  = esc_html__( 'No', 'qersh-for-woocommerce' );
 
 		$add( __( 'Versions', 'qersh-for-woocommerce' ), View::ltr( 'Qersh for WooCommerce ' . QERSH_WC_VERSION . ' · WordPress ' . get_bloginfo( 'version' ) . ' · WooCommerce ' . ( defined( 'WC_VERSION' ) ? WC_VERSION : '—' ) . ' · PHP ' . PHP_VERSION ) );
-		$add( __( 'Tables', 'qersh-for-woocommerce' ), $plugin->tables_ready() ? esc_html__( 'Ready', 'qersh-for-woocommerce' ) : esc_html__( 'Missing', 'qersh-for-woocommerce' ), ! $plugin->tables_ready() );
+		// SHOW TABLES too (admin screens only): Ready never shows before a query has noticed a missing table.
+		$tables = $plugin->tables_ready() && \QershPay\WooCommerce\Store\Schema::tables_exist();
+		$add( __( 'Tables', 'qersh-for-woocommerce' ), $tables ? esc_html__( 'Ready', 'qersh-for-woocommerce' ) : esc_html__( 'Missing', 'qersh-for-woocommerce' ), ! $tables );
 		$rest = Diagnostics::url_parts( rest_url() );
 		$add( __( 'REST address form', 'qersh-for-woocommerce' ), 'rest_route' === $rest['form'] ? esc_html__( 'Plain permalinks (index.php?rest_route=…)', 'qersh-for-woocommerce' ) : esc_html__( 'Pretty permalinks (/wp-json/…)', 'qersh-for-woocommerce' ) );
 		$finish = \QershPay\WooCommerce\Plugin::finish_available();

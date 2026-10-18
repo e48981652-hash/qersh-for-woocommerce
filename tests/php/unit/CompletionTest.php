@@ -262,7 +262,7 @@ final class CompletionTest extends TestCase {
 		}
 	}
 
-	/** On-hold is never completed (the forgery stop, and WooCommerce would accept it), and its reason says on hold. */
+	/** On hold without the merchant's attach (the forgery stop, the merchant's own hold) is never completed, though WooCommerce would accept it. */
 	public function test_on_hold_is_never_completed(): void {
 		$verdict = Completion::decide( $this->facts( array( 'status' => 'on-hold' ) ) );
 		$this->assertSame(
@@ -274,6 +274,71 @@ final class CompletionTest extends TestCase {
 			$verdict
 		);
 		$this->assertSame( Completion::REASON_ON_HOLD, $verdict['reason'] );
+		// Only `true` counts: a fact read badly never completes an order on hold.
+		foreach ( array( false, null, 1, 'yes', '1700000000' ) as $hold ) {
+			$this->assertSame(
+				$verdict,
+				Completion::decide(
+					$this->facts(
+						array(
+							'status'        => 'on-hold',
+							'merchant_hold' => $hold,
+						)
+					)
+				),
+				gettype( $hold ) . ' ' . ( is_scalar( $hold ) ? (string) $hold : '' )
+			);
+		}
+	}
+
+	/** An on-hold order the merchant's attach paid is completed (docs/17 §4.6 accepts on-hold for an attach). */
+	public function test_on_hold_attached_by_the_merchant_is_completed(): void {
+		$hold = array(
+			'status'        => 'on-hold',
+			'merchant_hold' => true,
+		);
+		$this->assertSame(
+			array(
+				'action'    => 'complete',
+				'row_state' => null,
+				'reason'    => null,
+			),
+			Completion::decide( $this->facts( $hold ) )
+		);
+		// The flag and a row no longer paid still come first, and the attempts are still capped.
+		$this->assertSame( 'forgery', Completion::decide( $this->facts( $hold + array( 'flagged' => true ) ) )['reason'] );
+		$this->assertSame(
+			array(
+				'action'    => 'leave',
+				'row_state' => null,
+				'reason'    => 'closed_order',
+			),
+			Completion::decide( $this->facts( array_merge( $hold, array( 'row_state' => 'review' ) ) ) )
+		);
+		$this->assertSame( 'completion_failed', Completion::decide( $this->facts( $hold + array( 'attempts' => 3 ) ) )['reason'] );
+		$this->assertSame( 'complete', Completion::decide( $this->facts( $hold + array( 'attempts' => 2 ) ) )['action'] );
+		// The fact is about on-hold only: any other status decides as before.
+		$this->assertSame( 'closed', Completion::decide( $this->facts( array_merge( $hold, array( 'status' => 'cancelled' ) ) ) )['row_state'] );
+		$this->assertSame( 'already', Completion::decide( $this->facts( array_merge( $hold, array( 'status' => 'processing' ) ) ) )['action'] );
+		$this->assertSame( 'closed', Completion::decide( $this->facts( array( 'method' => 'cod' ) + $hold ) )['row_state'] );
+	}
+
+	/** The meta of the merchant's attach counts only for the paid decision it names (the row's paid_at). */
+	public function test_merchant_hold(): void {
+		$row = array(
+			'state'   => 'paid',
+			'paid_at' => 1792330500,
+		);
+		$this->assertTrue( Completion::merchant_hold( '1792330500', $row ) );
+		$this->assertTrue( Completion::merchant_hold( 1792330500, $row ) );
+		$this->assertFalse( Completion::merchant_hold( '1792330499', $row ), 'an earlier decision' );
+		$this->assertFalse( Completion::merchant_hold( '', $row ), 'no attach' );
+		$this->assertFalse( Completion::merchant_hold( array( '1792330500' ), $row ) );
+		$this->assertFalse( Completion::merchant_hold( '1792330500 ', $row ) );
+		$this->assertFalse( Completion::merchant_hold( '0', array( 'paid_at' => 0 ) ) );
+		$this->assertFalse( Completion::merchant_hold( '', array( 'paid_at' => null ) ) );
+		$this->assertFalse( Completion::merchant_hold( '1792330500', array( 'state' => 'paid' ) ) );
+		$this->assertSame( '_qersh_attach_hold', Completion::ATTACH_HOLD_META );
 	}
 
 	/** After three calls that left the order unpaid, the decision goes to the merchant instead of a fourth call. */

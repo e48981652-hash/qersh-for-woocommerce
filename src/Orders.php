@@ -668,8 +668,9 @@ final class Orders {
 	 * - `confirm`: the overpaid transfer of a paid order is confirmed, nothing else changes;
 	 * then the result as for an automatic match: partial without completion (the customer's note, and the expiry
 	 * action of a row written here), else paid and the completion, which checks the stock again for an order our
-	 * expiry cancelled. A cancelled order is never brought back with part of its amount. The phone hears it in the
-	 * next replies. Check the warnings (attach_warnings()) with the merchant first.
+	 * expiry cancelled, and completes an on-hold order this attach paid (Completion::ATTACH_HOLD_META). A cancelled
+	 * order is never brought back with part of its amount. The phone hears it in the next replies. Check the warnings
+	 * (attach_warnings()) with the merchant first.
 	 *
 	 * @param string $transfer_id Transfer id.
 	 * @param int    $order_id    Order id.
@@ -2301,7 +2302,13 @@ final class Orders {
 
 		$save = false;
 		if ( '' === (string) $order->get_payment_method() ) {
-			$order->set_payment_method( self::METHOD );
+			$order->set_payment_method( self::method_value() );
+			$save = true;
+		}
+		if ( $paid && 'on-hold' === $order->get_status() ) {
+			// The merchant chose this on-hold order for the transfer (docs/17 §4.6): Completion completes it for this
+			// paid decision only (the meta equals the row's paid_at), never an order on hold for another reason.
+			$order->update_meta_data( Completion::ATTACH_HOLD_META, (string) $now );
 			$save = true;
 		}
 		if ( null === $row ) {
@@ -2341,6 +2348,19 @@ final class Orders {
 		$effects['partial'] = ! $paid;
 		$effects['total']   = $total;
 		return $effects;
+	}
+
+	/**
+	 * What set_payment_method() gets for an order without a method: our gateway object, so the order's method title
+	 * is set too (a string sets only the id, and the order would show an empty method), or the id when WooCommerce
+	 * has not loaded the gateways.
+	 *
+	 * @return \WC_Payment_Gateway|string
+	 */
+	private static function method_value() {
+		$api      = function_exists( 'WC' ) ? WC()->payment_gateways() : null;
+		$gateways = $api instanceof \WC_Payment_Gateways ? $api->payment_gateways() : array();
+		return isset( $gateways[ self::METHOD ] ) && $gateways[ self::METHOD ] instanceof \WC_Payment_Gateway ? $gateways[ self::METHOD ] : self::METHOD;
 	}
 
 	/**

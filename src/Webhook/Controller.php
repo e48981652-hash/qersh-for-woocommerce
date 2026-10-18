@@ -32,7 +32,9 @@ defined( 'ABSPATH' ) || exit;
  * 5. the event: webhook.test and ignored events here, transfer.received and transfer.updated in Orders; a fence
  *    that hits no row (another request took the stale claim over) answers 429, as step 4 would;
  * 6. every 2xx reply carries the pending status_updates of the wallet, within 16 KB.
- * Every Throwable is logged without data and answers 500 JSON; after the claim it also releases it.
+ * Every Throwable is logged without data and answers 500 JSON; after the claim it also releases it. When a query of
+ * the request found one of our tables missing meanwhile (Store\Schema::lost(), so ready() is false now), the answer
+ * is 503 qersh_unavailable instead, as for the next delivery until the tables are back (docs/17 §4.4 step 1).
  */
 final class Controller {
 
@@ -135,6 +137,9 @@ final class Controller {
 			return $gate['ok'] ? true : self::to_wp_error( $gate['error'] );
 		} catch ( \Throwable $e ) {
 			self::log_throwable( 'permission check', $e );
+			if ( self::found_unready() ) {
+				return true; // The tables were found missing: the callback answers 503 before it reads anything.
+			}
 			return new \WP_Error( 'qersh_internal_error', 'Unexpected error.', array( 'status' => 500 ) );
 		}
 	}
@@ -161,7 +166,7 @@ final class Controller {
 			$result = $controller->process( $wallet, $raw, $request->get_headers(), self::rest_form(), $gate, $now );
 		} catch ( \Throwable $e ) {
 			$controller->log_error( 'webhook', $e );
-			$result = self::failure( 500, 'qersh_internal_error' );
+			$result = self::after_throwable( $controller->ready() );
 		}
 		$controller->as_health();
 		$response = new \WP_REST_Response( $result['body'], $result['http'] );
@@ -194,7 +199,7 @@ final class Controller {
 			$result = $controller->process( $wallet, (string) $raw, $headers, 'wc-api', $gate, $now );
 		} catch ( \Throwable $e ) {
 			$controller->log_error( 'webhook', $e );
-			$result = self::failure( 500, 'qersh_internal_error' );
+			$result = self::after_throwable( $controller->ready() );
 		}
 		$controller->as_health();
 		return $result;
@@ -312,9 +317,9 @@ final class Controller {
 			$this->plugin->deliveries()->release( $delivery_id, $token );
 			return self::busy( self::RETRY_AFTER ); // A lock wait or deadlock is "busy", never "not answering".
 		} catch ( \Throwable $e ) {
-			$this->plugin->deliveries()->release( $delivery_id, $token );
 			$this->log_error( 'dispatch of ' . $event, $e );
-			return self::failure( 500, 'qersh_internal_error' );
+			$this->plugin->deliveries()->release( $delivery_id, $token );
+			return self::after_throwable( $this->ready() );
 		}
 		$http = $out['http'];
 		if ( $http < 200 || $http >= 300 ) {
@@ -487,6 +492,35 @@ final class Controller {
 	 */
 	public static function unavailable(): array {
 		return self::result( 503, array( 'code' => 'qersh_unavailable' ), array( 'Cache-Control' => 'no-store, private' ) );
+	}
+
+	/**
+	 * The answer after a caught Throwable: 500 qersh_internal_error, or 503 qersh_unavailable when the store is no
+	 * longer ready, which within one request means a query found one of our tables missing (Store\Schema::lost();
+	 * the next request creates them again). The phone treats both alike (docs/17 §4.5); 503 says why, as §4.4 step 1
+	 * does for every delivery until the tables are back. Pure.
+	 *
+	 * @param bool $ready Whether WooCommerce and the tables are there, read after the failure.
+	 * @return array A result (http, body, headers).
+	 */
+	public static function after_throwable( bool $ready ): array {
+		return $ready ? self::failure( 500, 'qersh_internal_error' ) : self::unavailable();
+	}
+
+	/**
+	 * Whether WooCommerce or our tables are known to be missing now, where no controller may exist (the permission
+	 * check, the fallback address). False when that cannot be told. Never throws.
+	 *
+	 * @return bool
+	 */
+	public static function found_unready(): bool {
+		try {
+			$plugin = Plugin::instance();
+			return ! $plugin->wc_ready() || ! $plugin->tables_ready();
+		} catch ( \Throwable $e ) {
+			unset( $e );
+			return false;
+		}
 	}
 
 	/**

@@ -17,7 +17,9 @@
  * - Copy buttons copy the raw value of their data- attribute; "Copied" is also said in a polite live region.
  * - The transaction-id form (Orange Cash): read with the same normaliser as the server, sent as the id alone. When
  *   what the field holds is not the id itself (a pasted message, spaces, Arabic-Indic digits), the id that will be
- *   sent shows under the field before sending ("We will send: …", docs/17 §14.1).
+ *   sent shows under the field before sending ("We will send: …", docs/17 §14.1). A refused text that holds a number
+ *   one or two digits longer than the id is still sent, that number alone, so the server counts the refusal (the
+ *   transaction-id drift alert, docs/17 §4.9); the page shows the server's answer.
  * Plain ES5, no build step.
  */
 ( function ( win, doc ) {
@@ -466,6 +468,15 @@
 			return N.canonicalTyped( txn.provider, input.value, txn.payer_key || null, txn.store_numbers || [], txn.shapes );
 		}
 
+		// After a refusal of what was read: the number one or two digits longer than the id, if the field holds one.
+		function longRun( res ) {
+			var txn = cfg.txn || {};
+			if ( res.error !== 'qersh_txn_format' && res.error !== 'qersh_txn_wallet_number' ) {
+				return null;
+			}
+			return N.longRun ? N.longRun( txn.provider, input.value, txn.shapes ) : null;
+		}
+
 		// "We will send: <id>", the id isolated left to right, when the field holds more than the id itself (a pasted
 		// message, spaces, Arabic-Indic digits). Nothing while it is the id as typed, or not readable yet: the errors
 		// wait for the send, so a customer typing digits is not told off at each key.
@@ -511,24 +522,26 @@
 
 		function send() {
 			var res = read();
-			if ( ! res.ok ) {
-				say( errorText( res.error ), true );
-				return;
-			}
-			if ( ! win.fetch ) {
-				say( errorText( 'other' ), true );
+			// A refused id one or two digits longer than the shape still goes to the server, alone (nothing else of
+			// what the customer pasted): its refusals tell the store that the operator lengthened its ids
+			// (Diagnostics::record_txn_refusal(), docs/17 §4.9). The server answers with the refusal.
+			var value = res.ok ? res.txn : longRun( res );
+			// What the page says when the server cannot be asked, or answers without a code.
+			var fallback = res.ok ? 'other' : res.error;
+			if ( value === null || ! win.fetch ) {
+				say( errorText( fallback ), true );
 				return;
 			}
 			if ( button ) {
 				button.disabled = true;
 			}
 			say( strings.sending || '', false );
-			post( 'txn', { order_id: cfg.order_id, key: cfg.key, txn: res.txn } ).then( function ( r ) {
+			post( 'txn', { order_id: cfg.order_id, key: cfg.key, txn: value } ).then( function ( r ) {
 				if ( button ) {
 					button.disabled = false;
 				}
 				if ( r.http === 200 && r.json && r.json.status === 'saved' ) {
-					input.value = typeof r.json.txn === 'string' ? r.json.txn : res.txn;
+					input.value = typeof r.json.txn === 'string' ? r.json.txn : value;
 					savedTxn = input.value;
 					claim = true;
 					say( status === 'waiting' ? '' : strings.txn_saved || '', false );
@@ -536,12 +549,12 @@
 					renderNudge();
 					return;
 				}
-				say( errorText( r.json && r.json.code ), true );
+				say( errorText( ( r.json && r.json.code ) || fallback ), true );
 			}, function () {
 				if ( button ) {
 					button.disabled = false;
 				}
-				say( errorText( 'other' ), true );
+				say( errorText( fallback ), true );
 			} );
 		}
 

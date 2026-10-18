@@ -7,6 +7,7 @@
 
 namespace QershPay\WooCommerce\Emails;
 
+use QershPay\WooCommerce\Admin\View;
 use QershPay\WooCommerce\Checkout;
 use QershPay\WooCommerce\Plugin;
 
@@ -50,6 +51,9 @@ class Instructions extends \WC_Email {
 		add_action( self::ACTION . '_notification', array( $this, 'trigger' ), 10, 2 );
 
 		parent::__construct();
+
+		// The plain template escapes with esc_html(), whose `&#039;` WooCommerce's plain-text rules would delete.
+		list( $this->plain_search, $this->plain_replace ) = View::plain_text_rules( $this->plain_search, $this->plain_replace );
 	}
 
 	/**

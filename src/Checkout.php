@@ -882,10 +882,23 @@ final class Checkout {
 			$order->save_meta_data();
 		}
 		if ( $plain_text ) {
-			echo esc_html( wp_strip_all_tags( $line ) ) . "\n\n";
+			echo esc_html( self::plain_apostrophes( wp_specialchars_decode( wp_strip_all_tags( $line ), ENT_QUOTES ) ) ) . "\n\n";
 			return;
 		}
 		echo '<p>' . wp_kses( $line, Format::allowed_html() ) . '</p>';
+	}
+
+	/**
+	 * The apostrophes of a plain-text line that goes into WooCommerce's own email, as U+2019. That email's
+	 * plain-text rules are not ours to extend (Admin\View::plain_text_rules() serves our emails): their catch-all for
+	 * unknown entities deletes the `&#039;` esc_html() writes for "'". The typographic apostrophe is no entity, so it
+	 * stays. Not wptexturize(), whose `&#8230;` and `&#215;` the catch-all deletes too. Pure.
+	 *
+	 * @param string $text Plain text, entities decoded.
+	 * @return string
+	 */
+	public static function plain_apostrophes( string $text ): string {
+		return str_replace( "'", "\u{2019}", $text );
 	}
 
 	/**

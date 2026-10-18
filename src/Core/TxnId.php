@@ -12,10 +12,11 @@ namespace QershPay\WooCommerce\Core;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Two pure functions: canonical_typed() reads the id out of what a customer wrote (the id alone, or the whole
- * wallet SMS pasted), canonical_stored() checks what the phone delivered. The shapes equal
+ * Pure functions: canonical_typed() reads the id out of what a customer wrote (the id alone, or the whole wallet
+ * SMS pasted), long_run() finds in a refused text the number one or two digits longer than the shape that the drift
+ * alert counts (docs/17 §4.9), canonical_stored() checks what the phone delivered. The shapes equal
  * fixtures/txn-patterns.json (scripts/check-fixtures.mjs compares the text). The JavaScript normaliser of the order
- * page is a copy of canonical_typed(); both read tests/vectors/txn-normalize.json.
+ * page is a copy of canonical_typed() and long_run(); both read tests/vectors/txn-normalize.json.
  */
 final class TxnId {
 
@@ -132,7 +133,7 @@ final class TxnId {
 
 		$candidates = array();
 		$excluded   = 0;
-		foreach ( self::numbers( $provider, $text ) as $value ) {
+		foreach ( self::numbers( $provider, $text, self::LENGTHS[ $provider ] ) as $value ) {
 			if ( ! in_array( strlen( $value ), self::LENGTHS[ $provider ], true ) ) {
 				continue;
 			}
@@ -212,14 +213,49 @@ final class TxnId {
 	}
 
 	/**
+	 * The second drift trigger of docs/17 §4.9 (Diagnostics::record_txn_refusal()): the first number of what a
+	 * customer typed or pasted that is one or two characters longer than the provider's longest id (15 or 16 digits
+	 * for Orange Cash ids of 14), which is what customers type once the operator lengthens its ids. It is read as
+	 * canonical_typed() reads candidates (steps 1 to 3, then step 5 with those two lengths: a group of runs joined by
+	 * one separator on a line gives its joined value when that has one of them, else each run), and a number
+	 * Payer::normalize() reads as a mobile number (0020 01xxxxxxxxx) is left out. Claims calls it on a
+	 * qersh_txn_format or qersh_txn_wallet_number refusal only (Claims::counts_long_run()). Null when there is none,
+	 * for a provider without a shape, and for what canonical_typed() refuses before reading (not a string, too
+	 * long). The JavaScript twin is longRun().
+	 *
+	 * @param string $provider Provider id of the order's wallet.
+	 * @param mixed  $raw      What the customer sent.
+	 * @return string|null Latin digits (the shape's characters).
+	 */
+	public static function long_run( string $provider, $raw ): ?string {
+		if ( ! is_string( $raw ) || ! array_key_exists( $provider, self::PATTERNS ) || strlen( $raw ) > 4 * self::MAX_LENGTH ) {
+			return null;
+		}
+		$text = Config::to_valid_utf8( $raw );
+		if ( Config::utf16_length( $text ) > self::MAX_LENGTH ) {
+			return null;
+		}
+		$longest = max( self::LENGTHS[ $provider ] );
+		$lengths = array( $longest + 1, $longest + 2 );
+		foreach ( self::numbers( $provider, self::normalize_text( $text ), $lengths ) as $value ) {
+			if ( in_array( strlen( $value ), $lengths, true ) && ! self::is_phone( $value, false ) ) {
+				return $value;
+			}
+		}
+		return null;
+	}
+
+	/**
 	 * Step 5: the candidate values of the text, in order. Each group of runs of the shape's characters joined by
-	 * one separator on the same line gives its joined value when that has one of LENGTHS, else each of its runs.
+	 * one separator on the same line gives its joined value when that has one of the lengths (LENGTHS, or those of
+	 * long_run()), else each of its runs.
 	 *
 	 * @param string $provider Provider id (with an entry in CLASSES and LENGTHS).
 	 * @param string $text     Text from normalize_text().
+	 * @param int[]  $lengths  The lengths a joined group must have to be read whole.
 	 * @return string[]
 	 */
-	private static function numbers( string $provider, string $text ): array {
+	private static function numbers( string $provider, string $text, array $lengths ): array {
 		$class     = self::CLASSES[ $provider ];
 		$separator = '[' . preg_quote( implode( '', self::SEPARATORS ), '/' ) . ']';
 		$values    = array();
@@ -227,7 +263,7 @@ final class TxnId {
 		foreach ( $groups[0] as $group ) {
 			$group  = (string) $group;
 			$joined = str_replace( self::SEPARATORS, '', $group );
-			if ( $joined !== $group && in_array( strlen( $joined ), self::LENGTHS[ $provider ], true ) ) {
+			if ( $joined !== $group && in_array( strlen( $joined ), $lengths, true ) ) {
 				$values[] = $joined;
 				continue;
 			}

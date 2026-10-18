@@ -44,6 +44,39 @@ final class TxnIdTest extends TestCase {
 	public function test_vector( array $case ): void {
 		$result = TxnId::canonical_typed( $case['provider'], $case['raw'], $case['payer_key'], $case['store_numbers'] );
 		$this->assertSame( $case['expect'], $result );
+		$this->assertSame( $case['long_run'], TxnId::long_run( $case['provider'], $case['raw'] ), 'long_run' );
+	}
+
+	public function test_the_vectors_cover_long_runs(): void {
+		$cases = json_decode( qersh_wc_test_fixture( 'tests/vectors/txn-normalize.json' ), true );
+		$found = array();
+		foreach ( $cases as $case ) {
+			if ( null !== $case['long_run'] ) {
+				$found[ strlen( $case['long_run'] ) ][ $case['expect']['ok'] ? 'read' : $case['expect']['error'] ] = true;
+			}
+		}
+		ksort( $found );
+		// 15 and 16 digits (the 14-digit shape plus one or two), refused as a format or as a wallet number (an
+		// Orange message with the sender's number), and next to an id that is read.
+		$this->assertSame( array( 15, 16 ), array_keys( $found ) );
+		$this->assertArrayHasKey( 'qersh_txn_format', $found[15] );
+		$this->assertArrayHasKey( 'qersh_txn_wallet_number', $found[15] );
+		$this->assertArrayHasKey( 'read', $found[15] );
+	}
+
+	public function test_long_run_outside_the_vectors(): void {
+		$this->assertNull( TxnId::long_run( 'orange_cash', null ) );
+		$this->assertNull( TxnId::long_run( 'orange_cash', 250072940674051 ), 'a JSON number is never read' );
+		$this->assertNull( TxnId::long_run( 'orange_cash', '' ) );
+		$this->assertNull( TxnId::long_run( 'orange_cash', str_repeat( ' ', 386 ) . '250072940674051' ), '401 characters' );
+		$this->assertSame( '250072940674051', TxnId::long_run( 'orange_cash', str_repeat( ' ', 385 ) . '250072940674051' ) );
+		$this->assertNull( TxnId::long_run( 'orange_cash', '25007294067405' ), 'the shape itself' );
+		// The first one counts; a group joined to 15 or 16 digits is read whole, as step 5 reads ids.
+		$this->assertSame( '250072940674051', TxnId::long_run( 'orange_cash', '250072940674051 و 2500729406740512' ) );
+		$this->assertSame( '2500517294418312', TxnId::long_run( 'orange_cash', 'رقم 2500517294-418312' ) );
+		$this->assertSame( '250072940674051', TxnId::long_run( 'orange_cash', "100\n250072940674051" ) );
+		// Each run of a group whose joined length is not one of them.
+		$this->assertSame( '250072940674051', TxnId::long_run( 'orange_cash', '250072940674051-25007294067405123' ) );
 	}
 
 	public function test_the_vectors_cover_what_docs_17_names(): void {
@@ -51,7 +84,7 @@ final class TxnIdTest extends TestCase {
 		$errors = array();
 		$ids    = array();
 		foreach ( $cases as $case ) {
-			$this->assertSame( array( 'name', 'provider', 'raw', 'payer_key', 'store_numbers', 'expect' ), array_keys( $case ) );
+			$this->assertSame( array( 'name', 'provider', 'raw', 'payer_key', 'store_numbers', 'expect', 'long_run' ), array_keys( $case ) );
 			if ( $case['expect']['ok'] ) {
 				$ids[ $case['expect']['txn'] ] = true;
 			} else {

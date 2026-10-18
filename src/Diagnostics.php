@@ -223,15 +223,16 @@ final class Diagnostics {
 	}
 
 	/**
-	 * The second drift trigger of docs/17 §4.9: the order page refused (qersh_txn_format) an id one or two digits
-	 * longer than the provider's shape, which is what customers type once the operator lengthens its ids while the
-	 * phone's templates still extract the old length (no delivered id then trips drift_of()). The refusals are
-	 * counted per order (txn_long_tally()); once TXN_LONG_ORDERS orders of distinct payers were refused within
-	 * TXN_LONG_WINDOW, the drift is recorded as for a delivered id, and the box is hidden for the provider until the
-	 * plugin is updated. Nothing the customer typed is kept. Never throws.
+	 * The second drift trigger of docs/17 §4.9: the order page refused (qersh_txn_format, or qersh_txn_wallet_number
+	 * when the text also held the sender's number: Claims::counts_long_run()) an id one or two digits longer than
+	 * the provider's shape, which is what customers type once the operator lengthens its ids while the phone's
+	 * templates still extract the old length (no delivered id then trips drift_of()). The refusals are counted per
+	 * order (txn_long_tally()); once TXN_LONG_ORDERS orders of distinct payers were refused within TXN_LONG_WINDOW,
+	 * the drift is recorded as for a delivered id, and the box is hidden for the provider until the plugin is
+	 * updated. Nothing the customer typed is kept. Never throws.
 	 *
-	 * The caller (the order page's route) passes the long run it read from the refused input; one that is not one or
-	 * two digits longer than the shape (long_run_ok()) is ignored.
+	 * Claims::submit() passes the number TxnId::long_run() read from the refused input (the page's script sends that
+	 * number alone); one that is not one or two digits longer than the shape (long_run_ok()) is ignored.
 	 *
 	 * @param string $provider  The order's wallet type.
 	 * @param string $long_run  The run of digits read from the refused input.
@@ -775,7 +776,9 @@ final class Diagnostics {
 		if ( ! $this->plugin instanceof Plugin ) {
 			return $out;
 		}
-		if ( ! $this->plugin->tables_ready() ) {
+		// On admin screens (Admin\Module::notices(), the status page) SHOW TABLES too, so the alert never waits for a
+		// query to notice a missing table; never on the storefront or the routes (five queries).
+		if ( ! $this->plugin->tables_ready() || ( is_admin() && ! Schema::tables_exist() ) ) {
 			$add( 'tables', 'error', 'tables', esc_html__( 'The Qersh tables are missing, so the store answers the phone 503 and no transfer is recorded. Deactivate and activate Qersh for WooCommerce, and check that the database user may create tables.', 'qersh-for-woocommerce' ) );
 			return $out;
 		}

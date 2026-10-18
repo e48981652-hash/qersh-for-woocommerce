@@ -299,6 +299,21 @@ final class OrdersRulesTest extends TestCase {
 		$this->assertFalse( Expiry::mutes_admin_cancel_email( array( 'store' => array( 'admin_cancel_email_on_expiry' => false ) ) ) );
 	}
 
+	/** Sent inside our expiry's transaction, the admin's email is muted (the default) or held for after COMMIT. */
+	public function test_admin_cancel_email_never_inside_the_transaction(): void {
+		$this->assertSame( 'mute', Expiry::cancel_email_now( Expiry::mutes_admin_cancel_email( array() ) ) );
+		$this->assertSame( 'after_commit', Expiry::cancel_email_now( Expiry::mutes_admin_cancel_email( array( 'store' => array( 'admin_cancel_email_on_expiry' => false ) ) ) ) );
+	}
+
+	/** The refusals of a text that may hold an id one or two digits longer than the shape (the drift's second trigger). */
+	public function test_counts_long_run(): void {
+		$this->assertTrue( Claims::counts_long_run( 'qersh_txn_format' ) );
+		$this->assertTrue( Claims::counts_long_run( 'qersh_txn_wallet_number' ), "an Orange message with the sender's number" );
+		foreach ( array( 'qersh_txn_empty', 'qersh_txn_too_long', 'qersh_txn_several', 'qersh_txn_closed', 'qersh_txn_wait', '' ) as $code ) {
+			$this->assertFalse( Claims::counts_long_run( $code ), $code );
+		}
+	}
+
 	/**
 	 * A typed qersh_orders row.
 	 *

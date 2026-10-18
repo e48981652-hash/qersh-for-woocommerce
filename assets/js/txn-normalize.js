@@ -2,8 +2,9 @@
  * Qersh for WooCommerce: the normalisers the storefront scripts share, copies of the PHP ones.
  *
  * - normalizePayer() is Core\Payer::normalize() (normalizePayer of the Qersh core).
- * - canonicalTyped() is Core\TxnId::canonical_typed() (docs/17 §4.10 steps 1-7). Both read
- *   tests/vectors/txn-normalize.json (tests/js/txn-normalize.test.mjs runs this file on it).
+ * - canonicalTyped() is Core\TxnId::canonical_typed() (docs/17 §4.10 steps 1-7), and longRun() is
+ *   Core\TxnId::long_run(). Both pairs read tests/vectors/txn-normalize.json (tests/js/txn-normalize.test.mjs runs
+ *   this file on it).
  * - checkPayer() and isStoreNumber() are PayerField::check() and PayerField::is_store_number() for one field.
  * - hasRtl() is Format::has_rtl() on text: whether a value holds a right-to-left letter, so a localized time is
  *   isolated by its first strong letter and a number stays left to right (docs/17 §7).
@@ -248,7 +249,9 @@
 		return ! hasShape || /^(?:\+|00)/.test( value );
 	}
 
-	function numbers( shape, text ) {
+	// Step 5 (TxnId::numbers()): a group of runs joined by one separator on a line gives its joined value when that
+	// has one of `lengths`, else each of its runs.
+	function numbers( shape, text, lengths ) {
 		var values = [];
 		var group = new RegExp( shape.cls + '+(?:' + SEPARATOR_CLASS + shape.cls + '+)*', 'g' );
 		var run = new RegExp( shape.cls + '+', 'g' );
@@ -256,7 +259,7 @@
 		while ( ( m = group.exec( text ) ) !== null ) {
 			var g = m[ 0 ];
 			var joined = g.replace( SEPARATOR_ALL, '' );
-			if ( joined !== g && shape.lengths.indexOf( joined.length ) !== -1 ) {
+			if ( joined !== g && lengths.indexOf( joined.length ) !== -1 ) {
 				values.push( joined );
 				continue;
 			}
@@ -308,7 +311,7 @@
 		}
 		var candidates = [];
 		var excluded = 0;
-		var values = numbers( shape, text );
+		var values = numbers( shape, text, shape.lengths );
 		for ( var i = 0; i < values.length; i++ ) {
 			var v = values[ i ];
 			if ( shape.lengths.indexOf( v.length ) === -1 ) {
@@ -331,6 +334,33 @@
 		return error( excluded > 0 ? 'qersh_txn_wallet_number' : 'qersh_txn_format' );
 	}
 
+	/**
+	 * The first number one or two characters longer than the provider's longest id (TxnId::long_run(), the second
+	 * drift trigger of docs/17 §4.9): read as canonicalTyped() reads candidates, with those two lengths, a mobile
+	 * number left out. thankyou.js sends it alone after a refusal, so the server counts it.
+	 *
+	 * @param {string}  provider Provider of the order's wallet.
+	 * @param {*}       raw      What the customer wrote.
+	 * @param {Object=} shapes   Shapes by provider (defaults to the built-in copy).
+	 * @return {?string} The digits, or null.
+	 */
+	function longRun( provider, raw, shapes ) {
+		var table = shapes || SHAPES;
+		if ( typeof raw !== 'string' || raw.length > MAX_LENGTH || ! has( table, provider ) ) {
+			return null;
+		}
+		var shape = table[ provider ];
+		var longest = Math.max.apply( null, shape.lengths );
+		var lengths = [ longest + 1, longest + 2 ];
+		var values = numbers( shape, normalizeText( raw ), lengths );
+		for ( var i = 0; i < values.length; i++ ) {
+			if ( lengths.indexOf( values[ i ].length ) !== -1 && ! isPhone( values[ i ], false ) ) {
+				return values[ i ];
+			}
+		}
+		return null;
+	}
+
 	return {
 		SHAPES: SHAPES,
 		MAX_LENGTH: MAX_LENGTH,
@@ -338,6 +368,7 @@
 		isStoreNumber: isStoreNumber,
 		checkPayer: checkPayer,
 		canonicalTyped: canonicalTyped,
+		longRun: longRun,
 		hasRtl: hasRtl
 	};
 } ) );
