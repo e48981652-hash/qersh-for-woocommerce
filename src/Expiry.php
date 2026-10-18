@@ -17,8 +17,9 @@ defined( 'ABSPATH' ) || exit;
  * Expiry::run() is the `qersh_wc_expire` action of one order and the 15-minute sweep's step, under the payer lock
  * and in its transaction:
  * - a row still `open` whose customer typed a transaction id that a transfer waiting for the merchant carries
- *   (review, no order, no flag) is not cancelled: the order stays pending, the transfer gets `claim_overdue`, the
- *   row `review`, the customer a note and the admin an alert;
+ *   (review or personal, no order, no flag: holds_for_claim()) is not cancelled: the order stays pending, the
+ *   transfer gets `claim_overdue` in "Needs a decision", the row `review`, the customer a note and the admin an alert;
+ * - every customer note is added after COMMIT, so its email never goes out while the locks are held;
  * - otherwise `UPDATE … SET state = 'expired' WHERE state = 'open'` and, only when it hit the row, the order is
  *   cancelled if it is still pending with our method and not in the trash (else the row is corrected alone):
  *   `_qersh_expired_at`, an internal note, and a customer note by the kind of wallet;
@@ -95,8 +96,9 @@ final class Expiry {
 		$db = $this->plugin->db();
 		for ( $attempt = 0; $attempt < 2; $attempt++ ) {
 			$alert = null;
+			$note  = null;
 			try {
-				$done = $this->run_once( $order_id, $alert );
+				$done = $this->run_once( $order_id, $alert, $note );
 			} catch ( LockTimeout $e ) {
 				$db->rollback();
 				continue;
@@ -106,6 +108,9 @@ final class Expiry {
 			}
 			if ( ! $done ) {
 				continue;
+			}
+			if ( null !== $note ) {
+				$this->customer_note_after_commit( $order_id, $note );
 			}
 			if ( null !== $alert ) {
 				$this->plugin->orders()->alert( $alert[0], $alert[1] );
@@ -319,14 +324,34 @@ final class Expiry {
 	}
 
 	/**
-	 * One try under the payer lock: false to try again (rolled back already).
+	 * Whether a transfer holds an order at its deadline when its transaction id is the one the customer typed
+	 * (docs/17 §4.7): it counts toward no order, is not flagged, and waits for the merchant, either in "Needs a
+	 * decision" (`review`: another amount, a contested id, no automatic confirmation) or under "Personal transfers"
+	 * (`unmatched`/`personal`: it arrived before the id was typed, and no live order of the wallet fits its amount),
+	 * so the result never depends on which of the two came first. Pure.
 	 *
-	 * @param int        $order_id Order id.
-	 * @param array|null $alert    Set to `[ kind, args ]` for an admin alert.
+	 * @param array $tr Typed qersh_transfers row.
+	 * @return bool
+	 */
+	public static function holds_for_claim( array $tr ): bool {
+		if ( isset( $tr['order_id'] ) || ( isset( $tr['flag'] ) && '' !== (string) $tr['flag'] ) ) {
+			return false;
+		}
+		$outcome = isset( $tr['outcome'] ) ? (string) $tr['outcome'] : '';
+		return 'review' === $outcome || ( 'unmatched' === $outcome && isset( $tr['reason'] ) && 'personal' === $tr['reason'] );
+	}
+
+	/**
+	 * One try under the payer lock: false to try again (rolled back already). The customer's note is handed out for
+	 * after COMMIT (customer_note_after_commit()).
+	 *
+	 * @param int         $order_id Order id.
+	 * @param array|null  $alert    Set to `[ kind, args ]` for an admin alert.
+	 * @param string|null $note     Set to the customer's note of the order.
 	 * @return bool
 	 * @throws LockTimeout On a lock wait or a deadlock.
 	 */
-	private function run_once( int $order_id, &$alert ): bool {
+	private function run_once( int $order_id, &$alert, &$note ): bool {
 		$db    = $this->plugin->db();
 		$index = $this->plugin->orders_index();
 		$opts  = MatchPolicy::options( $this->plugin->config() );
@@ -361,8 +386,9 @@ final class Expiry {
 			}
 			$waiting = $this->waiting_transfer( $row );
 			if ( null !== $waiting && $pending ) {
-				$this->hold_for_claim( $order, $row, $waiting );
+				$text = $this->hold_for_claim( $order, $row, $waiting, $now );
 				$db->commit();
+				$note  = $text;
 				$alert = array(
 					'claim_overdue',
 					array(
@@ -377,17 +403,21 @@ final class Expiry {
 				$db->commit();
 				return true;
 			}
+			$text = null;
 			if ( $pending ) {
-				$this->cancel( $order, $row, $opts, $now );
+				$text = $this->cancel( $order, $row, $opts, $now );
 			} else {
 				$index->update( $order_id, array( 'state' => 'closed' ) ); // The order left pending by another hand.
 			}
 			$db->commit();
+			$note = $text;
 			return true;
 		}
 		if ( 'partial' === $row['state'] ) {
-			$ids = $this->hold_partial( $order, $row );
+			$text = null;
+			$ids  = $this->hold_partial( $order, $row, $text );
 			$db->commit();
+			$note  = $text;
 			$alert = array(
 				'partial_overdue',
 				array(
@@ -398,16 +428,44 @@ final class Expiry {
 			);
 			return true;
 		}
+		$text = null;
 		if ( 'expired' === $row['state'] && $pending && ! $flagged ) {
-			$this->cancel( $order, $row, $opts, $now ); // A cancellation that was cut short.
+			$text = $this->cancel( $order, $row, $opts, $now ); // A cancellation that was cut short.
 		}
 		$db->commit();
+		$note = $text;
 		return true;
 	}
 
 	/**
-	 * The transfer that waits for the merchant with the order's typed id: same canonical id on Orange, review, no
-	 * order, no flag.
+	 * Adds the customer's note of an expiry after COMMIT. A customer note is emailed at once outside a webhook
+	 * request (Action Scheduler, cron: WooCommerce defers no email there), and SMTP must never run while the payer
+	 * lock and the row locks are held (on SQLite, the whole database is write-locked). A rolled-back try hands out no
+	 * note, so a retried expiry never emails twice. Never throws.
+	 *
+	 * @param int    $order_id Order id.
+	 * @param string $text     The note.
+	 */
+	private function customer_note_after_commit( int $order_id, string $text ): void {
+		try {
+			$order = wc_get_order( $order_id );
+			if ( $order instanceof \WC_Order ) {
+				$order->add_order_note( $text, 1 );
+			}
+		} catch ( \Throwable $e ) {
+			$this->plugin->logger()->error(
+				'qersh: the customer note of an expiry failed',
+				array(
+					'order' => $order_id,
+					'error' => get_class( $e ),
+				)
+			);
+		}
+	}
+
+	/**
+	 * The transfer that waits for the merchant with the order's typed id: same canonical id on Orange, and
+	 * holds_for_claim().
 	 *
 	 * @param array $row Row.
 	 * @return array|null
@@ -423,7 +481,7 @@ final class Expiry {
 			return null;
 		}
 		foreach ( $this->plugin->transfers()->find_by_txn( $provider, $txn ) as $tr ) {
-			if ( 'review' === $tr['outcome'] && null === $tr['order_id'] && ( null === $tr['flag'] || '' === $tr['flag'] ) ) {
+			if ( self::holds_for_claim( $tr ) ) {
 				return $tr;
 			}
 		}
@@ -431,29 +489,36 @@ final class Expiry {
 	}
 
 	/**
-	 * A typed id matches a transfer waiting for the merchant: the order stays pending, its stock held.
+	 * A typed id matches a transfer waiting for the merchant: the order stays pending, its stock held, and the
+	 * transfer gets `claim_overdue` in "Needs a decision". A personal one moves there from "Personal transfers"
+	 * (`review`), and the phone, which was told "unmatched", hears it in the next replies.
 	 *
 	 * @param \WC_Order $order Order.
 	 * @param array     $row   Row.
 	 * @param array     $tr    The waiting transfer.
+	 * @param int       $now   UTC seconds.
+	 * @return string The customer's note, for after COMMIT.
 	 */
-	private function hold_for_claim( \WC_Order $order, array $row, array $tr ): void {
-		$id = (int) $row['order_id'];
-		$this->plugin->orders_index()->update( $id, array( 'state' => 'review' ) );
-		$this->plugin->transfers()->update(
-			(string) $tr['transfer_id'],
-			array(
-				'reason' => 'claim_overdue',
-				'note'   => MatchPolicy::reason_text( 'claim_overdue', array( 'N' => $id ) ),
-			)
+	private function hold_for_claim( \WC_Order $order, array $row, array $tr, int $now ): string {
+		$id        = (int) $row['order_id'];
+		$tid       = (string) $tr['transfer_id'];
+		$transfers = $this->plugin->transfers();
+		$fields    = array(
+			'reason' => 'claim_overdue',
+			'note'   => MatchPolicy::reason_text( 'claim_overdue', array( 'N' => $id ) ),
 		);
-		$order->add_order_note(
-			sprintf(
-				/* translators: %s: order number. */
-				__( 'The time for your order #%s has ended. The store will contact you to complete the order or refund what arrived.', 'qersh-for-woocommerce' ),
-				Orders::ltr( (string) $order->get_order_number() )
-			),
-			1
+		if ( 'review' !== $tr['outcome'] ) {
+			$fields['outcome'] = 'review';
+		}
+		$this->plugin->orders_index()->update( $id, array( 'state' => 'review' ) );
+		$transfers->update( $tid, $fields );
+		if ( isset( $fields['outcome'] ) ) {
+			$transfers->request_sync( $tid, $now );
+		}
+		return sprintf(
+			/* translators: %s: order number. */
+			__( 'The time for your order #%s has ended. The store will contact you to complete the order or refund what arrived.', 'qersh-for-woocommerce' ),
+			Orders::ltr( (string) $order->get_order_number() )
 		);
 	}
 
@@ -463,9 +528,10 @@ final class Expiry {
 	 *
 	 * @param \WC_Order|false|null $order Order.
 	 * @param array                $row   Row.
+	 * @param string|null          $note  Set to the customer's note, for after COMMIT (none without the order).
 	 * @return string[] Transfer ids marked.
 	 */
-	private function hold_partial( $order, array $row ) {
+	private function hold_partial( $order, array $row, &$note ) {
 		$id        = (int) $row['order_id'];
 		$transfers = $this->plugin->transfers();
 		$this->plugin->orders_index()->update( $id, array( 'state' => 'review' ) );
@@ -486,30 +552,29 @@ final class Expiry {
 		}
 		if ( $order instanceof \WC_Order ) {
 			$orders = $this->plugin->orders();
-			$order->add_order_note(
-				sprintf(
-					/* translators: 1: order number, 2: amount received, 3: order total. */
-					__( 'The time for your order #%1$s has ended, and we received %2$s of %3$s. The store will contact you to complete the order or refund what arrived.', 'qersh-for-woocommerce' ),
-					Orders::ltr( (string) $order->get_order_number() ),
-					$orders->money( (int) $row['paid_minor'], $order ),
-					$orders->money( (int) $row['price_minor'], $order )
-				),
-				1
+			$note   = sprintf(
+				/* translators: 1: order number, 2: amount received, 3: order total. */
+				__( 'The time for your order #%1$s has ended, and we received %2$s of %3$s. The store will contact you to complete the order or refund what arrived.', 'qersh-for-woocommerce' ),
+				Orders::ltr( (string) $order->get_order_number() ),
+				$orders->money( (int) $row['paid_minor'], $order ),
+				$orders->money( (int) $row['price_minor'], $order )
 			);
 		}
 		return $ids;
 	}
 
 	/**
-	 * Cancels the order inside the transaction: `_qersh_expired_at`, the internal note with the status change, and
-	 * the customer's note by the kind of wallet (WooCommerce tells only the admin about pending → cancelled).
+	 * Cancels the order inside the transaction: `_qersh_expired_at` and the internal note with the status change.
+	 * The customer's note by the kind of wallet (WooCommerce tells only the admin about pending → cancelled) is
+	 * returned for after COMMIT.
 	 *
 	 * @param \WC_Order $order Order.
 	 * @param array     $row   Row.
 	 * @param array     $opts  MatchPolicy::options().
 	 * @param int       $now   UTC seconds.
+	 * @return string The customer's note.
 	 */
-	private function cancel( \WC_Order $order, array $row, array $opts, int $now ): void {
+	private function cancel( \WC_Order $order, array $row, array $opts, int $now ): string {
 		$id = (int) $order->get_id();
 		$order->update_meta_data( '_qersh_expired_at', (string) $now );
 		self::$cancelling = $id;
@@ -518,7 +583,7 @@ final class Expiry {
 		} finally {
 			self::$cancelling = 0;
 		}
-		$order->add_order_note( $this->customer_note( $order, $row, $opts ), 1 );
+		return $this->customer_note( $order, $row, $opts );
 	}
 
 	/**

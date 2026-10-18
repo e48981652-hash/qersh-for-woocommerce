@@ -133,6 +133,15 @@ final class FakeWpdb {
 	}
 
 	/**
+	 * Like wpdb::get_charset_collate().
+	 *
+	 * @return string
+	 */
+	public function get_charset_collate() {
+		return 'DEFAULT CHARACTER SET utf8mb4';
+	}
+
+	/**
 	 * Like wpdb::query(): int or false.
 	 *
 	 * @param string $sql SQL.

@@ -53,6 +53,14 @@ final class Db {
 	private $held = array();
 
 	/**
+	 * True when a query of the open transaction found one of our tables missing: Schema::forget_version() runs once
+	 * the transaction ends, because a rollback would undo the delete of the option.
+	 *
+	 * @var bool
+	 */
+	private $forget_after_txn = false;
+
+	/**
 	 * Builds the service. It needs nothing from the plugin; the parameter is the container's `new X( $plugin )`.
 	 *
 	 * @param \QershPay\WooCommerce\Plugin|null $plugin The plugin (not used).
@@ -165,6 +173,7 @@ final class Db {
 		$this->in_txn = false;
 		$this->held   = array();
 		$this->restore_timeout();
+		$this->forget_lost_schema();
 		if ( false === $done['result'] ) {
 			if ( self::is_lock_error( $done['error'], $done['errno'] ) ) {
 				throw new LockTimeout();
@@ -184,6 +193,7 @@ final class Db {
 		$this->in_txn = false;
 		$this->held   = array();
 		$this->restore_timeout();
+		$this->forget_lost_schema();
 	}
 
 	/**
@@ -323,6 +333,28 @@ final class Db {
 			return true;
 		}
 		return 1 === preg_match( '/lock wait timeout|deadlock|database is locked|database table is locked|SQLITE_BUSY|SQLITE_LOCKED/i', $message );
+	}
+
+	/**
+	 * True when a database error says that one of our tables (`{prefix}qersh_…`, in any case) does not exist: MySQL
+	 * and MariaDB error 1146 naming it (in any language), their English "Table '…' doesn't exist" (also what the
+	 * SQLite drop-in reports), and SQLite's own "no such table". A missing table of anyone else, and "doesn't exist in
+	 * engine" (a damaged table, which dbDelta cannot create again), are not. Pure.
+	 *
+	 * @param string $message Database error text.
+	 * @param int    $errno   MySQL error number, 0 when unknown.
+	 * @param string $prefix  Table prefix ($wpdb->prefix).
+	 * @return bool
+	 */
+	public static function is_missing_table_error( string $message, int $errno, string $prefix ): bool {
+		$ours = preg_quote( $prefix . 'qersh_', '/' );
+		if ( '' === $message || 1 !== preg_match( '/' . $ours . '/i', $message ) ) {
+			return false;
+		}
+		if ( 1146 === $errno ) {
+			return true;
+		}
+		return 1 === preg_match( "/Table '(?:[^'.]*\\.)?{$ours}[a-z_]*' doesn't exist(?! in engine)|no such table: (?:[^ .]+\\.)?{$ours}/i", $message );
 	}
 
 	/**
@@ -706,11 +738,52 @@ final class Db {
 		} finally {
 			$wpdb->suppress_errors( $suppress );
 		}
+		if ( '' !== $error && self::is_missing_table_error( $error, $errno, (string) $wpdb->prefix ) ) {
+			$this->table_missing( (string) $wpdb->prefix );
+		}
 		return array(
 			'result' => $result,
 			'error'  => $error,
 			'errno'  => $errno,
 		);
+	}
+
+	/**
+	 * One of our tables is missing although the schema version says installed: from now on Plugin::tables_ready()
+	 * is false for this request (on this site), and the version is forgotten so the next request creates the tables
+	 * again (Schema::forget_version()), at once or after the open transaction.
+	 *
+	 * @param string $prefix Table prefix of the query.
+	 */
+	private function table_missing( string $prefix ): void {
+		Schema::table_missing( $prefix );
+		if ( $this->in_txn ) {
+			$this->forget_after_txn = true;
+			return;
+		}
+		self::forget_schema();
+	}
+
+	/**
+	 * After commit() or rollback(): forgets the schema version when a query of that transaction found a table missing.
+	 */
+	private function forget_lost_schema(): void {
+		if ( ! $this->forget_after_txn ) {
+			return;
+		}
+		$this->forget_after_txn = false;
+		self::forget_schema();
+	}
+
+	/**
+	 * Schema::forget_version(), which never fails the query, commit or rollback that found the missing table.
+	 */
+	private static function forget_schema(): void {
+		try {
+			Schema::forget_version();
+		} catch ( \Throwable $e ) {
+			unset( $e ); // Plugin::tables_ready() is false for this request anyway; the next query that fails tries again.
+		}
 	}
 
 	/**

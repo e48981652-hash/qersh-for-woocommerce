@@ -72,6 +72,9 @@ class AdminAlert extends \WC_Email {
 
 		parent::__construct();
 
+		// The plain template escapes with esc_html(), whose `&#039;` WooCommerce's plain-text rules would delete.
+		list( $this->plain_search, $this->plain_replace ) = View::plain_text_rules( $this->plain_search, $this->plain_replace );
+
 		$this->recipient = $this->get_option( 'recipient', get_option( 'admin_email' ) );
 	}
 

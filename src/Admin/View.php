@@ -56,6 +56,25 @@ final class View {
 	}
 
 	/**
+	 * WC_Email's plain-text rules (`plain_search`, `plain_replace`) with one more, first: the apostrophe that
+	 * esc_html() writes as `&#039;`. WooCommerce maps `&apos;` and `&#8217;` back, but `&#039;` falls through to its
+	 * catch-all for unknown entities, which deletes it, so a plain email would read "This transfers message". Added
+	 * once (a second call changes nothing); the two lists stay the same length. Pure.
+	 *
+	 * @param array $search  plain_search.
+	 * @param array $replace plain_replace.
+	 * @return array `[ search, replace ]`
+	 */
+	public static function plain_text_rules( array $search, array $replace ): array {
+		$rule = '/&#(0*39|x0*27);/i';
+		if ( ! in_array( $rule, $search, true ) && count( $search ) === count( $replace ) ) {
+			array_unshift( $search, $rule );
+			array_unshift( $replace, "'" );
+		}
+		return array( $search, $replace );
+	}
+
+	/**
 	 * The tags our escaped lines may carry.
 	 *
 	 * @return array

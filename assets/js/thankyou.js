@@ -2,12 +2,19 @@
  * Qersh for WooCommerce: the transfer box on the order-received page (docs/17 §4.10, §6.2).
  *
  * - Live status: POST qersh/v1/order-status every 15 s for the first 20 minutes after the order was placed, then
- *   every 60 s until the deadline plus the grace window; paused while the page is hidden (the customer is in the
- *   wallet app), polled at once on return, stopped at a final state. When REST answers with something that is not
- *   JSON, or with 401/403, the page switches to ?wc-api=qersh&qo=status|txn and keeps it.
+ *   every 60 s until the deadline plus the grace window, and a while after it (cfg.stop_at), so the page sees the
+ *   expiry that runs then; paused while the page is hidden (the customer is in the wallet app), polled at once on
+ *   return (once more even after the polling ended), stopped at a final state. When REST answers with something
+ *   that is not JSON, or with 401/403, the page switches to ?wc-api=qersh&qo=status|txn and keeps it.
+ * - The box follows the status as the server draws it (Checkout::box()): the transfer lines (amount, number,
+ *   deadline, instructions) only while waiting or partial, the transaction-id section unless the order is paid,
+ *   cancelled or under review. A change to partial reloads the page once, so the server shows the amount that
+ *   remains; when it cannot, the amount line gives way to a line that says to reload. Once the polling ended with
+ *   the order still waiting after the window, the box says the window has ended.
  * - The deadline is drawn in Cairo time with Intl.DateTimeFormat (timeZone Africa/Cairo, Latin digits), isolated by
- *   its first strong letter when the page's language writes it with Arabic words, else left to right.
- * - Copy buttons copy the raw value of their data- attribute.
+ *   its first strong letter when the page's language writes it with Arabic words, else left to right. The server's
+ *   "(within 2 hours)" is dropped once that duration would read differently.
+ * - Copy buttons copy the raw value of their data- attribute; "Copied" is also said in a polite live region.
  * - The transaction-id form (Orange Cash): read with the same normaliser as the server, sent as the id alone. When
  *   what the field holds is not the id itself (a pasted message, spaces, Arabic-Indic digits), the id that will be
  *   sent shows under the field before sending ("We will send: …", docs/17 §14.1).
@@ -41,8 +48,16 @@
 	var inflight = false;
 	var timer = null;
 	var nudgeTimer = null;
+	// Polling stops at these. `expired` and `review` are not final: a late transfer or the merchant can still
+	// confirm the order.
 	var FINAL = { paid: true, cancelled: true };
+	// The statuses whose box shows the transfer lines (Checkout::box() 'pending').
+	var PENDING = { waiting: true, partial: true };
+	var ended = false;
+	var amountStale = false;
+	var savedTxn = '';
 	var STORE_KEY = 'qersh_wc_fallback';
+	var RELOAD_KEY = 'qersh_wc_reloaded_';
 	var PARAGRAPH = String.fromCharCode( 0x2029 );
 	var useFallback = false;
 
@@ -106,35 +121,64 @@
 		} );
 	}
 
+	// The status the box shows: the server's, except that a page whose polling ended with the order still waiting
+	// after the transfer window (the expiry has not run yet) says the window has ended.
+	function shown() {
+		return ended && PENDING[ status ] ? 'expired' : status;
+	}
+
 	function lineKey() {
-		if ( status === 'waiting' ) {
+		var s = shown();
+		if ( s === 'waiting' ) {
 			if ( claim ) {
 				return 'saved';
 			}
 			return cfg.decision ? 'waiting_decision' : 'waiting';
 		}
-		return lines[ status ] ? status : 'waiting';
+		return lines[ s ] ? s : 'waiting';
+	}
+
+	// After a change to partial without a reload, the amount of the page (the whole order) is no longer what to
+	// send: the line and its copy button give way to "Reload this page…".
+	function renderAmount() {
+		if ( ! amountStale ) {
+			return;
+		}
+		each( box.querySelectorAll( '[data-qersh-amount]' ), function ( node ) {
+			if ( node.hidden || ! node.parentNode ) {
+				return;
+			}
+			node.hidden = true;
+			var note = doc.createElement( 'li' );
+			note.className = 'qersh-line qersh-line--reload';
+			note.textContent = strings.reload_rest || '';
+			node.parentNode.insertBefore( note, node.nextSibling );
+		} );
 	}
 
 	function renderStatus() {
+		var s = shown();
 		var el = box.querySelector( '[data-qersh-status]' );
-		if ( ! el ) {
-			return;
+		if ( el ) {
+			el.textContent = lines[ lineKey() ] || '';
+			el.className = 'qersh-status qersh-status--' + s;
+			if ( s === 'paid' ) {
+				var mark = doc.createElement( 'span' );
+				mark.className = 'qersh-status__mark';
+				mark.setAttribute( 'aria-hidden', 'true' );
+				mark.textContent = ' ' + String.fromCharCode( 0x2713 );
+				el.appendChild( mark );
+			}
 		}
-		el.textContent = lines[ lineKey() ] || '';
-		el.className = 'qersh-status qersh-status--' + status;
-		if ( status === 'paid' ) {
-			var mark = doc.createElement( 'span' );
-			mark.className = 'qersh-status__mark';
-			mark.setAttribute( 'aria-hidden', 'true' );
-			mark.textContent = ' ' + String.fromCharCode( 0x2713 );
-			el.appendChild( mark );
-		}
-		if ( FINAL[ status ] ) {
-			each( box.querySelectorAll( '[data-qersh-pending], [data-qersh-txn]' ), function ( node ) {
-				node.hidden = true;
-			} );
-		}
+		// As the server draws the box: the transfer lines only while waiting or partial; the transaction-id section
+		// by Claims::accepts() (an Orange order our expiry cancelled still takes an id, one under review does not).
+		each( box.querySelectorAll( '[data-qersh-pending]' ), function ( node ) {
+			node.hidden = ! PENDING[ s ];
+		} );
+		each( box.querySelectorAll( '[data-qersh-txn]' ), function ( node ) {
+			node.hidden = !! FINAL[ s ] || s === 'review';
+		} );
+		renderAmount();
 	}
 
 	function renderNudge() {
@@ -144,8 +188,9 @@
 		}
 		// Checkout::nudge_key(): the Orange reminder replaces the base line only while the field is there and no id
 		// was entered (it points at the field "above").
+		var waiting = shown() === 'waiting';
 		var text = '';
-		if ( status === 'waiting' && now() >= cfg.nudge_at ) {
+		if ( waiting && now() >= cfg.nudge_at ) {
 			if ( cfg.orange && cfg.txn_open ) {
 				text = claim ? '' : strings.nudge_txn || '';
 			} else {
@@ -154,7 +199,7 @@
 		}
 		el.textContent = text;
 		el.hidden = text === '';
-		if ( status === 'waiting' && now() < cfg.nudge_at && ! nudgeTimer ) {
+		if ( waiting && now() < cfg.nudge_at && ! nudgeTimer ) {
 			nudgeTimer = win.setTimeout( function () {
 				nudgeTimer = null;
 				renderNudge();
@@ -162,18 +207,66 @@
 		}
 	}
 
+	// Whether the customer has an unsent transaction id in the field (a reload would lose it).
+	function typingTxn() {
+		var input = doc.getElementById( 'qersh_txn' );
+		if ( ! input ) {
+			return false;
+		}
+		return doc.activeElement === input || ( input.value !== '' && input.value !== savedTxn );
+	}
+
+	// Reloads the page once for this order, so the server draws the amount that remains. Not while the customer
+	// types a transaction id, and never twice (a page cache serving the older page would loop).
+	function reloadForRest() {
+		if ( typingTxn() || ! win.location || typeof win.location.reload !== 'function' ) {
+			return false;
+		}
+		var key = RELOAD_KEY + cfg.order_id;
+		try {
+			if ( win.sessionStorage.getItem( key ) === 'partial' ) {
+				return false;
+			}
+			win.sessionStorage.setItem( key, 'partial' );
+		} catch ( e ) {
+			return false;
+		}
+		stop();
+		win.location.reload();
+		return true;
+	}
+
 	function update( next, nextClaim ) {
-		if ( typeof nextClaim === 'boolean' ) {
+		// Only a real change is drawn: rewriting the live region with the same text makes screen readers say it again.
+		var claimChanged = typeof nextClaim === 'boolean' && nextClaim !== claim;
+		if ( claimChanged ) {
 			claim = nextClaim;
 		}
-		if ( next !== status || typeof nextClaim === 'boolean' ) {
+		if ( next !== status || claimChanged ) {
+			var toPartial = next === 'partial' && status !== 'partial';
 			status = next;
+			if ( toPartial ) {
+				if ( reloadForRest() ) {
+					return;
+				}
+				amountStale = true;
+			}
 			renderStatus();
 			renderNudge();
 		}
 		if ( FINAL[ status ] ) {
 			stop();
 		}
+	}
+
+	// The polling ended: a page still waiting after the transfer window says the window has ended.
+	function windowEnded() {
+		if ( ended || ! PENDING[ status ] || ! cfg.window_end || now() <= cfg.window_end ) {
+			return;
+		}
+		ended = true;
+		renderStatus();
+		renderNudge();
 	}
 
 	function stop() {
@@ -198,6 +291,7 @@
 		}
 		if ( now() > cfg.stop_at ) {
 			stop();
+			windowEnded();
 			return;
 		}
 		timer = win.setTimeout( poll, delay() * 1000 );
@@ -253,12 +347,65 @@
 		} );
 	}
 
+	// human_time_diff()'s unit and rounded count, so the page knows when the server's "(within …)" reads wrong.
+	function span( diff ) {
+		var units = [ [ 60, 1, 's' ], [ 3600, 60, 'm' ], [ 86400, 3600, 'h' ], [ 604800, 86400, 'd' ], [ 2592000, 604800, 'w' ], [ 31536000, 2592000, 'mo' ] ];
+		if ( diff <= 0 ) {
+			return 'past';
+		}
+		for ( var i = 0; i < units.length; i++ ) {
+			if ( diff < units[ i ][ 0 ] ) {
+				return units[ i ][ 2 ] + Math.max( 1, Math.round( diff / units[ i ][ 1 ] ) );
+			}
+		}
+		return 'y' + Math.max( 1, Math.round( diff / 31536000 ) );
+	}
+
+	// "Before: 4:35 PM Cairo time (within 2 hours)" becomes "Before: 4:35 PM Cairo time" (strings.before), keeping
+	// the time element, once the duration has moved on or the deadline has passed.
+	function renderLeft() {
+		var line = box.querySelector( '[data-qersh-left]' );
+		if ( ! line || ! cfg.deadline || span( cfg.deadline - now() ) === span( cfg.deadline - ( cfg.now || 0 ) ) ) {
+			return;
+		}
+		var template = strings.before || '';
+		var at = template.indexOf( '%s' );
+		var time = line.querySelector( '[data-qersh-time]' );
+		var keep = time && time.parentNode && time.parentNode !== line ? time.parentNode : time;
+		if ( at === -1 || ! keep ) {
+			return;
+		}
+		line.textContent = '';
+		line.appendChild( doc.createTextNode( template.slice( 0, at ) ) );
+		line.appendChild( keep );
+		line.appendChild( doc.createTextNode( template.slice( at + 2 ) ) );
+		line.removeAttribute( 'data-qersh-left' );
+	}
+
+	function tick() {
+		renderTimes();
+		renderLeft();
+		win.setTimeout( tick, 30000 );
+	}
+
 	function copy( button ) {
 		var value = button.getAttribute( 'data-qersh-copy' ) || '';
+		var said = box.querySelector( '[data-qersh-copy-msg]' );
 		var done = function () {
 			button.textContent = strings.copied || button.textContent;
+			// The button's name is its aria-label, so the text swap is not heard: say it in the live region, emptied
+			// first so a second copy is said again.
+			if ( said ) {
+				said.textContent = '';
+				win.setTimeout( function () {
+					said.textContent = strings.copied || '';
+				}, 50 );
+			}
 			win.setTimeout( function () {
 				button.textContent = strings.copy || button.textContent;
+				if ( said ) {
+					said.textContent = '';
+				}
 			}, 1500 );
 		};
 		var fallback = function () {
@@ -382,6 +529,7 @@
 				}
 				if ( r.http === 200 && r.json && r.json.status === 'saved' ) {
 					input.value = typeof r.json.txn === 'string' ? r.json.txn : res.txn;
+					savedTxn = input.value;
 					claim = true;
 					say( status === 'waiting' ? '' : strings.txn_saved || '', false );
 					renderStatus();
@@ -415,7 +563,7 @@
 		} );
 	} );
 
-	renderTimes();
+	tick();
 	renderNudge();
 	txnForm();
 
@@ -425,7 +573,10 @@
 				win.clearTimeout( timer );
 				timer = null;
 			}
-		} else if ( ! stopped ) {
+		} else if ( ! FINAL[ status ] ) {
+			// Back from the wallet app: one look even when the polling ended (schedule() stops again after it).
+			stopped = false;
+			renderLeft();
 			poll();
 		}
 	} );

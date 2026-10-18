@@ -398,6 +398,8 @@ final class Claims {
 				$notes['paid'] = $linked;
 			} elseif ( self::eligible( $tr ) ) {
 				$eligible[] = $tr;
+			} elseif ( self::personal( $tr ) ) {
+				$notes['personal'] = true; // The expiry holds the order for it (Expiry::holds_for_claim()).
 			} else {
 				$notes['waiting'] = true;
 			}
@@ -452,6 +454,9 @@ final class Claims {
 			if ( isset( $notes['waiting'] ) ) {
 				$order->add_order_note( __( 'The transaction id the customer entered matches a transfer waiting for your decision.', 'qersh-for-woocommerce' ) );
 			}
+			if ( isset( $notes['personal'] ) ) {
+				$order->add_order_note( __( 'The transaction id the customer entered matches a transfer in “Personal transfers”: check it, and attach it to this order if it is the customer\'s.', 'qersh-for-woocommerce' ) );
+			}
 		}
 		if ( null !== $effects ) {
 			$orders->after_commit( $effects, $now );
@@ -468,6 +473,19 @@ final class Claims {
 	public static function eligible( array $tr ): bool {
 		return 'review' === $tr['outcome'] && 'no_payer' === $tr['reason'] && null === $tr['order_id']
 			&& ( ! isset( $tr['flag'] ) || '' === $tr['flag'] ) && 1 === (int) $tr['auto_confirm_ok'];
+	}
+
+	/**
+	 * A row under "Personal transfers" (unmatched, personal, no order, no flag): it arrived before the id was typed
+	 * and no live order of its wallet fit its amount. The late path leaves its outcome as it is (docs/17 §4.10), and
+	 * the note names that list. Pure.
+	 *
+	 * @param array $tr Typed transfer row.
+	 * @return bool
+	 */
+	public static function personal( array $tr ): bool {
+		return 'unmatched' === $tr['outcome'] && isset( $tr['reason'] ) && 'personal' === $tr['reason'] && null === $tr['order_id']
+			&& ( ! isset( $tr['flag'] ) || '' === $tr['flag'] );
 	}
 
 	/**

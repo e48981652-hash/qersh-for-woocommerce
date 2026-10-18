@@ -68,9 +68,31 @@ final class Diagnostics {
 	const AS_OPTION = 'qersh_wc_as_ok';
 
 	/**
-	 * Option where the webhook and the order page record a transaction id of an unexpected format.
+	 * Option where the webhook (record_delivery()) and the order page (record_txn_refusal()) record a transaction id
+	 * of an unexpected format.
 	 */
 	const DRIFT_OPTION = 'qersh_wc_txn_drift';
+
+	/**
+	 * Option (autoload off) counting the order page's refusals of an id one or two digits longer than the shape
+	 * (txn_long_tally()): only order ids, a salted tag of their payer and times, never what the customer typed.
+	 */
+	const TXN_LONG_OPTION = 'qersh_wc_txn_long';
+
+	/**
+	 * That many distinct orders, of distinct payers, refused within TXN_LONG_WINDOW record the drift.
+	 */
+	const TXN_LONG_ORDERS = 3;
+
+	/**
+	 * The window of those refusals, in seconds.
+	 */
+	const TXN_LONG_WINDOW = 86400;
+
+	/**
+	 * At most this many recent orders are kept in TXN_LONG_OPTION.
+	 */
+	const TXN_LONG_KEEP = 10;
 
 	/**
 	 * Transient caching the storage engine check (an information_schema read).
@@ -166,23 +188,146 @@ final class Diagnostics {
 			$store->touch( $wallet, $fields );
 
 			$drift = self::drift_of( $envelope, $provider );
-			if ( null !== $drift && null === self::drift_tail( get_option( self::DRIFT_OPTION, null ) ) ) {
-				update_option(
-					self::DRIFT_OPTION,
-					array(
-						$provider => array(
-							'tail'    => $drift,
-							'at'      => $now,
-							'version' => defined( 'QERSH_WC_VERSION' ) ? QERSH_WC_VERSION : '',
-						),
-					),
-					false
-				);
+			if ( null !== $drift && $this->write_drift( $provider, $drift, $now ) ) {
 				$this->plugin->logger()->warning( 'Qersh received an Orange Cash transaction id of an unexpected format (…' . $drift . '); the transaction id box is hidden until the plugin is updated.' );
 			}
 		} catch ( \Throwable $e ) {
 			$this->plugin->logger()->warning( 'Qersh could not record the wallet state of a delivery.', array( 'error' => get_class( $e ) ) );
 		}
+	}
+
+	/**
+	 * Writes the drift record (DRIFT_OPTION) unless a current one exists.
+	 *
+	 * @param string $provider Wallet type.
+	 * @param string $tail     Last three characters of the id.
+	 * @param int    $now      UTC seconds.
+	 * @return bool Whether it was written now.
+	 */
+	private function write_drift( string $provider, string $tail, int $now ): bool {
+		if ( null !== self::drift_tail( get_option( self::DRIFT_OPTION, null ) ) ) {
+			return false;
+		}
+		update_option(
+			self::DRIFT_OPTION,
+			array(
+				$provider => array(
+					'tail'    => $tail,
+					'at'      => $now,
+					'version' => defined( 'QERSH_WC_VERSION' ) ? QERSH_WC_VERSION : '',
+				),
+			),
+			false
+		);
+		return true;
+	}
+
+	/**
+	 * The second drift trigger of docs/17 §4.9: the order page refused (qersh_txn_format) an id one or two digits
+	 * longer than the provider's shape, which is what customers type once the operator lengthens its ids while the
+	 * phone's templates still extract the old length (no delivered id then trips drift_of()). The refusals are
+	 * counted per order (txn_long_tally()); once TXN_LONG_ORDERS orders of distinct payers were refused within
+	 * TXN_LONG_WINDOW, the drift is recorded as for a delivered id, and the box is hidden for the provider until the
+	 * plugin is updated. Nothing the customer typed is kept. Never throws.
+	 *
+	 * The caller (the order page's route) passes the long run it read from the refused input; one that is not one or
+	 * two digits longer than the shape (long_run_ok()) is ignored.
+	 *
+	 * @param string $provider  The order's wallet type.
+	 * @param string $long_run  The run of digits read from the refused input.
+	 * @param int    $order_id  The order.
+	 * @param string $payer_key The order's payer key.
+	 * @param int    $now       UTC seconds (0 = now).
+	 * @return bool Whether the drift was recorded by this refusal.
+	 */
+	public function record_txn_refusal( string $provider, string $long_run, int $order_id, string $payer_key, int $now = 0 ): bool {
+		if ( ! $this->plugin instanceof Plugin || $order_id <= 0 || ! self::long_run_ok( $provider, $long_run ) ) {
+			return false;
+		}
+		try {
+			$now     = $now > 0 ? $now : time();
+			$version = defined( 'QERSH_WC_VERSION' ) ? QERSH_WC_VERSION : '';
+			$tag     = substr( wp_hash( 'qersh-txn-long|' . $payer_key ), 0, 12 );
+			$tally   = self::txn_long_tally( get_option( self::TXN_LONG_OPTION, null ), $order_id, $tag, $now, $version );
+			update_option( self::TXN_LONG_OPTION, $tally['option'], false );
+			$tail = substr( $long_run, -3 );
+			if ( $tally['drift'] && $this->write_drift( $provider, $tail, $now ) ) {
+				$this->plugin->logger()->warning( 'Customers keep entering Orange Cash transaction ids longer than this version expects (…' . $tail . '); the transaction id box is hidden until the plugin is updated.' );
+				return true;
+			}
+		} catch ( \Throwable $e ) {
+			$this->plugin->logger()->warning( 'Qersh could not count a refused transaction id.', array( 'error' => get_class( $e ) ) );
+		}
+		return false;
+	}
+
+	/**
+	 * Whether a run of digits is one or two characters longer than the longest shape of a claim provider (15 or 16
+	 * digits for Orange Cash ids of 14). Pure.
+	 *
+	 * @param string $provider Wallet type.
+	 * @param string $run      Run of Latin digits.
+	 * @return bool
+	 */
+	public static function long_run_ok( string $provider, string $run ): bool {
+		if ( ! in_array( $provider, TxnId::CLAIM_PROVIDERS, true ) || 1 !== preg_match( '/^[0-9]+$/D', $run ) ) {
+			return false;
+		}
+		$longest = max( TxnId::LENGTHS[ $provider ] );
+		return in_array( strlen( $run ), array( $longest + 1, $longest + 2 ), true );
+	}
+
+	/**
+	 * Counts one refused long id (record_txn_refusal()). The option keeps, for this plugin version, the most recent
+	 * TXN_LONG_KEEP orders with the time of their last refusal and their payer's tag; a record of another version is
+	 * dropped (the update brought a new shape). The drift is due when TXN_LONG_ORDERS orders with distinct payer tags
+	 * were refused within TXN_LONG_WINDOW, so one customer retrying, or one payer on several orders, never hides the
+	 * box for the whole store. Pure.
+	 *
+	 * @param mixed  $option   Current option value.
+	 * @param int    $order_id The order.
+	 * @param string $tag      Tag of the order's payer.
+	 * @param int    $now      UTC seconds.
+	 * @param string $version  Plugin version.
+	 * @return array `[ 'option' => array, 'drift' => bool ]`
+	 */
+	public static function txn_long_tally( $option, int $order_id, string $tag, int $now, string $version ): array {
+		$orders = array();
+		if ( is_array( $option ) && isset( $option['version'], $option['orders'] ) && $version === $option['version'] && is_array( $option['orders'] ) ) {
+			foreach ( $option['orders'] as $id => $entry ) {
+				if ( (int) $id > 0 && is_array( $entry ) && isset( $entry['at'] ) && (int) $entry['at'] > $now - self::TXN_LONG_WINDOW && (int) $entry['at'] <= $now ) {
+					$orders[ (int) $id ] = array(
+						'at'    => (int) $entry['at'],
+						'payer' => isset( $entry['payer'] ) && is_scalar( $entry['payer'] ) ? (string) $entry['payer'] : '',
+					);
+				}
+			}
+		}
+		if ( $order_id > 0 ) {
+			unset( $orders[ $order_id ] );
+			$orders[ $order_id ] = array(
+				'at'    => $now,
+				'payer' => $tag,
+			);
+		}
+		uasort(
+			$orders,
+			function ( $a, $b ) {
+				return $a['at'] <=> $b['at'];
+			}
+		);
+		$orders = array_slice( $orders, -self::TXN_LONG_KEEP, null, true );
+		$payers = array();
+		foreach ( $orders as $entry ) {
+			$payers[ '' === $entry['payer'] ? 'none' : 'p' . $entry['payer'] ] = true;
+		}
+		return array(
+			'option' => array(
+				'version' => $version,
+				'orders'  => $orders,
+			),
+			'drift'  => count( $orders ) >= self::TXN_LONG_ORDERS && count( $payers ) >= self::TXN_LONG_ORDERS,
+		);
 	}
 
 	/**
@@ -818,20 +963,47 @@ final class Diagnostics {
 		if ( ! is_array( $row ) || empty( $row['seen_host'] ) ) {
 			return null;
 		}
-		$host    = (string) $row['seen_host'];
-		$current = self::url_parts( self::store_url( $wallet ) );
-		$form    = isset( $row['seen_form'] ) ? (string) $row['seen_form'] : 'wp-json';
-		$scheme  = SetupLink::is_local_http_host( (string) preg_replace( '/:\d+$/', '', $host ) ) && 'http' === $current['scheme'] ? 'http' : 'https';
-		$home    = wp_parse_url( home_url( '/' ) );
-		$path    = is_array( $home ) && isset( $home['path'] ) ? rtrim( (string) $home['path'], '/' ) : '';
-		$base    = $scheme . '://' . $host . $path;
+		$home = wp_parse_url( home_url( '/' ) );
+		$path = is_array( $home ) && isset( $home['path'] ) ? (string) $home['path'] : '';
+		return self::rebuild_seen_url( $wallet, $row, self::store_url( $wallet ), $path, rest_get_url_prefix() );
+	}
+
+	/**
+	 * The address of seen_url(), from its inputs. When the phone's last delivery came on the form of the current store URL, the path
+	 * and query are the current URL's, so whatever WordPress puts in rest_url() (`/index.php/wp-json/…` with
+	 * "almost pretty" PATHINFO permalinks, a subdirectory, a filtered prefix) is kept and only the host differs.
+	 * Otherwise (the permalinks changed since) the address is rebuilt from the home path. Pure.
+	 *
+	 * @param string $wallet    Wallet id.
+	 * @param array  $row       qersh_wallets row (seen_host, seen_form).
+	 * @param string $store_url store_url() now.
+	 * @param string $home_path Path of home_url( '/' ).
+	 * @param string $prefix    rest_get_url_prefix().
+	 * @return string|null
+	 */
+	public static function rebuild_seen_url( string $wallet, array $row, string $store_url, string $home_path, string $prefix ): ?string {
+		if ( empty( $row['seen_host'] ) ) {
+			return null;
+		}
+		$host  = (string) $row['seen_host'];
+		$form  = isset( $row['seen_form'] ) && in_array( (string) $row['seen_form'], self::FORMS, true ) ? (string) $row['seen_form'] : 'wp-json';
+		$parts = array();
+		preg_match( '~^([a-z][a-z0-9+.-]*)://[^/?#]*([^?#]*)(?:\?([^#]*))?~i', $store_url, $parts );
+		$cur_scheme = isset( $parts[1] ) ? strtolower( $parts[1] ) : '';
+		$cur_path   = isset( $parts[2] ) ? $parts[2] : '';
+		$cur_query  = isset( $parts[3] ) ? $parts[3] : '';
+		$scheme     = SetupLink::is_local_http_host( (string) preg_replace( '/:\d+$/', '', $host ) ) && 'http' === $cur_scheme ? 'http' : 'https';
+		if ( 'wc-api' !== $form && self::form_of_query( $cur_query ) === $form && '' !== $cur_path ) {
+			return $scheme . '://' . $host . $cur_path . ( '' !== $cur_query ? '?' . $cur_query : '' );
+		}
+		$base = $scheme . '://' . $host . rtrim( $home_path, '/' );
 		if ( 'wc-api' === $form ) {
 			return $base . '/?wc-api=qersh&qw=' . rawurlencode( $wallet );
 		}
 		if ( 'rest_route' === $form ) {
 			return $base . '/index.php?rest_route=' . rawurlencode( '/' . Config::ENDPOINT_PATH . '/' . $wallet );
 		}
-		return $base . '/' . rest_get_url_prefix() . '/' . Config::ENDPOINT_PATH . '/' . $wallet;
+		return $base . '/' . trim( $prefix, '/' ) . '/' . Config::ENDPOINT_PATH . '/' . $wallet;
 	}
 
 	/**
@@ -1006,22 +1178,10 @@ final class Diagnostics {
 				'body'    => '',
 			);
 		} else {
-			$headers = array();
-			foreach ( (array) wp_remote_retrieve_headers( $response ) as $key => $value ) {
-				$headers[ strtolower( (string) $key ) ] = is_array( $value ) ? implode( ', ', $value ) : (string) $value;
-			}
-			if ( empty( $headers ) ) {
-				$raw = wp_remote_retrieve_headers( $response );
-				if ( is_object( $raw ) && method_exists( $raw, 'getAll' ) ) {
-					foreach ( $raw->getAll() as $key => $value ) {
-						$headers[ strtolower( (string) $key ) ] = is_array( $value ) ? implode( ', ', $value ) : (string) $value;
-					}
-				}
-			}
 			$resp = array(
 				'error'   => null,
 				'code'    => (int) wp_remote_retrieve_response_code( $response ),
-				'headers' => $headers,
+				'headers' => self::header_list( wp_remote_retrieve_headers( $response ) ),
 				'body'    => substr( (string) wp_remote_retrieve_body( $response ), 0, 8192 ),
 			);
 		}
@@ -1033,6 +1193,35 @@ final class Diagnostics {
 			'verdict' => $verdict['verdict'],
 			'detail'  => $verdict['detail'],
 		);
+	}
+
+	/**
+	 * Response headers as `[ lower-case name => string ]`, a repeated header's values joined with ", ". Reads the
+	 * CaseInsensitiveDictionary that wp_remote_retrieve_headers() returns through its getAll(), never by casting it to
+	 * an array (that yields its protected property, not the headers), or a plain array (a pre_http_request filter may
+	 * return one). Anything else gives no headers. Pure.
+	 *
+	 * @param mixed $raw Headers.
+	 * @return array<string, string>
+	 */
+	public static function header_list( $raw ): array {
+		if ( is_object( $raw ) && method_exists( $raw, 'getAll' ) ) {
+			$raw = $raw->getAll();
+		}
+		$out = array();
+		if ( ! is_array( $raw ) ) {
+			return $out;
+		}
+		foreach ( $raw as $key => $value ) {
+			if ( is_array( $value ) ) {
+				$value = implode( ', ', array_map( 'strval', array_filter( $value, 'is_scalar' ) ) );
+			} elseif ( ! is_scalar( $value ) ) {
+				continue;
+			}
+			$name         = strtolower( (string) $key );
+			$out[ $name ] = isset( $out[ $name ] ) ? $out[ $name ] . ', ' . (string) $value : (string) $value;
+		}
+		return $out;
 	}
 
 	/**

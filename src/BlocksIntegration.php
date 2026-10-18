@@ -46,8 +46,10 @@ final class BlocksIntegration extends AbstractPaymentMethodType {
 	}
 
 	/**
-	 * Registers the script (footer, its translations from the plugin's languages folder or the language pack) and
-	 * the style.
+	 * Registers the script (footer, its translations from the plugin's languages folder or the language pack).
+	 * Registers only: WooCommerce calls this on every page that has the Blocks scripts registered (its dependency
+	 * check runs on wp_print_scripts, admin included), so the style is enqueued by Checkout::enqueue_blocks_style()
+	 * when the Checkout block really renders.
 	 *
 	 * @return string[]
 	 */
@@ -61,7 +63,6 @@ final class BlocksIntegration extends AbstractPaymentMethodType {
 			true
 		);
 		wp_set_script_translations( Checkout::H_BLOCKS, 'qersh-for-woocommerce' );
-		wp_enqueue_style( Checkout::H_STYLE );
 		return array( Checkout::H_BLOCKS );
 	}
 

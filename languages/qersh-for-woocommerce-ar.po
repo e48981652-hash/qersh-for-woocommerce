@@ -5,8 +5,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Qersh for WooCommerce 0.1.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/qersh-for-woocommerce\n"
-"POT-Creation-Date: 2026-10-17T23:16:05+00:00\n"
-"PO-Revision-Date: 2026-10-17 23:20+0000\n"
+"POT-Creation-Date: 2026-10-18T01:39:58+00:00\n"
+"PO-Revision-Date: 2026-10-18 01:45+0000\n"
 "Last-Translator: Qersh <support@qersh.cfd>\n"
 "Language-Team: Arabic\n"
 "Language: ar\n"
@@ -89,96 +89,96 @@ msgstr "تحتاج Qersh for WooCommerce إلى WooCommerce %s أو أحدث، �
 msgid "This action needs a form submission."
 msgstr "يحتاج هذا الإجراء إلى إرسال نموذج."
 
-#: src/Admin/OrderBox.php:122
+#: src/Admin/OrderBox.php:139
 msgid "The wait for the transfer has not started yet. Send the customer the payment page (Order actions → “Send order details to customer”) so they enter the number they will transfer from, or attach their transfer from “Personal transfers” if they transferred before the order was created."
 msgstr "لم يبدأ انتظار التحويل بعد. أرسل للعميل صفحة الدفع (إجراءات الطلب ← «إرسال تفاصيل الطلب إلى العميل») ليكتب الرقم الذي سيحوّل منه، أو ألحق تحويله من «تحويلات شخصية» إن كان قد حوّل قبل إنشاء الطلب."
 
 #. translators: %s: wallet number or InstaPay address.
-#: src/Admin/OrderBox.php:126
+#: src/Admin/OrderBox.php:143
 #, php-format
 msgid "Payer number: %s"
 msgstr "رقم الدافع: %s"
 
 #. translators: 1: wallet name, 2: wallet number or address.
-#: src/Admin/OrderBox.php:130
+#: src/Admin/OrderBox.php:147
 #, php-format
 msgid "Wallet: %1$s (%2$s)"
 msgstr "المحفظة: %1$s (%2$s)"
 
 #. translators: %s: wallet id.
-#: src/Admin/OrderBox.php:133
+#: src/Admin/OrderBox.php:150
 #, php-format
 msgid "Wallet: %s (deleted)"
 msgstr "المحفظة: %s (محذوفة)"
 
 #. translators: %s: date and time.
-#: src/Admin/OrderBox.php:137
+#: src/Admin/OrderBox.php:154
 #, php-format
 msgid "Deadline: %s Cairo time"
 msgstr "الموعد: %s بتوقيت القاهرة"
 
 #. translators: 1: amount received, 2: order amount.
-#: src/Admin/OrderBox.php:143
-#: src/Emails/AdminAlert.php:240
+#: src/Admin/OrderBox.php:160
+#: src/Emails/AdminAlert.php:243
 #, php-format
 msgid "Received: %1$s of %2$s"
 msgstr "وصل: %1$s من %2$s"
 
 #. translators: %s: date and time.
-#: src/Admin/OrderBox.php:159
+#: src/Admin/OrderBox.php:176
 #: src/Admin/Wallets.php:166
 #, php-format
 msgid "Last delivery from this wallet's phone: %s"
 msgstr "آخر ما وصل من هاتف هذه المحفظة: %s"
 
-#: src/Admin/OrderBox.php:161
+#: src/Admin/OrderBox.php:178
 msgid "Nothing has arrived from this wallet's phone yet."
 msgstr "لم يصل شيء من هاتف هذه المحفظة بعد."
 
-#: src/Admin/OrderBox.php:210
+#: src/Admin/OrderBox.php:227
 msgid "No transfer with this transaction id has arrived yet"
 msgstr "لم يصل تحويل بهذا الرقم بعد"
 
 #. translators: %s: transfer id.
-#: src/Admin/OrderBox.php:216
+#: src/Admin/OrderBox.php:233
 #, php-format
 msgid "Matched transfer %s"
 msgstr "طابق التحويل %s"
 
 #. translators: %s: order number.
-#: src/Admin/OrderBox.php:221
+#: src/Admin/OrderBox.php:238
 #, php-format
 msgid "Already paid order %s"
 msgstr "دفع الطلب %s من قبل"
 
-#: src/Admin/OrderBox.php:224
-#: src/Admin/OrderBox.php:248
+#: src/Admin/OrderBox.php:241
+#: src/Admin/OrderBox.php:265
 msgid "Waits for your decision in “Needs a decision”"
 msgstr "ينتظر قرارك في «تحتاج قرارًا»"
 
 #. translators: 1: transaction id, 2: date and time, 3: what became of it.
-#: src/Admin/OrderBox.php:230
+#: src/Admin/OrderBox.php:247
 #, php-format
 msgid "Transaction id from the customer: %1$s (%2$s) · %3$s"
 msgstr "رقم العملية من العميل: %1$s (%2$s) · %3$s"
 
-#: src/Admin/OrderBox.php:242
+#: src/Admin/OrderBox.php:259
 msgid "Waiting for the transfer"
 msgstr "بانتظار التحويل"
 
-#: src/Admin/OrderBox.php:244
+#: src/Admin/OrderBox.php:261
 msgid "Part of the amount arrived"
 msgstr "وصل جزء من المبلغ"
 
-#: src/Admin/OrderBox.php:246
+#: src/Admin/OrderBox.php:263
 msgid "Paid by wallet transfer"
 msgstr "مدفوع بتحويل محفظة"
 
-#: src/Admin/OrderBox.php:250
+#: src/Admin/OrderBox.php:267
 msgid "The transfer window ended"
 msgstr "انتهت مهلة التحويل"
 
-#: src/Admin/OrderBox.php:252
+#: src/Admin/OrderBox.php:269
 msgid "Closed"
 msgstr "مغلق"
 
@@ -250,7 +250,7 @@ msgstr "وصل جزء من المبلغ ولم يصل الباقي قبل الم
 
 #. translators: %s: order number.
 #: src/Admin/Reasons.php:369
-#: src/Emails/AdminAlert.php:227
+#: src/Emails/AdminAlert.php:230
 #, php-format
 msgid "The customer of order %s entered this transaction id, and its deadline came before your decision; the order is on hold until you decide."
 msgstr "كتب عميل الطلب %s رقم هذه العملية وحلّ موعده قبل قرارك؛ فيبقى الطلب على حاله حتى تقرر."
@@ -342,7 +342,7 @@ msgstr "لم تُحفظ الإعدادات. راجع القيم وحاول مر�
 #: src/Admin/Settings.php:208
 #: src/Admin/Wallets.php:375
 #: src/Admin/Wallets.php:448
-#: src/ConfigStore.php:436
+#: src/ConfigStore.php:463
 msgid "These settings are set in wp-config.php (QERSH_WC_CONFIG) and cannot be changed here."
 msgstr "هذه الإعدادات مضبوطة في wp-config.php (QERSH_WC_CONFIG) ولا يمكن تغييرها هنا."
 
@@ -612,11 +612,11 @@ msgstr "تجري معالجته"
 #: src/Admin/Transfers.php:295
 #: src/Admin/Transfers.php:352
 #: src/Admin/Transfers.php:384
-#: src/Orders.php:721
-#: src/Orders.php:739
-#: src/Orders.php:818
-#: src/Orders.php:836
-#: src/Orders.php:2041
+#: src/Orders.php:757
+#: src/Orders.php:775
+#: src/Orders.php:854
+#: src/Orders.php:872
+#: src/Orders.php:2138
 msgid "This transfer was not found."
 msgstr "لم يُعثر على هذا التحويل."
 
@@ -655,7 +655,7 @@ msgid "This transfer does not need a decision any more."
 msgstr "لم يعد هذا التحويل يحتاج قرارًا."
 
 #: src/Admin/Transfers.php:395
-#: src/Orders.php:872
+#: src/Orders.php:908
 msgid "The transfer could not be marked as decided. Try again in a moment."
 msgstr "تعذّر تعليم التحويل محسومًا. حاول بعد لحظة."
 
@@ -667,7 +667,7 @@ msgstr "عُلّم التحويل محسومًا. يبقى مربوطًا بال
 
 #. translators: %s: order number.
 #: src/Admin/Transfers.php:424
-#: src/Orders.php:968
+#: src/Orders.php:1004
 #, php-format
 msgid "This transaction id already paid order %s. Attach it only if you are sure this is a different transfer."
 msgstr "رقم العملية هذا دفع الطلب %s من قبل. ألحقه فقط إن كنت متأكدًا أنه تحويل مختلف."
@@ -675,24 +675,24 @@ msgstr "رقم العملية هذا دفع الطلب %s من قبل. ألحق�
 #. translators: %s: order number.
 #: src/Admin/Transfers.php:438
 #: src/Admin/TransfersTable.php:296
-#: src/Orders.php:2452
+#: src/Orders.php:2648
 #, php-format
 msgid "This transfer arrived before order %s was created, so attach it only if you are sure it is for that order."
 msgstr "وصل هذا التحويل قبل إنشاء الطلب %s، فألحقه فقط إن كنت متأكدًا أنه له."
 
 #: src/Admin/Transfers.php:466
 #: src/Admin/TransfersTable.php:300
-#: src/Orders.php:940
+#: src/Orders.php:976
 msgid "Check the payer's name and the amount in the wallet app before you attach it."
 msgstr "راجع اسم الدافع والمبلغ في تطبيق المحفظة قبل أن تُلحقه."
 
 #: src/Admin/TransfersTable.php:67
-#: src/Privacy.php:423
+#: src/Privacy.php:552
 msgid "Money arrived"
 msgstr "وصل المال"
 
 #: src/Admin/TransfersTable.php:68
-#: src/Privacy.php:429
+#: src/Privacy.php:558
 msgid "Amount"
 msgstr "المبلغ"
 
@@ -741,7 +741,7 @@ msgstr "اشتباه بالتزوير"
 
 #. translators: %s: order number.
 #: src/Admin/TransfersTable.php:264
-#: src/Orders.php:925
+#: src/Orders.php:961
 #, php-format
 msgid "Its customer entered this transaction id · Attach to order %s"
 msgstr "كتب عميله رقم العملية هذا · ألحقه بالطلب %s"
@@ -790,42 +790,42 @@ msgstr "رقم الطلب، أو الرقم الذي حوّل منه العمي�
 msgid "Order number or payer number"
 msgstr "رقم الطلب أو رقم الدافع"
 
-#: src/Admin/View.php:121
-#: src/Admin/View.php:137
+#: src/Admin/View.php:140
+#: src/Admin/View.php:156
 msgid "unknown amount"
 msgstr "مبلغ غير معروف"
 
-#: src/Admin/View.php:154
-#: src/Checkout.php:451
+#: src/Admin/View.php:173
+#: src/Checkout.php:513
 msgid "Vodafone Cash"
 msgstr "فودافون كاش"
 
-#: src/Admin/View.php:156
-#: src/Checkout.php:453
+#: src/Admin/View.php:175
+#: src/Checkout.php:515
 msgid "e& money"
 msgstr "e& money"
 
-#: src/Admin/View.php:158
-#: src/Checkout.php:455
+#: src/Admin/View.php:177
+#: src/Checkout.php:517
 msgid "Orange Cash"
 msgstr "أورنج كاش"
 
-#: src/Admin/View.php:160
-#: src/Checkout.php:457
+#: src/Admin/View.php:179
+#: src/Checkout.php:519
 msgid "InstaPay"
 msgstr "إنستاباي"
 
-#: src/Admin/View.php:162
-#: src/Checkout.php:459
+#: src/Admin/View.php:181
+#: src/Checkout.php:521
 msgid "National Bank of Egypt"
 msgstr "البنك الأهلي المصري"
 
-#: src/Admin/View.php:164
-#: src/Checkout.php:461
+#: src/Admin/View.php:183
+#: src/Checkout.php:523
 msgid "CIB"
 msgstr "CIB"
 
-#: src/Admin/View.php:166
+#: src/Admin/View.php:185
 msgid "Egyptian Gulf Bank (EGBANK)"
 msgstr "البنك المصري الخليجي (EGBANK)"
 
@@ -923,7 +923,7 @@ msgstr "حُذفت %1$s. منذ %2$s يرد المتجر للهاتف بأنها
 
 #. translators: %s: number of orders.
 #: src/Admin/Wallets.php:346
-#: src/Emails/AdminAlert.php:221
+#: src/Emails/AdminAlert.php:224
 #, php-format
 msgid "%s order waits for a transfer to this wallet."
 msgid_plural "%s orders wait for a transfer to this wallet."
@@ -1063,142 +1063,156 @@ msgstr "اكتب رقم المحفظة الذي يحوّل إليه العملا
 msgid "The connection key could not be saved on this site. Define LOGGED_IN_KEY and LOGGED_IN_SALT in wp-config.php, or put a key in the constant %s there."
 msgstr "تعذّر حفظ مفتاح الربط على هذا الموقع. عرّف LOGGED_IN_KEY وLOGGED_IN_SALT في wp-config.php، أو ضع مفتاحًا في الثابت %s هناك."
 
-#: src/Checkout.php:432
+#: src/Checkout.php:494
 msgid "Your order is confirmed on its own when your transfer arrives, usually within minutes."
 msgstr "يتأكد طلبك وحده حين يصل تحويلك، عادةً خلال دقائق."
 
-#: src/Checkout.php:434
+#: src/Checkout.php:496
 msgid "After you transfer, enter the transaction id from your transfer message on your order page, and your order is usually confirmed on its own within minutes."
 msgstr "بعد التحويل اكتب رقم العملية من رسالة التحويل في صفحة طلبك، فيتأكد طلبك وحده في الغالب خلال دقائق."
 
-#: src/Checkout.php:436
+#: src/Checkout.php:498
 msgid "After you transfer, enter the transaction id on your order page so the store finds your transfer faster. The store confirms your order once it checks that your transfer arrived."
 msgstr "بعد التحويل اكتب رقم العملية في صفحة طلبك ليجد المتجر تحويلك أسرع، ويؤكد المتجر طلبك بعد أن يتحقق من وصول تحويلك."
 
-#: src/Checkout.php:438
+#: src/Checkout.php:500
 msgid "The store confirms your order once it checks that your transfer arrived."
 msgstr "يؤكد المتجر طلبك بعد أن يتحقق من وصول تحويلك."
 
-#: src/Checkout.php:463
+#: src/Checkout.php:525
 msgid "EGBANK"
 msgstr "EGBANK"
 
-#: src/Checkout.php:628
+#: src/Checkout.php:690
 msgid "Waiting for your transfer…"
 msgstr "ننتظر تحويلك…"
 
-#: src/Checkout.php:629
+#: src/Checkout.php:691
 msgid "Waiting for the store to confirm that your transfer arrived…"
 msgstr "ننتظر أن يؤكد المتجر وصول تحويلك…"
 
-#: src/Checkout.php:630
+#: src/Checkout.php:692
 msgid "We have your transaction id. Your order is confirmed once the store matches your transfer; do not transfer again."
 msgstr "سجّلنا رقم العملية. يتأكد طلبك حين يطابق المتجر تحويلك، فلا تحوّل مرة أخرى."
 
-#: src/Checkout.php:631
+#: src/Checkout.php:693
 msgid "Your transfer arrived and your order is confirmed."
 msgstr "وصل تحويلك وتمّ تأكيد طلبك."
 
-#: src/Checkout.php:632
+#: src/Checkout.php:694
 msgid "Part of the amount arrived. Send the rest from the same number before the deadline."
 msgstr "وصل جزء من المبلغ. حوّل الباقي من الرقم نفسه قبل الموعد."
 
-#: src/Checkout.php:633
+#: src/Checkout.php:695
 msgid "We are checking your transfer and will let you know."
 msgstr "نراجع تحويلك وسنخبرك."
 
-#: src/Checkout.php:634
+#: src/Checkout.php:696
 msgid "The transfer window has ended."
 msgstr "انتهت المهلة."
 
-#: src/Checkout.php:635
+#: src/Checkout.php:697
 msgid "This order was cancelled."
 msgstr "أُلغي هذا الطلب."
 
-#: src/Checkout.php:736
+#: src/Checkout.php:799
 #: templates/admin/wallet-card.php:56
 msgid "Copy"
 msgstr "انسخ"
 
-#: src/Checkout.php:737
+#: src/Checkout.php:800
 #: assets/js/admin.js:144
 msgid "Copied"
 msgstr "نُسخ"
 
-#: src/Checkout.php:738
+#: src/Checkout.php:801
 msgid "Sending…"
 msgstr "جارٍ الإرسال…"
 
-#: src/Checkout.php:739
+#: src/Checkout.php:802
 msgid "Transferred from another number? Contact the store with your order number so it can attach your transfer."
 msgstr "حوّلت من رقم آخر؟ تواصل مع المتجر برقم الطلب ليُلحق تحويلك."
 
-#: src/Checkout.php:740
+#: src/Checkout.php:803
 msgid "Transferred? Enter the transaction id above so the store finds your transfer."
 msgstr "حوّلت؟ اكتب رقم العملية أعلاه ليجد المتجر تحويلك."
 
 #. translators: %s: the transaction id read from what the customer entered or pasted.
-#: src/Checkout.php:744
+#: src/Checkout.php:807
 #, php-format
 msgid "We will send: %s"
 msgstr "سنرسل: %s"
 
-#: src/Checkout.php:773
+#: src/Checkout.php:808
+msgid "Reload this page to see the amount that remains."
+msgstr "أعد تحميل هذه الصفحة لترى المبلغ الباقي."
+
+#. translators: %s: deadline time in Cairo.
+#. translators: %s: deadline date and time in Cairo.
+#: src/Checkout.php:810
+#: templates/emails/instructions.php:101
+#: templates/emails/plain/instructions.php:71
+#: templates/order/thankyou-box.php:109
+#, php-format
+msgid "Before: %s Cairo time"
+msgstr "قبل: %s بتوقيت القاهرة"
+
+#: src/Checkout.php:839
 #: src/Claims.php:330
 msgid "This does not look like an Orange Cash transaction id. Check it in your message."
 msgstr "هذا لا يشبه رقم عملية أورنج كاش. راجعه في رسالتك."
 
-#: src/Checkout.php:775
+#: src/Checkout.php:841
 #: src/Claims.php:315
 msgid "Enter the transaction id."
 msgstr "اكتب رقم العملية."
 
-#: src/Checkout.php:778
+#: src/Checkout.php:844
 #: src/Claims.php:317
 msgid "We found more than one possible number in what you pasted. Enter the transaction id only."
 msgstr "وجدنا أكثر من رقم محتمل فيما لصقته. اكتب رقم العملية وحده."
 
-#: src/Checkout.php:779
+#: src/Checkout.php:845
 #: src/Claims.php:319
 msgid "This is a wallet number, not a transaction id."
 msgstr "هذا رقم محفظة لا رقم عملية."
 
-#: src/Checkout.php:780
+#: src/Checkout.php:846
 #: src/Claims.php:321
 msgid "You have changed it several times. Try again in 10 minutes."
 msgstr "غيّرته مرات عدة. أعد المحاولة بعد 10 دقائق."
 
 #. translators: %s: order number.
-#: src/Checkout.php:782
+#: src/Checkout.php:848
 #: src/Claims.php:324
 #, php-format
 msgid "The transaction id cannot be changed again. Contact the store with your order number #%s."
 msgstr "لا يمكن تغيير رقم العملية مرة أخرى. تواصل مع المتجر برقم طلبك #%s."
 
-#: src/Checkout.php:783
+#: src/Checkout.php:849
 #: src/Claims.php:326
 msgid "This order is no longer waiting for a transfer."
 msgstr "لم يعد هذا الطلب ينتظر تحويلًا."
 
-#: src/Checkout.php:784
+#: src/Checkout.php:850
 #: src/Claims.php:328
 msgid "We could not save the transaction id. Try again."
 msgstr "تعذّر حفظ رقم العملية. حاول مرة أخرى."
 
 #. translators: %s: transaction id.
-#: src/Checkout.php:854
+#: src/Checkout.php:947
 #, php-format
 msgid "Your transfer (transaction id %s) arrived and your order is confirmed."
 msgstr "وصل تحويلك (رقم العملية %s) وتمّ تأكيد طلبك."
 
 #. translators: 1: masked wallet number, 2: transaction id.
-#: src/Checkout.php:861
+#: src/Checkout.php:954
 #, php-format
 msgid "Your transfer from %1$s (transaction id %2$s) arrived and your order is confirmed."
 msgstr "وصل تحويلك من %1$s (رقم العملية %2$s) وتمّ تأكيد طلبك."
 
 #. translators: %s: masked wallet number.
-#: src/Checkout.php:864
+#: src/Checkout.php:957
 #, php-format
 msgid "Your transfer from %s arrived and your order is confirmed."
 msgstr "وصل تحويلك من %s وتمّ تأكيد طلبك."
@@ -1216,14 +1230,18 @@ msgid "The customer changed the transaction id to %1$s (it was %2$s)."
 msgstr "غيّر العميل رقم العملية إلى %1$s (كان %2$s)."
 
 #. translators: 1: transaction id, 2: order number.
-#: src/Claims.php:446
+#: src/Claims.php:448
 #, php-format
 msgid "The transaction id the customer entered (%1$s) belongs to a transfer that paid order #%2$s before."
 msgstr "رقم العملية الذي كتبه العميل (%1$s) يخص تحويلًا دفع الطلب #%2$s من قبل."
 
-#: src/Claims.php:453
+#: src/Claims.php:455
 msgid "The transaction id the customer entered matches a transfer waiting for your decision."
 msgstr "رقم العملية الذي كتبه العميل يطابق تحويلًا ينتظر قرارك."
+
+#: src/Claims.php:458
+msgid "The transaction id the customer entered matches a transfer in “Personal transfers”: check it, and attach it to this order if it is the customer's."
+msgstr "رقم العملية الذي كتبه العميل يطابق تحويلًا في «تحويلات شخصية»: راجعه، وألحقه بهذا الطلب إن كان تحويل العميل."
 
 #. translators: %s: order number.
 #: src/Completion.php:493
@@ -1238,63 +1256,63 @@ msgid "Order #%s could not be completed: WooCommerce reported an error each time
 msgstr "تعذّر إتمام الطلب #%s: أبلغ WooCommerce عن خطأ في كل مرة. راجع الطلب وأتمّه بنفسك."
 
 #. translators: %s: list of the fields that are wrong, each with the reason.
-#: src/ConfigStore.php:186
+#: src/ConfigStore.php:191
 #, php-format
 msgid "The imported settings were refused: %s"
 msgstr "رُفضت الإعدادات المستوردة: %s"
 
 #. translators: %s: list of the fields that are wrong, each with the reason.
-#: src/ConfigStore.php:189
+#: src/ConfigStore.php:194
 #, php-format
 msgid "The settings were not saved: %s"
 msgstr "لم تُحفظ الإعدادات: %s"
 
-#: src/ConfigStore.php:209
+#: src/ConfigStore.php:214
 msgid "The settings could not be saved. Please try again."
 msgstr "تعذّر حفظ الإعدادات. حاول مرة أخرى."
 
-#: src/ConfigStore.php:420
+#: src/ConfigStore.php:447
 msgid "QERSH_WC_CONFIG in wp-config.php is not a JSON object."
 msgstr "QERSH_WC_CONFIG في wp-config.php ليس كائن JSON."
 
-#: src/ConfigStore.php:423
+#: src/ConfigStore.php:450
 msgid "This wallet was deleted. Use “Restore wallet” in WooCommerce → Qersh → Wallets instead of adding it again."
 msgstr "حُذفت هذه المحفظة. استعمل «استعادة المحفظة» في WooCommerce ← قرش ← المحافظ بدل إضافتها من جديد."
 
-#: src/Diagnostics.php:634
+#: src/Diagnostics.php:779
 msgid "The Qersh tables are missing, so the store answers the phone 503 and no transfer is recorded. Deactivate and activate Qersh for WooCommerce, and check that the database user may create tables."
 msgstr "جداول قرش ناقصة، فيرد المتجر على الهاتف بـ 503 ولا يُسجَّل أي تحويل. عطّل Qersh for WooCommerce ثم فعّلها، وتأكد أن مستخدم قاعدة البيانات يستطيع إنشاء الجداول."
 
-#: src/Diagnostics.php:638
+#: src/Diagnostics.php:783
 msgid "The site time zone is not Cairo, so order times in the admin and in WooCommerce emails differ from your clock. Set it in Settings → General → Timezone: Cairo."
 msgstr "منطقة الموقع الزمنية ليست القاهرة، فأوقات الطلبات في لوحة الإدارة وبريد WooCommerce تختلف عن ساعتك. اضبطها من الإعدادات ← عام ← المنطقة الزمنية: القاهرة."
 
-#: src/Diagnostics.php:641
+#: src/Diagnostics.php:786
 msgid "The time zone database of PHP on your server is old, so email deadlines are an hour late in summer. Ask your host to update it."
 msgstr "قاعدة المناطق الزمنية في PHP على خادمك قديمة، فمواعيد البريد تتأخر ساعة صيفًا. اطلب من الاستضافة تحديثها."
 
-#: src/Diagnostics.php:644
+#: src/Diagnostics.php:789
 msgid "“New order” and “Processing” emails for Qersh orders are waiting for Cron and will not be sent on their own. Set up a real Cron on your hosting, or run them now from Tools → Scheduled Actions."
 msgstr "رسائل «طلب جديد» و«طلب قيد التنفيذ» لطلبات قرش تنتظر Cron ولن تُرسل وحدها. اضبط Cron حقيقيًا على الاستضافة، أو شغّلها الآن من أدوات ← الإجراءات المجدولة."
 
 #. translators: %s: list of database table names.
-#: src/Diagnostics.php:649
+#: src/Diagnostics.php:794
 #, php-format
 msgid "These Qersh tables do not use the InnoDB engine, so the locks that keep two deliveries apart do not work: %s. Ask your host to convert them to InnoDB."
 msgstr "جداول قرش هذه لا تستعمل محرّك InnoDB، فلا تعمل الأقفال التي تفصل بين تسليمين: %s. اطلب من الاستضافة تحويلها إلى InnoDB."
 
 #. translators: %s: the last three digits of a transaction id.
-#: src/Diagnostics.php:654
+#: src/Diagnostics.php:799
 #, php-format
 msgid "An Orange Cash transfer arrived with a transaction id whose format this version does not expect (…%s), so your customers' ids may not match it. Update Qersh for WooCommerce."
 msgstr "وصل تحويل أورنج كاش برقم عملية لا تتوقع هذه النسخة شكله (…%s)، فقد لا تطابقه أرقام العملاء. حدّث Qersh for WooCommerce."
 
-#: src/Diagnostics.php:655
+#: src/Diagnostics.php:800
 msgid "Customers cannot enter the transaction id for this wallet until you update Qersh for WooCommerce."
 msgstr "لا يستطيع العملاء كتابة رقم العملية لهذه المحفظة حتى تحدّث Qersh for WooCommerce."
 
 #. translators: %s: number of transfers.
-#: src/Diagnostics.php:662
+#: src/Diagnostics.php:807
 #, php-format
 msgid "Unpaid orders with the same amount kept %s transfer from being confirmed on its own today."
 msgid_plural "Unpaid orders with the same amount kept %s transfers from being confirmed on their own today."
@@ -1305,67 +1323,67 @@ msgstr[3] "طلبات غير مدفوعة بالمبلغ نفسه منعت ال�
 msgstr[4] "طلبات غير مدفوعة بالمبلغ نفسه منعت التأكيد التلقائي لـ %s تحويلًا اليوم."
 msgstr[5] "طلبات غير مدفوعة بالمبلغ نفسه منعت التأكيد التلقائي لـ %s تحويل اليوم."
 
-#: src/Diagnostics.php:677
+#: src/Diagnostics.php:822
 msgid "At the last delivery:"
 msgstr "عند آخر تسليم:"
 
-#: src/Diagnostics.php:682
+#: src/Diagnostics.php:827
 msgid "The connection key is stored but cannot be read any more (the site's security keys in wp-config.php may have changed), so the store answers the phone 401. Generate your developer's link with the connection key and open it on the wallet's phone, or paste the key again."
 msgstr "مفتاح الربط محفوظ لكن لم تعد قراءته ممكنة (ربما تغيّرت مفاتيح أمان الموقع في wp-config.php)، فيرد المتجر على الهاتف بـ 401. ولّد رابط مطوّرك مع مفتاح الربط وافتحه على هاتف المحفظة، أو الصق المفتاح من جديد."
 
-#: src/Diagnostics.php:684
+#: src/Diagnostics.php:829
 msgid "The connection key in wp-config.php is not a valid key (at least 24 characters, no spaces), so the store answers the phone 401."
 msgstr "مفتاح الربط في wp-config.php ليس مفتاحًا صالحًا (24 حرفًا على الأقل، بلا مسافات)، فيرد المتجر على الهاتف بـ 401."
 
-#: src/Diagnostics.php:686
+#: src/Diagnostics.php:831
 msgid "The phone has no permission to read messages: no transfer will arrive. Open Qersh → “Set up the phone”."
 msgstr "الهاتف لا يملك إذن قراءة الرسائل: لن يصل أي تحويل. افتح قرش ← «جهّز الهاتف»."
 
-#: src/Diagnostics.php:688
+#: src/Diagnostics.php:833
 msgid "Qersh cannot reach InstaPay notifications: no transfer will arrive."
 msgstr "قرش لا يصل إلى إشعارات إنستاباي: لن يصل أي تحويل."
 
-#: src/Diagnostics.php:690
+#: src/Diagnostics.php:835
 msgid "The system stops Qersh from working in the background: open “Set up the phone”."
 msgstr "النظام يمنع قرش من العمل في الخلفية: افتح «جهّز الهاتف»."
 
 #. translators: %s: date and time.
-#: src/Diagnostics.php:693
-#: src/Emails/AdminAlert.php:218
+#: src/Diagnostics.php:838
+#: src/Emails/AdminAlert.php:221
 #, php-format
 msgid "The phone of this wallet seems to have been offline since %s: orders will not be confirmed on their own until it is back."
 msgstr "يُشتبه أن هاتف هذه المحفظة منقطع منذ %s: لن تتأكد الطلبات وحدها حتى يعود."
 
 #. translators: %s: date and time.
-#: src/Diagnostics.php:696
+#: src/Diagnostics.php:841
 #, php-format
 msgid "The phone of this wallet has been offline since %s."
 msgstr "هاتف هذه المحفظة منقطع منذ %s."
 
-#: src/Diagnostics.php:698
+#: src/Diagnostics.php:843
 msgid "Transfers of this wallet arrive without the payer's full number, so they are not matched automatically. In the Qersh app open the wallet page → “Developer settings” and set “Send sender details” to “Full name and number”."
 msgstr "تصل تحويلات هذه المحفظة بلا رقم الدافع كاملًا، فلا تُطابَق آليًا. في تطبيق قرش افتح صفحة المحفظة ← «إعدادات المطوّر» واجعل «إرسال بيانات المُرسِل» «الاسم والرقم كاملين»."
 
-#: src/Diagnostics.php:700
+#: src/Diagnostics.php:845
 msgid "Your store URL has changed since the phone last delivered, so the phone still sends to the old URL. Open your new developer's link on the wallet's phone (or paste it in “More → Wallets → Add wallet”), which updates the same wallet and keeps the connection key, then tap “Test connection”."
 msgstr "تغيّر رابط متجرك منذ آخر ما وصل من الهاتف، فالهاتف ما زال يرسل إلى الرابط القديم. افتح رابط مطوّرك الجديد على هاتف المحفظة (أو الصقه في «المزيد ← المحافظ ← إضافة محفظة») فيحدّث المحفظة نفسها ويبقى مفتاح الربط كما هو، ثم اضغط «اختبار الربط»."
 
-#: src/Diagnostics.php:702
+#: src/Diagnostics.php:847
 msgid "Your phone has a newer connection key than the store, and the phone keeps accepting the old one for only 24 hours after the new one was made. Generate your developer's link with the connection key and open it on the phone, or tap “Send this wallet's link to your developer” on the wallet page on the phone and paste the message here."
 msgstr "على هاتفك مفتاح ربط أحدث من مفتاح المتجر، والقديم لا يبقى مقبولًا على الهاتف إلا 24 ساعة من توليد الجديد. ولّد «رابط مطوّرك مع مفتاح الربط» وافتحه على الهاتف، أو اضغط «أرسل رابط هذه المحفظة لمطوّرك» في صفحة المحفظة على الهاتف والصق الرسالة هنا."
 
 #. translators: %s: date and time.
-#: src/Diagnostics.php:705
+#: src/Diagnostics.php:850
 #, php-format
 msgid "A link with the connection key has been waiting since %s. If you opened it on the phone, tap “Test connection”; otherwise cancel it or generate a new link."
 msgstr "رابط مع مفتاح الربط ينتظر منذ %s. إن فتحته على الهاتف فاضغط «اختبار الربط»، وإلا فألغِه أو ولّد رابطًا جديدًا."
 
-#: src/Diagnostics.php:707
+#: src/Diagnostics.php:852
 msgid "Nothing has arrived with the pending key for 7 days. If you opened the link on the phone, tap “Test connection”; otherwise cancel it or generate a new link."
 msgstr "لم يصل شيء بالمفتاح المنتظر منذ 7 أيام. إن فتحت الرابط على الهاتف فاضغط «اختبار الربط»، وإلا فألغِه أو ولّد رابطًا جديدًا."
 
 #: src/Emails/AdminAlert.php:61
-#: src/Emails/AdminAlert.php:111
+#: src/Emails/AdminAlert.php:114
 msgid "Qersh alert"
 msgstr "تنبيه قرش"
 
@@ -1373,136 +1391,136 @@ msgstr "تنبيه قرش"
 msgid "Sent to the store's administrator when a transfer message is suspected to be forged, when a wallet's phone goes silent while orders wait, and when an order waits for your decision at its deadline."
 msgstr "يُرسل إلى مدير المتجر حين يُشتبه بتزوير رسالة تحويل، وحين يصمت هاتف محفظة والطلبات تنتظر، وحين ينتظر طلبٌ قرارك عند موعده."
 
-#: src/Emails/AdminAlert.php:86
+#: src/Emails/AdminAlert.php:89
 msgid "[{site_title}]: Suspected forged transfer message on order #{order_number}"
 msgstr "[{site_title}]: رسالة تحويل يُشتبه بتزويرها على الطلب #{order_number}"
 
-#: src/Emails/AdminAlert.php:88
+#: src/Emails/AdminAlert.php:91
 msgid "[{site_title}]: The phone of wallet {wallet} seems to be offline"
 msgstr "[{site_title}]: يبدو أن هاتف المحفظة {wallet} منقطع"
 
-#: src/Emails/AdminAlert.php:91
+#: src/Emails/AdminAlert.php:94
 msgid "[{site_title}]: Order #{order_number} waits for your decision"
 msgstr "[{site_title}]: الطلب #{order_number} ينتظر قرارك"
 
-#: src/Emails/AdminAlert.php:93
+#: src/Emails/AdminAlert.php:96
 msgid "[{site_title}]: Qersh alert"
 msgstr "[{site_title}]: تنبيه قرش"
 
-#: src/Emails/AdminAlert.php:104
+#: src/Emails/AdminAlert.php:107
 msgid "Suspected forged transfer message"
 msgstr "رسالة تحويل يُشتبه بتزويرها"
 
-#: src/Emails/AdminAlert.php:106
+#: src/Emails/AdminAlert.php:109
 msgid "A wallet's phone seems to be offline"
 msgstr "يبدو أن هاتف محفظة منقطع"
 
-#: src/Emails/AdminAlert.php:109
+#: src/Emails/AdminAlert.php:112
 msgid "An order waits for your decision"
 msgstr "طلب ينتظر قرارك"
 
 #. translators: %s: date and time.
-#: src/Emails/AdminAlert.php:216
-#: src/Orders.php:1651
-#: src/Orders.php:1654
+#: src/Emails/AdminAlert.php:219
+#: src/Orders.php:1748
+#: src/Orders.php:1751
 #, php-format
 msgid "%s Cairo time"
 msgstr "%s بتوقيت القاهرة"
 
-#: src/Emails/AdminAlert.php:223
+#: src/Emails/AdminAlert.php:226
 msgid "Check that the phone is on and connected, and that Qersh can run in the background. What the phone missed arrives when it is back."
 msgstr "تأكد أن الهاتف يعمل ومتصل، وأن قرش يستطيع العمل في الخلفية. يصل ما فات الهاتف حين يعود."
 
 #. translators: %s: order number.
-#: src/Emails/AdminAlert.php:231
+#: src/Emails/AdminAlert.php:234
 #, php-format
 msgid "Part of the amount of order %s arrived, and the rest did not arrive before the deadline."
 msgstr "وصل جزء من مبلغ الطلب %s، ولم يصل الباقي قبل الموعد."
 
 #. translators: %s: order number.
-#: src/Emails/AdminAlert.php:247
+#: src/Emails/AdminAlert.php:250
 #, php-format
 msgid "Order: %s"
 msgstr "الطلب: %s"
 
 #. translators: %s: amount.
-#: src/Emails/AdminAlert.php:251
+#: src/Emails/AdminAlert.php:254
 #, php-format
 msgid "Transfer amount: %s"
 msgstr "مبلغ التحويل: %s"
 
 #. translators: %s: transfer id.
-#: src/Emails/AdminAlert.php:255
+#: src/Emails/AdminAlert.php:258
 #, php-format
 msgid "Transfer: %s"
 msgstr "التحويل: %s"
 
-#: src/Emails/AdminAlert.php:302
+#: src/Emails/AdminAlert.php:305
 msgid "Open the wallets"
 msgstr "افتح المحافظ"
 
-#: src/Emails/AdminAlert.php:302
+#: src/Emails/AdminAlert.php:305
 msgid "Open “Needs a decision”"
 msgstr "افتح «تحتاج قرارًا»"
 
 #. translators: %s: list of placeholders.
-#: src/Emails/AdminAlert.php:315
+#: src/Emails/AdminAlert.php:318
 #, php-format
 msgid "Available placeholders: %s"
 msgstr "العناصر النائبة المتاحة: %s"
 
-#: src/Emails/AdminAlert.php:318
+#: src/Emails/AdminAlert.php:321
 #: src/Gateway.php:99
 msgid "Enable/Disable"
 msgstr "تمكين/تعطيل"
 
-#: src/Emails/AdminAlert.php:320
+#: src/Emails/AdminAlert.php:323
 msgid "Enable this email notification"
 msgstr "فعّل إشعار البريد هذا"
 
-#: src/Emails/AdminAlert.php:324
+#: src/Emails/AdminAlert.php:327
 msgid "Recipient(s)"
 msgstr "المستلمون"
 
 #. translators: %s: the site admin email address.
-#: src/Emails/AdminAlert.php:327
+#: src/Emails/AdminAlert.php:330
 #, php-format
 msgid "Enter recipients (comma separated) for this email. Defaults to %s."
 msgstr "اكتب المستلمين (مفصولين بفاصلة) لهذا البريد. الافتراضي %s."
 
-#: src/Emails/AdminAlert.php:333
+#: src/Emails/AdminAlert.php:336
 msgid "Subject"
 msgstr "الموضوع"
 
-#: src/Emails/AdminAlert.php:336
+#: src/Emails/AdminAlert.php:339
 msgid "Leave empty for a subject that names the kind of alert."
 msgstr "اتركه فارغًا لموضوع يسمّي نوع التنبيه."
 
-#: src/Emails/AdminAlert.php:341
+#: src/Emails/AdminAlert.php:344
 msgid "Email heading"
 msgstr "عنوان البريد"
 
-#: src/Emails/AdminAlert.php:344
+#: src/Emails/AdminAlert.php:347
 msgid "Leave empty for a heading that names the kind of alert."
 msgstr "اتركه فارغًا لعنوان يسمّي نوع التنبيه."
 
-#: src/Emails/AdminAlert.php:349
+#: src/Emails/AdminAlert.php:352
 msgid "Additional content"
 msgstr "محتوى إضافي"
 
-#: src/Emails/AdminAlert.php:350
+#: src/Emails/AdminAlert.php:353
 msgid "Text to appear below the main email content."
 msgstr "نص يظهر تحت محتوى البريد الرئيسي."
 
-#: src/Emails/AdminAlert.php:352
+#: src/Emails/AdminAlert.php:355
 msgid "N/A"
 msgstr "غير متاح"
 
-#: src/Emails/AdminAlert.php:358
+#: src/Emails/AdminAlert.php:361
 msgid "Email type"
 msgstr "نوع البريد"
 
-#: src/Emails/AdminAlert.php:360
+#: src/Emails/AdminAlert.php:363
 msgid "Choose which format of email to send."
 msgstr "اختر صيغة البريد الذي يُرسل."
 
@@ -1527,41 +1545,41 @@ msgid "If you need help with your order, reply to this email with your order num
 msgstr "إن احتجت مساعدة في طلبك، فردّ على هذا البريد برقم طلبك."
 
 #. translators: %s: order number.
-#: src/Expiry.php:453
+#: src/Expiry.php:520
 #, php-format
 msgid "The time for your order #%s has ended. The store will contact you to complete the order or refund what arrived."
 msgstr "انتهت مهلة طلبك #%s. سيتواصل معك المتجر لإتمام الطلب أو ردّ ما وصل."
 
 #. translators: 1: order number, 2: amount received, 3: order total.
-#: src/Expiry.php:492
+#: src/Expiry.php:557
 #, php-format
 msgid "The time for your order #%1$s has ended, and we received %2$s of %3$s. The store will contact you to complete the order or refund what arrived."
 msgstr "انتهت مهلة طلبك #%1$s، ووصلَنا %2$s من %3$s. سيتواصل معك المتجر لإتمام الطلب أو ردّ ما وصل."
 
-#: src/Expiry.php:517
+#: src/Expiry.php:582
 msgid "The transfer did not arrive before the deadline."
 msgstr "لم يصل التحويل قبل الموعد."
 
 #. translators: %s: order number.
-#: src/Expiry.php:540
+#: src/Expiry.php:605
 #, php-format
 msgid "The transfer window for order #%s has ended and the order was cancelled. Do not transfer for it now. If you transferred before the deadline, your order will be confirmed when the transfer arrives; otherwise contact the store with your order number."
 msgstr "انتهت مهلة التحويل لطلبك #%s فأُلغي. لا تحوّل له الآن. إن كنت حوّلت قبل الموعد فسيتأكد طلبك حين يصل تحويلك، وإلا فتواصل مع المتجر برقم الطلب."
 
 #. translators: 1: order number, 2: link to the order page.
-#: src/Expiry.php:545
+#: src/Expiry.php:610
 #, php-format
 msgid "The transfer window for order #%1$s has ended and the order was cancelled. Do not transfer for it now. If you transferred before the deadline, enter the transaction id from your transfer message on your order page within 72 hours: %2$s. Your order comes back when your transfer matches it, as long as the products are available; otherwise contact the store with your order number."
 msgstr "انتهت مهلة التحويل لطلبك #%1$s فأُلغي. لا تحوّل له الآن. إن كنت حوّلت قبل الموعد فاكتب رقم العملية من رسالة التحويل في صفحة طلبك خلال 72 ساعة: %2$s، فيعود طلبك حين يطابقه تحويلك ما دامت المنتجات متاحة؛ وإلا فتواصل مع المتجر برقم الطلب."
 
 #. translators: 1: order number, 2: transaction id.
-#: src/Expiry.php:548
+#: src/Expiry.php:613
 #, php-format
 msgid "The transfer window for order #%1$s has ended and the order was cancelled. We kept the transaction id %2$s, so do not transfer again. If you transferred before the deadline, your order comes back when your transfer arrives and the store checks it, as long as the products are available; otherwise contact the store with your order number."
 msgstr "انتهت مهلة التحويل لطلبك #%1$s فأُلغي. احتفظنا برقم العملية %2$s، فلا تحوّل مرة أخرى. إن كنت حوّلت قبل الموعد فيعود طلبك حين يصل تحويلك ويتحقق منه المتجر، ما دامت المنتجات متاحة؛ وإلا فتواصل مع المتجر برقم الطلب."
 
 #. translators: %s: order number.
-#: src/Expiry.php:551
+#: src/Expiry.php:616
 #, php-format
 msgid "The transfer window for order #%s has ended and the order was cancelled. Do not transfer for it now. If you transferred before the deadline, the store brings your order back after it checks your transfer, as long as the products are available; otherwise contact the store with your order number."
 msgstr "انتهت مهلة التحويل لطلبك #%s فأُلغي. لا تحوّل له الآن. إن كنت حوّلت قبل الموعد فيعيد المتجر طلبك بعد أن يتحقق من تحويلك، ما دامت المنتجات متاحة؛ وإلا فتواصل مع المتجر برقم الطلب."
@@ -1621,287 +1639,297 @@ msgstr "حوّلت لهذا الطلب بالفعل؟ لا تحوّل مرة أ�
 msgid "You entered a transaction id for this order, so it cannot be cancelled here. Contact the store with your order number."
 msgstr "كتبت رقم عملية لهذا الطلب، فلا يُلغى من هنا؛ تواصل مع المتجر برقم طلبك."
 
-#: src/Gateway.php:316
+#: src/Gateway.php:321
 msgid "We could not find your order. Please try again."
 msgstr "لم نجد طلبك. حاول مرة أخرى."
 
-#: src/Gateway.php:326
-#: src/Gateway.php:348
+#: src/Gateway.php:331
+#: src/Gateway.php:358
 msgid "Your order could not be saved. Please try again in a moment."
 msgstr "تعذّر حفظ طلبك. حاول مرة أخرى بعد لحظة."
 
+#: src/Gateway.php:347
+msgid "Waiting for the wallet transfer again."
+msgstr "بانتظار التحويل من المحفظة من جديد."
+
 #. translators: %s: order number.
-#: src/MatchPolicy.php:1317
+#: src/MatchPolicy.php:1325
 #, php-format
 msgid "That transfer paid order %s."
 msgstr "ذلك التحويل دفع الطلب %s."
 
-#: src/MatchPolicy.php:1323
+#: src/MatchPolicy.php:1331
 msgid "Several open orders of this payer, and none matches the amount."
 msgstr "للدافع عدة طلبات مفتوحة، ولا يطابق أيٌّ منها المبلغ."
 
-#: src/MatchPolicy.php:1325
+#: src/MatchPolicy.php:1333
 msgid "Arrived late: no order of this payer was open when the money arrived."
 msgstr "وصل متأخرًا: لم يكن للدافع طلب مفتوح حين وصل المال."
 
-#: src/MatchPolicy.php:1327
+#: src/MatchPolicy.php:1335
 msgid "The message does not show the amount."
 msgstr "الرسالة لا تذكر المبلغ."
 
-#: src/MatchPolicy.php:1329
+#: src/MatchPolicy.php:1337
 msgid "The time the money arrived cannot be read from the message: check the transfer in the wallet app."
 msgstr "لا يمكن قراءة وقت وصول المال من الرسالة: راجع التحويل في تطبيق المحفظة."
 
 #. translators: %s: order number.
-#: src/MatchPolicy.php:1332
+#: src/MatchPolicy.php:1340
 #, php-format
 msgid "Order %s was cancelled or its payment method changed after money arrived for it: refund the customer from the wallet app."
 msgstr "أُلغي الطلب %s أو تغيّرت طريقة دفعه بعد أن وصل له مال: ردّ المال للعميل من تطبيق المحفظة."
 
-#: src/MatchPolicy.php:1334
+#: src/MatchPolicy.php:1342
 msgid "Qersh did not confirm this transfer on its own: check that the money arrived in the wallet app."
 msgstr "لم يؤكد قرش هذا التحويل وحده: تأكد من وصول المال في تطبيق المحفظة."
 
-#: src/MatchPolicy.php:1361
+#: src/MatchPolicy.php:1369
 msgid "Matched by the transaction id the customer entered"
 msgstr "طابق برقم العملية الذي كتبه العميل"
 
-#: src/MatchPolicy.php:1364
+#: src/MatchPolicy.php:1372
 msgid "Attached to the order by the merchant"
 msgstr "ألحقه التاجر بالطلب"
 
 #. translators: %s: order number.
-#: src/MatchPolicy.php:1375
+#: src/MatchPolicy.php:1383
 #, php-format
 msgid "A transfer from this payer arrived after order %s was closed; decide: attach it or refund the money."
 msgstr "وصل تحويل من هذا الدافع بعد إغلاق الطلب %s؛ قرّر: إلحاق أو ردّ المال."
 
 #. translators: %s: the piasters added, as an amount.
-#: src/MatchPolicy.php:1395
-#: src/Orders.php:1344
+#: src/MatchPolicy.php:1403
+#: src/Orders.php:1380
 #, php-format
 msgid "Rounded to the pound (+%s)."
 msgstr "قُرّب إلى الجنيه (+%s)."
 
-#: src/MatchPolicy.php:1397
-#: src/Orders.php:1340
+#: src/MatchPolicy.php:1405
+#: src/Orders.php:1376
 msgid "Paid after the deadline."
 msgstr "دُفع بعد الموعد."
 
 #. translators: %s: amount.
-#: src/MatchPolicy.php:1400
-#: src/Orders.php:1348
-#: src/Orders.php:2231
+#: src/MatchPolicy.php:1408
+#: src/Orders.php:1384
+#: src/Orders.php:2328
 #, php-format
 msgid "Overpaid by %s"
 msgstr "دفعة زائدة بمقدار %s"
 
 #. translators: %s: order number.
-#: src/MatchPolicy.php:1403
+#: src/MatchPolicy.php:1411
 #, php-format
 msgid "Possibly a second payment for order %s from the same payer; contact them to refund the amount from the wallet app."
 msgstr "ربما دفعة ثانية للطلب %s من الدافع نفسه؛ تواصل معه لردّ المبلغ من تطبيق المحفظة."
 
-#: src/OrderStatusRoute.php:178
+#: src/OrderStatusRoute.php:179
 msgid "Order not found."
 msgstr "لم يُعثر على الطلب."
 
-#: src/Orders.php:683
-#: src/Orders.php:2053
+#: src/Orders.php:719
+#: src/Orders.php:2150
 msgid "This order was not found."
 msgstr "لم يُعثر على هذا الطلب."
 
-#: src/Orders.php:697
+#: src/Orders.php:733
 msgid "The transfer could not be attached. Try again."
 msgstr "تعذّر إلحاق التحويل. حاول مرة أخرى."
 
-#: src/Orders.php:702
-#: src/Orders.php:798
-#: src/Orders.php:875
+#: src/Orders.php:738
+#: src/Orders.php:834
+#: src/Orders.php:911
 msgid "The transfer is being processed right now. Try again in a moment."
 msgstr "يُعالَج التحويل الآن. حاول بعد لحظة."
 
 #. translators: 1: name of the admin, 2: amount.
-#: src/Orders.php:772
+#: src/Orders.php:808
 #, php-format
 msgid "%1$s dismissed a wallet transfer of %2$s; it no longer counts toward this order."
 msgstr "تجاهل %1$s تحويل محفظة بمبلغ %2$s؛ لم يعد يُحسب لهذا الطلب."
 
 #. translators: %s: name of the admin.
-#: src/Orders.php:784
+#: src/Orders.php:820
 #, php-format
 msgid "Dismissed by %s."
 msgstr "تجاهله %s."
 
-#: src/Orders.php:795
+#: src/Orders.php:831
 msgid "The transfer could not be dismissed. Try again."
 msgstr "تعذّر تجاهل التحويل. حاول مرة أخرى."
 
-#: src/Orders.php:823
+#: src/Orders.php:859
 msgid "This transfer is not linked to an order. Attach it to its order or dismiss it."
 msgstr "هذا التحويل غير مربوط بطلب. ألحقه بطلبه أو تجاهله."
 
 #. translators: %s: name of the admin.
-#: src/Orders.php:852
+#: src/Orders.php:888
 #, php-format
 msgid "Marked as decided by %s."
 msgstr "علّمه %s محسومًا."
 
 #. translators: 1: name of the admin, 2: amount.
-#: src/Orders.php:859
+#: src/Orders.php:895
 #, php-format
 msgid "%1$s marked the wallet transfer of %2$s as decided."
 msgstr "علّم %1$s تحويل المحفظة بمبلغ %2$s محسومًا."
 
 #. translators: 1: order number, 2: amount that remains.
-#: src/Orders.php:933
+#: src/Orders.php:969
 #, php-format
 msgid "Order %1$s: %2$s remains."
 msgstr "الطلب %1$s: الباقي %2$s."
 
 #. translators: 1: the payer, 2: why the transfer needs a decision.
-#: src/Orders.php:1246
+#: src/Orders.php:1282
 #, php-format
 msgid "A wallet transfer from %1$s may be for this order and needs your decision: %2$s"
 msgstr "تحويل محفظة من %1$s قد يخص هذا الطلب ويحتاج قرارك: %2$s"
 
 #. translators: 1: amount, 2: the payer, 3: why the transfer needs a decision.
-#: src/Orders.php:1253
+#: src/Orders.php:1289
 #, php-format
 msgid "A wallet transfer of %1$s from %2$s may be for this order and needs your decision: %3$s"
 msgstr "تحويل محفظة بمبلغ %1$s من %2$s قد يخص هذا الطلب ويحتاج قرارك: %3$s"
 
 #. translators: 1: wallet type, 2: amount, 3: the payer, 4: transaction id, 5: when the money arrived.
-#: src/Orders.php:1319
+#: src/Orders.php:1355
 #, php-format
 msgid "A %1$s transfer of %2$s from %3$s matched this order by the transaction id the customer entered (%4$s, money arrived %5$s)."
 msgstr "تحويل %1$s بمبلغ %2$s من %3$s طابق هذا الطلب برقم العملية الذي كتبه العميل (%4$s، وصل المال %5$s)."
 
 #. translators: 1: amount, 2: the payer, 3: transaction id, 4: when the money arrived.
-#: src/Orders.php:1331
+#: src/Orders.php:1367
 #, php-format
 msgid "A wallet transfer of %1$s from %2$s matched this order (transaction %3$s, money arrived %4$s)."
 msgstr "تحويل محفظة بمبلغ %1$s من %2$s طابق هذا الطلب (رقم العملية %3$s، وصل المال %4$s)."
 
 #. translators: 1: amount received so far, 2: order total, 3: amount that remains, 4: deadline.
-#: src/Orders.php:1370
+#: src/Orders.php:1406
 #, php-format
 msgid "We received %1$s of %2$s; %3$s remains. Send the rest from the same number before %4$s."
 msgstr "وصلَنا %1$s من %2$s، والباقي %3$s. حوّل الباقي من الرقم نفسه قبل %4$s."
 
-#: src/Orders.php:1377
+#: src/Orders.php:1413
 msgid "Then enter the transaction id of the new transfer on your order page."
 msgstr "ثم اكتب رقم عملية التحويل الجديد في صفحة طلبك."
 
-#: src/Orders.php:1762
+#: src/Orders.php:1859
 msgid "This transfer could not be read: check it in the wallet app."
 msgstr "تعذّرت قراءة هذا التحويل: راجعه في تطبيق المحفظة."
 
 #. translators: 1: name of the admin, 2: amount, 3: the payer, masked, 4: transaction id.
-#: src/Orders.php:1994
+#: src/Orders.php:2091
 #, php-format
 msgid "%1$s attached a wallet transfer of %2$s from %3$s to this order (transaction %4$s)."
 msgstr "ألحق %1$s تحويل محفظة بمبلغ %2$s من %3$s بهذا الطلب (رقم العملية %4$s)."
 
 #. translators: 1: name of the admin, 2: amount, 3: the payer, masked, 4: transaction id.
-#: src/Orders.php:2021
+#: src/Orders.php:2118
 #, php-format
 msgid "%1$s confirmed the wallet transfer of %2$s from %3$s for this order (transaction %4$s)."
 msgstr "أكّد %1$s تحويل المحفظة بمبلغ %2$s من %3$s لهذا الطلب (رقم العملية %4$s)."
 
-#: src/Orders.php:2043
+#: src/Orders.php:2140
 msgid "This transfer is already linked to an order."
 msgstr "هذا التحويل مربوط بطلب من قبل."
 
-#: src/Orders.php:2049
+#: src/Orders.php:2146
 msgid "This transfer has no amount, so it cannot be attached."
 msgstr "هذا التحويل بلا مبلغ، فلا يمكن إلحاقه."
 
-#: src/Orders.php:2057
+#: src/Orders.php:2154
 msgid "This order is not paid by wallet transfer."
 msgstr "هذا الطلب غير مدفوع بتحويل محفظة."
 
-#: src/Orders.php:2060
+#: src/Orders.php:2157
 msgid "This order is flagged as a suspected forgery. Check that the money arrived in the wallet app, then change the order's status yourself."
 msgstr "هذا الطلب معلَّم بالاشتباه في التزوير. تأكد من وصول المال في تطبيق المحفظة، ثم غيّر حالة الطلب بنفسك."
 
-#: src/Orders.php:2076
+#: src/Orders.php:2173
 msgid "Only an order that is pending payment, on hold or failed, or one that the transfer window cancelled, can take a transfer."
 msgstr "لا يأخذ التحويلَ إلا طلبٌ حالته «بانتظار الدفع» أو «قيد الانتظار» أو «فشل»، أو طلبٌ ألغته مهلة التحويل."
 
-#: src/Orders.php:2130
+#: src/Orders.php:2227
 msgid "This order was cancelled when its transfer window ended, and what arrived does not cover it, so it cannot be brought back with part of the amount."
 msgstr "أُلغي هذا الطلب حين انتهت مهلة تحويله، وما وصل لا يغطيه، فلا يمكن إعادته بجزء من المبلغ."
 
 #. translators: 1: name of the admin, 2: amount, 3: order number.
-#: src/Orders.php:2145
+#: src/Orders.php:2242
 #, php-format
 msgid "%1$s moved a wallet transfer of %2$s from this order to order #%3$s; it no longer counts toward this order."
 msgstr "نقل %1$s تحويل محفظة بمبلغ %2$s من هذا الطلب إلى الطلب #%3$s؛ لم يعد يُحسب لهذا الطلب."
 
 #. translators: 1: amount received, 2: order total.
-#: src/Orders.php:2237
+#: src/Orders.php:2334
 #, php-format
 msgid "The order is completed with what arrived: %1$s of %2$s."
 msgstr "أُتمّ الطلب بما وصل: %1$s من %2$s."
 
 #. translators: %s: order number.
-#: src/Orders.php:2297
+#: src/Orders.php:2394
 #, php-format
 msgid "This transfer paid part of order #%s. Attach it to that order to complete it with what arrived, or cancel the order and refund the customer before you dismiss it."
 msgstr "دفع هذا التحويل جزءًا من الطلب #%s. ألحقه بذلك الطلب لإتمامه بما وصل، أو ألغِ الطلب وردّ المال للعميل قبل أن تتجاهله."
 
 #. translators: %s: order number.
-#: src/Orders.php:2304
+#: src/Orders.php:2401
 #, php-format
 msgid "This transfer paid order #%s. Refund the extra amount from the wallet app, then attach it to that order to confirm it."
 msgstr "دفع هذا التحويل الطلب #%s. ردّ المبلغ الزائد من تطبيق المحفظة، ثم ألحقه بذلك الطلب لتأكيده."
 
-#: src/Orders.php:2307
+#: src/Orders.php:2404
 msgid "This transfer is linked to an order and cannot be dismissed."
 msgstr "هذا التحويل مربوط بطلب ولا يمكن تجاهله."
 
 #. translators: %s: amount received.
-#: src/Orders.php:2408
+#: src/Orders.php:2524
 #, php-format
 msgid "This order has %s paid: refund it to the customer from the wallet app."
 msgstr "في هذا الطلب %s مدفوعة: ردّها للعميل من تطبيق المحفظة."
 
-#: src/PayerField.php:199
+#. translators: %s: amount of the transfers suspected to be forged.
+#: src/Orders.php:2533
+#, php-format
+msgid "%s of what this order received comes from a transfer suspected to be forged: check in the wallet app that this money really arrived before you refund any of it."
+msgstr "جاء %s مما وصل لهذا الطلب من تحويل يُشتبه بتزويره: تأكد في تطبيق المحفظة أن هذا المال وصل فعلًا قبل أن تردّ أي جزء منه."
+
+#: src/PayerField.php:203
 #: assets/js/checkout-blocks.js:51
 msgid "Choose the wallet you will transfer to."
 msgstr "اختر المحفظة التي ستحوّل إليها."
 
-#: src/PayerField.php:201
+#: src/PayerField.php:205
 #: assets/js/checkout-blocks.js:54
 msgid "This is the store's wallet number. Enter the wallet number you will transfer from."
 msgstr "هذا رقم محفظة المتجر. اكتب رقم المحفظة التي ستحوّل منها."
 
-#: src/PayerField.php:203
-#: templates/checkout/payer-field.php:55
+#: src/PayerField.php:207
+#: templates/checkout/payer-field.php:66
 msgid "This store has no wallet to transfer to right now. Choose another way to pay."
 msgstr "لا توجد في هذا المتجر محفظة للتحويل إليها الآن. اختر طريقة دفع أخرى."
 
-#: src/PayerField.php:206
+#: src/PayerField.php:210
 #: assets/js/checkout-blocks.js:57
 msgid "Enter an Egyptian wallet number of 11 digits starting with 01, or an InstaPay address like name@instapay."
 msgstr "اكتب رقم محفظة مصريًا من 11 رقمًا يبدأ بـ 01، أو عنوان إنستاباي مثل name@instapay."
 
-#: src/PayerField.php:207
+#: src/PayerField.php:211
 #: assets/js/checkout-blocks.js:58
 msgid "Enter an Egyptian wallet number of 11 digits starting with 01."
 msgstr "اكتب رقم محفظة مصريًا من 11 رقمًا يبدأ بـ 01."
 
-#: src/Privacy.php:88
+#: src/Privacy.php:97
 msgid "When you pay by wallet transfer, we ask for the wallet number or InstaPay address you transfer from, so we can recognize your transfer. We store it with your order."
 msgstr "حين تدفع بالتحويل من المحفظة، نطلب رقم المحفظة أو عنوان إنستاباي الذي تحوّل منه، لنعرف تحويلك. ونحفظه مع طلبك."
 
-#: src/Privacy.php:89
+#: src/Privacy.php:98
 msgid "Our store's phone, running the Qersh app, reads the confirmation message of each transfer it receives and sends us directly the amount, the payer's number or InstaPay address and name as the message prints them, the operator's transaction id and the time. If you enter the transaction id of your transfer on your order page, we keep that id only, never the text you pasted. All of this is stored in our own database only: it does not pass through Qersh or any other outside service."
 msgstr "هاتف متجرنا، وعليه تطبيق قرش، يقرأ رسالة تأكيد كل تحويل يستلمه، ويرسل إلينا مباشرة المبلغ، ورقم الدافع أو عنوان إنستاباي واسمه كما تطبعهما الرسالة، ورقم العملية لدى المشغّل، والوقت. وإن كتبت رقم عملية تحويلك في صفحة طلبك، نحفظ ذلك الرقم وحده، ولا نحفظ النص الذي لصقته أبدًا. ويُحفظ كل هذا في قاعدة بياناتنا وحدها: لا يمرّ بقرش ولا بأي خدمة خارجية أخرى."
 
 #. translators: %d: number of days.
-#: src/Privacy.php:92
+#: src/Privacy.php:101
 #, php-format
 msgid "Transfer data that belongs to an order is kept as long as the order. The payer's number and name of a transfer that paid no order are erased after %d day. Records of the phone's deliveries hold no personal data and are kept for 180 days."
 msgid_plural "Transfer data that belongs to an order is kept as long as the order. The payer's number and name of a transfer that paid no order are erased after %d days. Records of the phone's deliveries hold no personal data and are kept for 180 days."
@@ -1912,44 +1940,72 @@ msgstr[3] "تُحفظ بيانات التحويل المرتبطة بطلب ما
 msgstr[4] "تُحفظ بيانات التحويل المرتبطة بطلب ما دام الطلب محفوظًا. ويُمحى رقم الدافع واسمه في تحويل لم يُدفع به أي طلب بعد %d يومًا. وسجلات تسليمات الهاتف لا تحمل بيانات شخصية، وتُحفظ 180 يومًا."
 msgstr[5] "تُحفظ بيانات التحويل المرتبطة بطلب ما دام الطلب محفوظًا. ويُمحى رقم الدافع واسمه في تحويل لم يُدفع به أي طلب بعد %d يوم. وسجلات تسليمات الهاتف لا تحمل بيانات شخصية، وتُحفظ 180 يومًا."
 
-#: src/Privacy.php:100
-msgid "This data is included when you ask for your personal data, and erased when you ask us to erase it."
-msgstr "تُضمَّن هذه البيانات حين تطلب بياناتك الشخصية، وتُمحى حين تطلب منا محوها."
+#: src/Privacy.php:109
+msgid "When you ask for your personal data, it includes the wallet data of your orders, and the transfers that paid none of your orders but came from a number or InstaPay address that paid one of them. When you ask us to erase your personal data, we erase the payer's number and name of those transfers, except a transfer we still have to settle, such as money we may need to return, whose data is erased at the end of the period above. The wallet data of an order is erased with the order's personal data."
+msgstr "حين تطلب بياناتك الشخصية، نُضمّنها بيانات المحفظة في طلباتك، والتحويلات التي لم تدفع أيًّا من طلباتك لكنها جاءت من رقم أو عنوان إنستاباي دفع أحدها. وحين تطلب منا محو بياناتك الشخصية، نمحو رقم الدافع واسمه في تلك التحويلات، إلا تحويلًا ما زال علينا أن نسوّيه، كمالٍ قد نحتاج إلى ردّه، فتُمحى بياناته عند انتهاء المدة المذكورة أعلاه. وتُمحى بيانات المحفظة في الطلب مع البيانات الشخصية للطلب."
 
-#: src/Privacy.php:119
-#: src/Privacy.php:134
+#: src/Privacy.php:112
+msgid "Suggested text for the wallet transfer part of your privacy policy. The retention period shows the plugin's setting at the time you copy it, so edit the text if you change the setting later."
+msgstr "نص مقترح لقسم الدفع بالتحويل من المحفظة في سياسة الخصوصية لديك. تُظهر مدة الاحتفاظ إعداد الإضافة لحظة نسخك النص، فعدّل النص إن غيّرت الإعداد لاحقًا."
+
+#: src/Privacy.php:144
+#: src/Privacy.php:159
 msgid "Wallet transfers (Qersh)"
 msgstr "تحويلات المحفظة (قرش)"
 
-#: src/Privacy.php:280
+#: src/Privacy.php:354
 msgid "Wallet transfers"
 msgstr "تحويلات المحفظة"
 
-#: src/Privacy.php:281
-msgid "Transfers the store's phone received from your wallet number or InstaPay address that paid no order."
-msgstr "تحويلات استلمها هاتف المتجر من رقم محفظتك أو عنوان إنستاباي الخاص بك، ولم يُدفع بها أي طلب."
+#: src/Privacy.php:355
+msgid "Transfers the store's phone received that paid none of your orders, from a wallet number or InstaPay address that paid one of them."
+msgstr "تحويلات استلمها هاتف المتجر ولم تدفع أيًّا من طلباتك، من رقم محفظة أو عنوان إنستاباي دفع أحدها."
 
-#: src/Privacy.php:356
+#. translators: %d: number of wallet transfers.
+#: src/Privacy.php:427
+#, php-format
+msgid "The payer number and name of %d wallet transfer were kept, because it still waits for your decision in WooCommerce → Qersh → Transfers."
+msgid_plural "The payer number and name of %d wallet transfers were kept, because they still wait for your decision in WooCommerce → Qersh → Transfers."
+msgstr[0] "لم يُحتفظ برقم الدافع واسمه في أي تحويل محفظة ينتظر قرارك في WooCommerce ← قرش ← التحويلات."
+msgstr[1] "احتُفظ برقم الدافع واسمه في تحويل محفظة واحد، لأنه ما زال ينتظر قرارك في WooCommerce ← قرش ← التحويلات."
+msgstr[2] "احتُفظ برقم الدافع واسمه في تحويلَي محفظة، لأنهما ما زالا ينتظران قرارك في WooCommerce ← قرش ← التحويلات."
+msgstr[3] "احتُفظ برقم الدافع واسمه في %d تحويلات محفظة، لأنها ما زالت تنتظر قرارك في WooCommerce ← قرش ← التحويلات."
+msgstr[4] "احتُفظ برقم الدافع واسمه في %d تحويلَ محفظة، لأنها ما زالت تنتظر قرارك في WooCommerce ← قرش ← التحويلات."
+msgstr[5] "احتُفظ برقم الدافع واسمه في %d تحويل محفظة، لأنها ما زالت تنتظر قرارك في WooCommerce ← قرش ← التحويلات."
+
+#. translators: %d: number of days.
+#: src/Privacy.php:436
+#, php-format
+msgid "Qersh erases them automatically %d day after the transfer arrived."
+msgid_plural "Qersh erases them automatically %d days after the transfer arrived."
+msgstr[0] "يمحو قرش هذه البيانات تلقائيًا بعد %d يوم من وصول التحويل."
+msgstr[1] "يمحو قرش هذه البيانات تلقائيًا بعد يوم واحد من وصول التحويل."
+msgstr[2] "يمحو قرش هذه البيانات تلقائيًا بعد يومين من وصول التحويل."
+msgstr[3] "يمحو قرش هذه البيانات تلقائيًا بعد %d أيام من وصول التحويل."
+msgstr[4] "يمحو قرش هذه البيانات تلقائيًا بعد %d يومًا من وصول التحويل."
+msgstr[5] "يمحو قرش هذه البيانات تلقائيًا بعد %d يوم من وصول التحويل."
+
+#: src/Privacy.php:485
 msgid "Wallet number or InstaPay address you transfer from"
 msgstr "رقم المحفظة أو عنوان إنستاباي الذي تحوّل منه"
 
-#: src/Privacy.php:362
+#: src/Privacy.php:491
 msgid "Transaction id you entered"
 msgstr "رقم العملية الذي كتبته"
 
-#: src/Privacy.php:419
+#: src/Privacy.php:548
 msgid "Transfer"
 msgstr "التحويل"
 
-#: src/Privacy.php:435
+#: src/Privacy.php:564
 msgid "Payer number or InstaPay address"
 msgstr "رقم الدافع أو عنوان إنستاباي"
 
-#: src/Privacy.php:441
+#: src/Privacy.php:570
 msgid "Payer name"
 msgstr "اسم الدافع"
 
-#: src/Privacy.php:447
+#: src/Privacy.php:576
 msgid "Operator transaction id"
 msgstr "رقم العملية لدى المشغّل"
 
@@ -2398,43 +2454,48 @@ msgstr "ثم اضغط «اختبار الربط» على الهاتف: تقول 
 msgid "“Send this wallet's link to your developer” on the wallet page is for later only (a key that was lost or never pasted): each tap makes a new key and the old one stays accepted on the phone for 24 hours, so paste only the latest message."
 msgstr "زر «أرسل رابط هذه المحفظة لمطوّرك» في صفحة المحفظة لما بعد ذلك فقط (مفتاح ضاع أو لم يُلصق): كل ضغطة تولّد مفتاحًا جديدًا ويبقى القديم مقبولًا على الهاتف 24 ساعة، فالصق آخر رسالة وحدها."
 
-#: templates/checkout/payer-field.php:30
-#: assets/js/checkout-blocks.js:288
+#: templates/checkout/payer-field.php:33
+#: assets/js/checkout-blocks.js:330
 msgid "Wallet number you will transfer from"
 msgstr "رقم المحفظة التي ستحوّل منها"
 
-#: templates/checkout/payer-field.php:31
-#: assets/js/checkout-blocks.js:287
+#: templates/checkout/payer-field.php:34
+#: assets/js/checkout-blocks.js:329
 msgid "InstaPay address you will transfer from"
 msgstr "عنوان إنستاباي الذي ستحوّل منه"
 
-#: templates/checkout/payer-field.php:32
-#: assets/js/checkout-blocks.js:321
+#: templates/checkout/payer-field.php:35
+#: assets/js/checkout-blocks.js:320
 msgid "We recognize your transfer by this number, so send it from this number only."
 msgstr "بهذا الرقم نعرف تحويلك، فحوّل منه لا من رقم آخر."
 
-#: templates/checkout/payer-field.php:33
-#: assets/js/checkout-blocks.js:320
+#: templates/checkout/payer-field.php:36
+#: assets/js/checkout-blocks.js:318
 msgid "Enter the number you will transfer from, so the store can check your transfer more easily."
 msgstr "اكتب الرقم الذي ستحوّل منه ليسهل على المتجر مراجعة تحويلك."
 
-#: templates/checkout/payer-field.php:64
-#: assets/js/checkout-blocks.js:202
+#: templates/checkout/payer-field.php:37
+#: assets/js/checkout-blocks.js:316
+msgid "Enter the InstaPay address you will transfer from, so the store can check your transfer more easily."
+msgstr "اكتب عنوان إنستاباي الذي ستحوّل منه ليسهل على المتجر مراجعة تحويلك."
+
+#: templates/checkout/payer-field.php:76
+#: assets/js/checkout-blocks.js:231
 msgid "Which wallet will you transfer to?"
 msgstr "إلى أي محفظة ستحوّل؟"
 
-#: templates/checkout/payer-field.php:84
-#: assets/js/checkout-blocks.js:237
+#: templates/checkout/payer-field.php:97
+#: assets/js/checkout-blocks.js:270
 msgid "Wallet number / InstaPay address"
 msgstr "رقم محفظة / عنوان إنستاباي"
 
-#: templates/checkout/payer-field.php:87
-#: assets/js/checkout-blocks.js:253
+#: templates/checkout/payer-field.php:100
+#: assets/js/checkout-blocks.js:286
 msgid "Wallet number"
 msgstr "رقم محفظة"
 
-#: templates/checkout/payer-field.php:91
-#: assets/js/checkout-blocks.js:274
+#: templates/checkout/payer-field.php:104
+#: assets/js/checkout-blocks.js:307
 msgid "InstaPay address"
 msgstr "عنوان إنستاباي"
 
@@ -2490,7 +2551,7 @@ msgstr "حوّل إلى: %s"
 #. translators: %s: the customer's InstaPay address.
 #: templates/emails/instructions.php:88
 #: templates/emails/plain/instructions.php:63
-#: templates/order/thankyou-box.php:86
+#: templates/order/thankyou-box.php:89
 #, php-format
 msgid "From your address: %s"
 msgstr "من عنوانك: %s"
@@ -2498,19 +2559,10 @@ msgstr "من عنوانك: %s"
 #. translators: %s: the customer's wallet number.
 #: templates/emails/instructions.php:91
 #: templates/emails/plain/instructions.php:66
-#: templates/order/thankyou-box.php:89
+#: templates/order/thankyou-box.php:92
 #, php-format
 msgid "From your number: %s"
 msgstr "من رقمك: %s"
-
-#. translators: %s: deadline date and time in Cairo.
-#. translators: %s: deadline time in Cairo.
-#: templates/emails/instructions.php:101
-#: templates/emails/plain/instructions.php:71
-#: templates/order/thankyou-box.php:105
-#, php-format
-msgid "Before: %s Cairo time"
-msgstr "قبل: %s بتوقيت القاهرة"
 
 #. translators: %s: link to the order page.
 #: templates/emails/instructions.php:117
@@ -2527,8 +2579,20 @@ msgstr "افتح صفحة طلبك"
 msgid "Your transfer"
 msgstr "تحويلك"
 
+#: templates/order/thankyou-box.php:45
+msgid "Copy the amount"
+msgstr "انسخ المبلغ"
+
+#: templates/order/thankyou-box.php:76
+msgid "Copy the address to send to"
+msgstr "انسخ العنوان الذي تحوّل إليه"
+
+#: templates/order/thankyou-box.php:77
+msgid "Copy the number to send to"
+msgstr "انسخ الرقم الذي تحوّل إليه"
+
 #. translators: 1: deadline time in Cairo, 2: how long until then, e.g. "2 hours".
-#: templates/order/thankyou-box.php:102
+#: templates/order/thankyou-box.php:106
 #, php-format
 msgid "Before: %1$s Cairo time (within %2$s)"
 msgstr "قبل: %1$s بتوقيت القاهرة (خلال %2$s)"

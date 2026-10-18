@@ -55,15 +55,18 @@
 		return instapay && instapay.checked ? 'instapay' : 'number';
 	}
 
-	function setError( box, message ) {
+	// The payer field's error. `mark` false shows the text without marking the field invalid (a wallet error of a
+	// theme's copy of the template that has no place of its own for it).
+	function setError( box, message, mark ) {
 		var el = field();
 		var out = doc.getElementById( 'qersh_payer_error' );
+		var invalid = message !== '' && mark !== false;
 		if ( out ) {
 			out.textContent = message;
 			out.hidden = message === '';
 		}
 		if ( el ) {
-			if ( message ) {
+			if ( invalid ) {
 				el.setAttribute( 'aria-invalid', 'true' );
 			} else {
 				el.removeAttribute( 'aria-invalid' );
@@ -71,8 +74,27 @@
 		}
 		var row = box.querySelector( '.qersh-payer__row' );
 		if ( row ) {
-			row.classList.toggle( 'woocommerce-invalid', message !== '' );
+			row.classList.toggle( 'woocommerce-invalid', invalid );
 		}
+	}
+
+	// The wallet choice's error, on the radio group. Returns false when the template has no place for it.
+	function setWalletError( box, message ) {
+		var out = doc.getElementById( 'qersh_wallet_error' );
+		var group = box.querySelector( '.qersh-wallets' );
+		if ( out ) {
+			out.textContent = message;
+			out.hidden = message === '';
+		}
+		if ( group ) {
+			if ( message ) {
+				group.setAttribute( 'aria-invalid', 'true' );
+			} else {
+				group.removeAttribute( 'aria-invalid' );
+			}
+			group.classList.toggle( 'qersh-wallets--invalid', message !== '' );
+		}
+		return !! out;
 	}
 
 	function applyKind( box ) {
@@ -85,6 +107,15 @@
 		if ( label ) {
 			label.textContent = box.getAttribute( instapay ? 'data-label-instapay' : 'data-label-number' ) || label.textContent;
 		}
+		// The help follows the switch: an address has its own line (no wallet confirms an address on its own); a
+		// number has the line of the chosen wallet.
+		var help = doc.getElementById( 'qersh_payer_help' );
+		if ( help ) {
+			var wallet = chosenWallet( box );
+			var decision = wallet ? wallet.getAttribute( 'data-decision' ) === '1' : box.getAttribute( 'data-all-decision' ) === '1';
+			var numberHelp = box.getAttribute( decision ? 'data-help-decision' : 'data-help-auto' );
+			help.textContent = ( instapay ? box.getAttribute( 'data-help-instapay' ) : '' ) || numberHelp || help.textContent;
+		}
 		el.setAttribute( 'inputmode', instapay ? 'email' : 'numeric' );
 		el.setAttribute( 'autocomplete', instapay ? 'off' : 'tel' );
 		if ( instapay && ! touched && prefilled && el.value === prefilled ) {
@@ -95,11 +126,6 @@
 
 	function applyWallet( box ) {
 		var wallet = chosenWallet( box );
-		var help = doc.getElementById( 'qersh_payer_help' );
-		if ( help ) {
-			var decision = wallet ? wallet.getAttribute( 'data-decision' ) === '1' : box.getAttribute( 'data-all-decision' ) === '1';
-			help.textContent = box.getAttribute( decision ? 'data-help-decision' : 'data-help-auto' ) || help.textContent;
-		}
 		var toInstapay = doc.getElementById( 'qersh_payer_kind_instapay' );
 		var toNumber = doc.getElementById( 'qersh_payer_kind_number' );
 		if ( wallet && toInstapay && toNumber && ! kindChosen ) {
@@ -129,14 +155,16 @@
 		}
 	}
 
+	// The message for the wallet choice when sending, or '' when a wallet is chosen (or there is only one).
+	function walletProblem( box ) {
+		return walletCount( box ) > 1 && ! chosenWallet( box ) ? box.getAttribute( 'data-msg-choice' ) || '' : '';
+	}
+
 	// The message for the current value, or '' when it is fine. Empty is an error only when sending.
 	function problem( box, sending ) {
 		var el = field();
 		if ( ! el ) {
 			return '';
-		}
-		if ( walletCount( box ) > 1 && ! chosenWallet( box ) ) {
-			return sending ? box.getAttribute( 'data-msg-choice' ) || '' : '';
 		}
 		if ( el.value.trim() === '' && ! sending ) {
 			return '';
@@ -162,22 +190,35 @@
 		if ( ! box || ! selectedHere() ) {
 			return true;
 		}
+		// Each error in its own place: the missing wallet on the radio group, a wrong number on the field.
+		var choice = walletProblem( box );
+		var placed = setWalletError( box, choice );
 		var message = problem( box, true );
-		setError( box, message );
-		if ( message ) {
-			var el = field();
-			if ( el && typeof el.focus === 'function' ) {
-				el.focus();
-			}
-			return false;
+		if ( message || placed || ! choice ) {
+			setError( box, message );
+		} else {
+			setError( box, choice, false );
 		}
-		return true;
+		var target = null;
+		if ( choice ) {
+			target = box.querySelector( 'input[name="qersh_wallet"]' );
+		} else if ( message ) {
+			target = field();
+		}
+		if ( target && typeof target.focus === 'function' ) {
+			target.focus();
+		}
+		return ! choice && ! message;
 	}
 
 	function init() {
 		var box = root();
 		if ( ! box ) {
 			return;
+		}
+		// "Pay for order" with the payer the order already has: the switch stays on that payer's kind.
+		if ( box.getAttribute( 'data-kind-chosen' ) === '1' ) {
+			kindChosen = true;
 		}
 		applyWallet( box );
 		prefill( box );
@@ -210,6 +251,10 @@
 			return;
 		}
 		if ( t.name === 'qersh_wallet' ) {
+			var input = field();
+			if ( ! setWalletError( box, '' ) && input && ! input.getAttribute( 'aria-invalid' ) ) {
+				setError( box, '' ); // A theme's copy without a place for the wallet error showed it under the field.
+			}
 			applyWallet( box );
 			prefill( box );
 		} else if ( t.name === 'qersh_payer_kind' ) {

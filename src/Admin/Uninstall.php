@@ -31,6 +31,7 @@ final class Uninstall {
 		'qersh_wc_db_version',
 		'qersh_wc_as_ok',
 		'qersh_wc_txn_drift',
+		'qersh_wc_txn_long',
 		'qersh_wc_notices',
 		'woocommerce_qersh_settings',
 		'woocommerce_qersh_instructions_settings',

@@ -44,6 +44,15 @@ final class Checkout {
 	const POLL_SLOW_SEC   = 60;
 	const POLL_FAST_UNTIL = 1200;
 
+	/**
+	 * How long polling goes on after the deadline + grace: the expiry runs at that moment at the earliest, through
+	 * WP-Cron (or the 15-minute sweep), so the page waits for it to show the final line.
+	 */
+	const POLL_AFTER_SEC = 1200;
+
+	/** The order meta that records which customer email carried the "confirmed" line (email_confirmed_line()). */
+	const META_CONFIRMED_MAILED = '_qersh_confirmed_mailed';
+
 	/** After 15 minutes of waiting, the "Transferred from another number?" line (or the Orange reminder). */
 	const NUDGE_SEC = 900;
 
@@ -76,6 +85,7 @@ final class Checkout {
 		add_action( 'woocommerce_email_before_order_table', array( self::class, 'email_confirmed_line' ), 10, 4 );
 		add_action( 'wp_enqueue_scripts', array( self::class, 'register_assets' ), 5 );
 		add_action( 'wp_enqueue_scripts', array( self::class, 'enqueue_checkout' ), 20 );
+		add_action( 'woocommerce_blocks_enqueue_checkout_block_scripts_before', array( self::class, 'enqueue_blocks_style' ) );
 	}
 
 	/**
@@ -171,7 +181,8 @@ final class Checkout {
 
 	/**
 	 * The classic checkout and "Pay for order": the payer field script and the style. The Blocks checkout gets its
-	 * own script through BlocksIntegration; the thank-you page enqueues when it prints the box.
+	 * script through BlocksIntegration and the style from enqueue_blocks_style(); the thank-you page enqueues when
+	 * it prints the box.
 	 */
 	public static function enqueue_checkout(): void {
 		if ( ! function_exists( 'is_checkout' ) || ! is_checkout() || is_order_received_page() ) {
@@ -181,13 +192,35 @@ final class Checkout {
 		if ( ! $order_pay && function_exists( 'has_block' ) && has_block( 'woocommerce/checkout' ) ) {
 			return;
 		}
-		$settings = get_option( 'woocommerce_qersh_settings', array() );
-		if ( ! is_array( $settings ) || ! isset( $settings['enabled'] ) || 'yes' !== $settings['enabled'] ) {
+		if ( ! self::method_enabled() ) {
 			return;
 		}
 		self::register_assets();
 		wp_enqueue_script( self::H_PAYER );
 		wp_enqueue_style( self::H_STYLE );
+	}
+
+	/**
+	 * The style of the Blocks checkout, when WooCommerce renders the Checkout block on the front end (wherever it
+	 * is placed). Not from BlocksIntegration: WooCommerce asks a method for its script handles on every page that
+	 * has the Blocks scripts registered, admin included.
+	 */
+	public static function enqueue_blocks_style(): void {
+		if ( ! self::method_enabled() ) {
+			return;
+		}
+		self::register_assets();
+		wp_enqueue_style( self::H_STYLE );
+	}
+
+	/**
+	 * Whether the merchant turned the method on (its settings, without building the method).
+	 *
+	 * @return bool
+	 */
+	private static function method_enabled(): bool {
+		$settings = get_option( 'woocommerce_qersh_settings', array() );
+		return is_array( $settings ) && isset( $settings['enabled'] ) && 'yes' === $settings['enabled'];
 	}
 
 	/**
@@ -266,7 +299,7 @@ final class Checkout {
 		}
 
 		$state  = null !== $row && isset( $row['state'] ) ? (string) $row['state'] : null;
-		$status = self::status_of( $state, (string) $order->get_status() );
+		$status = self::status_of( $state, (string) $order->get_status(), self::completing( $row ) );
 		$claim  = null !== $row && ! empty( $row['claim_txn'] );
 
 		$txn_now = $txn_open && self::txn_accepted( $order, $row, $now );
@@ -326,11 +359,29 @@ final class Checkout {
 	 * The customer-facing status of an order: from its qersh_orders state (`overpaid` never is a state; `closed`
 	 * shows `cancelled`), or, without a row, from the WooCommerce status. Pure.
 	 *
-	 * @param string|null $state     qersh_orders.state, or null without a row.
-	 * @param string      $wc_status WooCommerce status without `wc-`.
+	 * The WooCommerce status wins where the row stops following the order once someone else settled it:
+	 * - processing or completed with a `closed`, `review` or `expired` row (confirmed by hand, or a cancelled
+	 *   order revived by hand) shows `paid`;
+	 * - on-hold with a `closed` row (moved to on-hold by hand: still waiting on the store) shows `review`;
+	 * - cancelled, refunded or trash with a `paid` row (cancelled or refunded after the payment was completed)
+	 *   shows `cancelled`, except while Completion is still completing it: it then completes the order or closes
+	 *   the row itself.
+	 *
+	 * @param string|null $state      qersh_orders.state, or null without a row.
+	 * @param string      $wc_status  WooCommerce status without `wc-`.
+	 * @param bool        $completing Whether the row's completion is still due or running (Orders::completion_pending()).
 	 * @return string waiting|partial|paid|review|expired|cancelled
 	 */
-	public static function status_of( ?string $state, string $wc_status ): string {
+	public static function status_of( ?string $state, string $wc_status, bool $completing = false ): string {
+		if ( in_array( $wc_status, array( 'processing', 'completed' ), true ) && in_array( $state, array( 'closed', 'review', 'expired' ), true ) ) {
+			return 'paid';
+		}
+		if ( 'closed' === $state && 'on-hold' === $wc_status ) {
+			return 'review';
+		}
+		if ( ! $completing && in_array( $state, array( 'paid', 'overpaid' ), true ) && in_array( $wc_status, array( 'cancelled', 'refunded', 'trash' ), true ) ) {
+			return 'cancelled';
+		}
 		$map = array(
 			'open'     => 'waiting',
 			'partial'  => 'partial',
@@ -353,6 +404,17 @@ final class Checkout {
 			return 'review';
 		}
 		return 'waiting';
+	}
+
+	/**
+	 * Whether a row's completion is still due or running (status_of()'s third argument): Orders::completion_pending()
+	 * for a whole row. Pure.
+	 *
+	 * @param array|null $row qersh_orders row, or null.
+	 * @return bool
+	 */
+	public static function completing( ?array $row ): bool {
+		return null !== $row && isset( $row['state'], $row['completion'] ) && Orders::completion_pending( $row );
 	}
 
 	/**
@@ -689,25 +751,26 @@ final class Checkout {
 		$config   = $plugin->config();
 		$wallets  = isset( $config['wallets'] ) && is_array( $config['wallets'] ) ? $config['wallets'] : array();
 		$placed   = null === $box['placed_at'] ? $now : (int) $box['placed_at'];
-		$stop     = null === $box['stop_at'] ? $now + self::POLL_FAST_UNTIL : (int) $box['stop_at'];
+		$stop     = null === $box['stop_at'] ? $now + self::POLL_FAST_UNTIL : (int) $box['stop_at'] + self::POLL_AFTER_SEC;
 		$fallback = home_url( '/' );
 		return array(
-			'order_id'  => $order->get_id(),
-			'key'       => $order->get_order_key(),
-			'now'       => $now,
-			'placed_at' => $placed,
-			'deadline'  => $box['deadline'],
-			'stop_at'   => $stop,
-			'fast'      => self::POLL_FAST_SEC,
-			'slow'      => self::POLL_SLOW_SEC,
-			'fast_for'  => self::POLL_FAST_UNTIL,
-			'nudge_at'  => $placed + self::NUDGE_SEC,
-			'status'    => $box['status'],
-			'decision'  => $box['decision'],
-			'orange'    => $box['orange'],
-			'txn_open'  => $box['txn_open'],
-			'claim'     => $box['claim'],
-			'urls'      => array(
+			'order_id'   => $order->get_id(),
+			'key'        => $order->get_order_key(),
+			'now'        => $now,
+			'placed_at'  => $placed,
+			'deadline'   => $box['deadline'],
+			'window_end' => $box['stop_at'],
+			'stop_at'    => $stop,
+			'fast'       => self::POLL_FAST_SEC,
+			'slow'       => self::POLL_SLOW_SEC,
+			'fast_for'   => self::POLL_FAST_UNTIL,
+			'nudge_at'   => $placed + self::NUDGE_SEC,
+			'status'     => $box['status'],
+			'decision'   => $box['decision'],
+			'orange'     => $box['orange'],
+			'txn_open'   => $box['txn_open'],
+			'claim'      => $box['claim'],
+			'urls'       => array(
 				'status'          => rest_url( 'qersh/v1/order-status' ),
 				'txn'             => rest_url( 'qersh/v1/order-txn' ),
 				'status_fallback' => add_query_arg(
@@ -725,14 +788,14 @@ final class Checkout {
 					$fallback
 				),
 			),
-			'txn'       => array(
+			'txn'        => array(
 				'provider'      => $box['provider'],
 				'payer_key'     => $box['payer'],
 				'store_numbers' => PayerField::browser_numbers( $wallets, (string) $box['wallet_id'] ),
 				'shapes'        => self::txn_shapes(),
 			),
-			'lines'     => self::status_lines(),
-			'strings'   => array(
+			'lines'      => self::status_lines(),
+			'strings'    => array(
 				'copy'        => __( 'Copy', 'qersh-for-woocommerce' ),
 				'copied'      => __( 'Copied', 'qersh-for-woocommerce' ),
 				'sending'     => __( 'Sending…', 'qersh-for-woocommerce' ),
@@ -742,6 +805,9 @@ final class Checkout {
 				'txn_saved'   => self::status_lines()['saved'],
 				/* translators: %s: the transaction id read from what the customer entered or pasted. */
 				'will_send'   => __( 'We will send: %s', 'qersh-for-woocommerce' ),
+				'reload_rest' => __( 'Reload this page to see the amount that remains.', 'qersh-for-woocommerce' ),
+				/* translators: %s: deadline time in Cairo. */
+				'before'      => __( 'Before: %s Cairo time', 'qersh-for-woocommerce' ),
 			),
 		);
 	}
@@ -786,7 +852,11 @@ final class Checkout {
 	}
 
 	/**
-	 * In WooCommerce's "Processing order" email of one of our orders: which transfer confirmed it (docs/17 §6.3).
+	 * In the first customer email that tells one of our orders is confirmed: which transfer confirmed it (docs/17
+	 * §6.3). That is WooCommerce's "Processing order" email, or its "Completed order" email for an order that needs
+	 * no processing (virtual and downloadable items, or a store that completes paid orders at once), which
+	 * payment_complete() moves straight to completed. The order meta records which email carried the line, so the
+	 * later "Completed order" email of a shipped order does not repeat it.
 	 *
 	 * @param \WC_Order $order         Order.
 	 * @param bool      $sent_to_admin Whether the email goes to the admin.
@@ -797,18 +867,41 @@ final class Checkout {
 		if ( $sent_to_admin || ! $order instanceof \WC_Order || self::METHOD !== $order->get_payment_method() ) {
 			return;
 		}
-		if ( ! is_object( $email ) || ! isset( $email->id ) || 'customer_processing_order' !== $email->id ) {
+		if ( ! is_object( $email ) || ! isset( $email->id ) || ! is_string( $email->id ) ) {
+			return;
+		}
+		if ( ! self::confirmed_line_due( $email->id, (string) $order->get_meta( self::META_CONFIRMED_MAILED ) ) ) {
 			return;
 		}
 		$line = self::confirmed_line( Plugin::instance(), $order, $plain_text ? Format::PLAIN : Format::EMAIL_HTML );
 		if ( '' === $line ) {
 			return;
 		}
+		if ( $order->get_id() > 0 && $email->id !== (string) $order->get_meta( self::META_CONFIRMED_MAILED ) ) {
+			$order->update_meta_data( self::META_CONFIRMED_MAILED, $email->id );
+			$order->save_meta_data();
+		}
 		if ( $plain_text ) {
 			echo esc_html( wp_strip_all_tags( $line ) ) . "\n\n";
 			return;
 		}
 		echo '<p>' . wp_kses( $line, Format::allowed_html() ) . '</p>';
+	}
+
+	/**
+	 * Whether a customer email carries the "confirmed" line: always the "Processing order" email; the "Completed
+	 * order" email unless another email carried it already (the same email again, or its other part of a
+	 * multipart send, does). Pure.
+	 *
+	 * @param string $email_id WC_Email id.
+	 * @param string $mailed   The email that carried it (META_CONFIRMED_MAILED), or ''.
+	 * @return bool
+	 */
+	public static function confirmed_line_due( string $email_id, string $mailed ): bool {
+		if ( 'customer_processing_order' === $email_id ) {
+			return true;
+		}
+		return 'customer_completed_order' === $email_id && ( '' === $mailed || $email_id === $mailed );
 	}
 
 	/**

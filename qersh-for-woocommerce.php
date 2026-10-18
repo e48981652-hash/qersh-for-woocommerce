@@ -38,6 +38,10 @@ add_action( 'parse_request', array( \QershPay\WooCommerce\Webhook\Fallback::clas
 // WooCommerce reads this filter once, at init: it must be registered before that.
 add_filter( 'woocommerce_defer_transactional_emails', array( \QershPay\WooCommerce\Plugin::class, 'filter_defer_emails' ) );
 
+// The bundled translations in languages/ when the plugin is network-activated, before anything is translated
+// (WordPress registers the Domain Path folder only for plugins active on the site).
+add_filter( 'lang_dir_for_domain', array( \QershPay\WooCommerce\Plugin::class, 'lang_dir' ), 10, 3 );
+
 add_action( 'before_woocommerce_init', array( \QershPay\WooCommerce\Plugin::class, 'declare_compatibility' ) );
 register_activation_hook( QERSH_WC_FILE, array( \QershPay\WooCommerce\Plugin::class, 'activate' ) );
 register_deactivation_hook( QERSH_WC_FILE, array( \QershPay\WooCommerce\Plugin::class, 'deactivate' ) );

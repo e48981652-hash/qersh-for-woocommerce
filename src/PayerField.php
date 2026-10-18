@@ -19,7 +19,8 @@ defined( 'ABSPATH' ) || exit;
  *   with a "Wallet number / InstaPay address" switch that only exists while an InstaPay wallet is enabled;
  * - no `value` attribute on the classic checkout, and fixed ids, because WooCommerce restores the payment box
  *   inputs by id after every checkout refresh; payer-field.js fills it from the billing phone only while it is
- *   empty and untouched. On "Pay for order" (no refresh there) PHP fills it from the order's billing phone;
+ *   empty and untouched. On "Pay for order" (no refresh there) PHP fills it with the payer the order already has,
+ *   else the order's billing phone (order_prefill());
  * - normalised on blur, and refused when it is one of the store's own wallet numbers (last nine digits, as the
  *   phone compares them).
  */
@@ -33,6 +34,9 @@ final class PayerField {
 
 	/** The name of the number / InstaPay address switch (not needed by the server). */
 	const KIND = 'qersh_payer_kind';
+
+	/** The id of the wallet choice group (the classic template's radio group, where its error is shown). */
+	const WALLETS = 'qersh_wallets';
 
 	/** Longest value read; a wallet number or an InstaPay address is far shorter. */
 	const MAX_LENGTH = 200;
@@ -209,6 +213,17 @@ final class PayerField {
 	}
 
 	/**
+	 * The field a refusal belongs to, for the id of WooCommerce's notice (the classic checkout links the notice to
+	 * it and marks it invalid): the wallet choice for a missing wallet, the payer field otherwise. Pure.
+	 *
+	 * @param string $code Code from check().
+	 * @return string
+	 */
+	public static function notice_id( string $code ): string {
+		return 'wallet_choice' === $code ? self::WALLETS : self::PAYER;
+	}
+
+	/**
 	 * The posted values of the field (from $_POST, which the Store API also fills from paymentMethodData).
 	 * WooCommerce checked the checkout or pay-for-order nonce before it calls validate_fields() and
 	 * process_payment(); the Store API checks its own nonce.
@@ -234,7 +249,6 @@ final class PayerField {
 		$all     = isset( $config['wallets'] ) && is_array( $config['wallets'] ) ? $config['wallets'] : array();
 		$views   = Checkout::wallet_views( $plugin );
 		$checked = '';
-		$value   = '';
 		if ( $order instanceof \WC_Order ) {
 			$previous = (string) $order->get_meta( '_qersh_wallet' );
 			foreach ( $views as $view ) {
@@ -242,26 +256,27 @@ final class PayerField {
 					$checked = $previous;
 				}
 			}
-			$phone = Payer::normalize( (string) $order->get_billing_phone() );
-			if ( null !== $phone && false === strpos( $phone, '@' ) ) {
-				$value = $phone;
-			}
 		}
 		if ( 1 === count( $views ) ) {
 			$checked = $views[0]['id'];
 		}
 		$instapay = false;
+		$on_insta = false;
 		foreach ( $views as $view ) {
 			if ( $view['instapay'] ) {
 				$instapay = true;
+				$on_insta = $on_insta || $view['id'] === $checked;
 			}
 		}
-		$kind = 'number';
-		foreach ( $views as $view ) {
-			if ( $view['id'] === $checked && $view['instapay'] ) {
-				$kind  = 'instapay';
-				$value = '';
-			}
+		$fill = array(
+			'value' => '',
+			'kind'  => $on_insta ? 'instapay' : 'number',
+			'kept'  => false,
+		);
+		if ( $order instanceof \WC_Order ) {
+			$row    = Checkout::order_row( $plugin, $order->get_id() );
+			$stored = null !== $row && isset( $row['payer_key'] ) && '' !== (string) $row['payer_key'] ? (string) $row['payer_key'] : (string) $order->get_meta( '_qersh_payer_key' );
+			$fill   = self::order_prefill( $stored, (string) $order->get_billing_phone(), $all, $on_insta );
 		}
 
 		wc_get_template(
@@ -269,9 +284,10 @@ final class PayerField {
 			array(
 				'views'         => $views,
 				'checked'       => $checked,
-				'value'         => $value,
+				'value'         => $fill['value'],
 				'instapay'      => $instapay,
-				'kind'          => $kind,
+				'kind'          => $fill['kind'],
+				'kept'          => $fill['kept'],
 				'store_numbers' => self::browser_numbers( $all ),
 				'messages'      => array(
 					'invalid' => self::message( 'payer_invalid', $instapay ),
@@ -281,6 +297,48 @@ final class PayerField {
 			),
 			'qersh-for-woocommerce/',
 			QERSH_WC_DIR . 'templates/'
+		);
+	}
+
+	/**
+	 * What "Pay for order" puts in the field (docs/17 §6.4: the same field, which the customer may change): the
+	 * payer the order already has, so a customer who only came to switch wallets keeps the number their transfer
+	 * is matched by; else the order's billing phone, as at checkout. A stored InstaPay address is kept only while
+	 * an InstaPay wallet is enabled (the field takes no address otherwise), and a value that is now one of the
+	 * store's own wallets is never filled in. Without a kept payer, an InstaPay wallet starts the field empty on
+	 * the address switch, as at checkout. Pure (Core\Payer only).
+	 *
+	 * @param string $stored           The order's payer (its qersh_orders row, else `_qersh_payer_key`), or ''.
+	 * @param string $billing_phone    The order's billing phone.
+	 * @param array  $wallets          Every wallet entry of the configuration.
+	 * @param bool   $instapay_checked Whether the wallet checked in the field is an InstaPay one.
+	 * @return array{value: string, kind: string, kept: bool} `kept` when the value is the stored payer.
+	 */
+	public static function order_prefill( string $stored, string $billing_phone, array $wallets, bool $instapay_checked ): array {
+		$payer = '' === trim( $stored ) ? null : Payer::normalize( $stored );
+		if ( null !== $payer && ! self::is_store_number( $payer, $wallets ) ) {
+			$handle = false !== strpos( $payer, '@' );
+			if ( ! $handle || self::has_instapay( self::enabled_wallets( $wallets ) ) ) {
+				return array(
+					'value' => $payer,
+					'kind'  => $handle ? 'instapay' : 'number',
+					'kept'  => true,
+				);
+			}
+		}
+		if ( $instapay_checked ) {
+			return array(
+				'value' => '',
+				'kind'  => 'instapay',
+				'kept'  => false,
+			);
+		}
+		$phone = Payer::normalize( $billing_phone );
+		$fill  = null !== $phone && false === strpos( $phone, '@' ) && ! self::is_store_number( $phone, $wallets );
+		return array(
+			'value' => $fill ? $phone : '',
+			'kind'  => 'number',
+			'kept'  => false,
 		);
 	}
 

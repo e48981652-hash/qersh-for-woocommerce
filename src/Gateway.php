@@ -279,7 +279,7 @@ class Gateway extends \WC_Payment_Gateway {
 		if ( $result['ok'] ) {
 			return true;
 		}
-		wc_add_notice( $result['message'], 'error', array( 'id' => PayerField::PAYER ) );
+		wc_add_notice( $result['message'], 'error', array( 'id' => PayerField::notice_id( (string) $result['error'] ) ) );
 		return false;
 	}
 
@@ -303,9 +303,14 @@ class Gateway extends \WC_Payment_Gateway {
 	}
 
 	/**
-	 * Starts the wait for the transfer: the order stays pending; Orders writes its row, meta, deadline, expiry
-	 * action and instructions email (docs/17 §4.3, §4.7). Then the cart is emptied and the customer goes to the
-	 * order page with the instructions.
+	 * Starts the wait for the transfer: the order is or becomes pending; Orders writes its row, meta, deadline,
+	 * expiry action and instructions email (docs/17 §4.3, §4.7). Then the cart is emptied and the customer goes to
+	 * the order page with the instructions.
+	 *
+	 * A `failed` order reaches here from the classic checkout (WooCommerce resumes the session's pending or failed
+	 * order) and from "Pay for order" (which takes pending and failed orders), and neither changes its status. It
+	 * goes back to pending, as the Store API does for Blocks, once nothing else can refuse the payment: the status
+	 * hook then reopens its row, and the matching takes it as a candidate again.
 	 *
 	 * @param int $order_id Order id.
 	 * @return array
@@ -317,7 +322,7 @@ class Gateway extends \WC_Payment_Gateway {
 		}
 		$result = $this->checked_post();
 		if ( ! $result['ok'] ) {
-			wc_add_notice( $result['message'], 'error', array( 'id' => PayerField::PAYER ) );
+			wc_add_notice( $result['message'], 'error', array( 'id' => PayerField::notice_id( (string) $result['error'] ) ) );
 			return array( 'result' => 'failure' );
 		}
 		$plugin = Plugin::instance();
@@ -336,6 +341,11 @@ class Gateway extends \WC_Payment_Gateway {
 		}
 
 		try {
+			// Before the row is written, so the status hook (failed → pending) reopens a closed or expired row first,
+			// and no delivery in between finds an open row on an order that is not pending.
+			if ( $order->has_status( 'failed' ) ) {
+				$order->update_status( 'pending', __( 'Waiting for the wallet transfer again.', 'qersh-for-woocommerce' ) );
+			}
 			$plugin->orders()->on_process_payment( $order, (string) $result['payer'], (string) $result['wallet'], time() );
 		} catch ( \Throwable $e ) {
 			$plugin->logger()->error(

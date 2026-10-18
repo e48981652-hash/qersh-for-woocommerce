@@ -154,4 +154,81 @@ final class PayerFieldTest extends TestCase {
 		);
 		$this->assertSame( 'payer_store', PayerField::check( '01212345678', '', $this->wallets() )['error'], 'the server still refuses the turned-off number' );
 	}
+
+	/** A missing wallet is the wallet choice's error; every other refusal is the payer field's. */
+	public function test_notice_id(): void {
+		$this->assertSame( PayerField::WALLETS, PayerField::notice_id( 'wallet_choice' ) );
+		foreach ( array( 'payer_invalid', 'payer_store', 'no_wallet', '' ) as $code ) {
+			$this->assertSame( PayerField::PAYER, PayerField::notice_id( $code ), $code );
+		}
+	}
+
+	/** "Pay for order" fills the payer the order already has, else its billing phone (docs/17 §6.4). */
+	public function test_order_prefill_keeps_the_stored_payer(): void {
+		$plain = $this->wallets();
+		$insta = $this->wallets( true );
+
+		$this->assertSame(
+			array(
+				'value' => '01112223334',
+				'kind'  => 'number',
+				'kept'  => true,
+			),
+			PayerField::order_prefill( '01112223334', '0100 999 8887', $plain, false ),
+			'the stored number, not the billing phone'
+		);
+		$this->assertSame(
+			array(
+				'value' => '01112223334',
+				'kind'  => 'number',
+				'kept'  => true,
+			),
+			PayerField::order_prefill( '01112223334', '01009998887', $insta, true ),
+			'a stored number stays a number on an InstaPay wallet'
+		);
+		$this->assertSame(
+			array(
+				'value' => 'ahmed@instapay',
+				'kind'  => 'instapay',
+				'kept'  => true,
+			),
+			PayerField::order_prefill( 'ahmed@instapay', '01009998887', $insta, false ),
+			'a stored address is shown as an address'
+		);
+	}
+
+	/** Without a usable stored payer: the billing phone, or an empty address field on an InstaPay wallet. */
+	public function test_order_prefill_falls_back(): void {
+		$plain = $this->wallets();
+		$insta = $this->wallets( true );
+		$phone = array(
+			'value' => '01009998887',
+			'kind'  => 'number',
+			'kept'  => false,
+		);
+		$this->assertSame( $phone, PayerField::order_prefill( '', '0100 999 8887', $plain, false ), 'no stored payer' );
+		$this->assertSame( $phone, PayerField::order_prefill( 'ahmed@instapay', '01009998887', $plain, false ), 'an address without an InstaPay wallet' );
+		$this->assertSame( $phone, PayerField::order_prefill( '01001234567', '01009998887', $plain, false ), 'a stored payer that is now a store number' );
+		$this->assertSame( $phone, PayerField::order_prefill( '01212345678', '01009998887', $plain, false ), 'the turned-off line is a store number too' );
+		$this->assertSame( $phone, PayerField::order_prefill( 'garbage', '01009998887', $plain, false ) );
+		$this->assertSame(
+			array(
+				'value' => '',
+				'kind'  => 'instapay',
+				'kept'  => false,
+			),
+			PayerField::order_prefill( '', '01009998887', $insta, true ),
+			'an InstaPay wallet starts the address empty'
+		);
+		$this->assertSame(
+			array(
+				'value' => '',
+				'kind'  => 'number',
+				'kept'  => false,
+			),
+			PayerField::order_prefill( '', '01001234567', $plain, false ),
+			'the billing phone is a store number'
+		);
+		$this->assertSame( '', PayerField::order_prefill( '', '', $plain, false )['value'] );
+	}
 }

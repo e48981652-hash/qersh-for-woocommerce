@@ -166,7 +166,7 @@ A key is at least 24 characters without white space (the app's own rule); only i
 ### What the store keeps
 
 - `qersh_deliveries`: every `delivery_id` with its stored reply, for `dedup.keep_days` (180).
-- `qersh_transfers`: one row per transfer: amount, payer key and name, operator transaction id, risk, outcome and reason, the order it paid. Transfers that matched nothing are deleted after `unmatched_retention_days` (90).
+- `qersh_transfers`: one row per transfer: amount, payer key and name, operator transaction id, risk, outcome and reason, the order it paid. A transfer that paid no order loses `payer_key` and `payer_name` (set to NULL) after `unmatched_retention_days` (90), and a transfer whose order is deleted loses them at once; the row itself (amount, times, operator transaction id, outcome) stays.
 - `qersh_orders`: one row per order of the method: payer key, price and paid amount in piasters, state (`open|partial|paid|review|expired|closed`), deadline, completion claim, the customer's transaction id.
 - `qersh_wallets`: runtime state per wallet (last delivery, last test, phone state, deletion tombstone); never exported.
 - Order meta `_qersh_*`, options `qersh_wc_*`. WooCommerce logs (source `qersh`) never hold a key, a signature, a body or what a customer pasted; numbers show their last three digits.

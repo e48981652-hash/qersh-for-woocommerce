@@ -11,6 +11,7 @@ namespace QershPay\WooCommerce\Tests\Unit\Store;
 
 use QershPay\WooCommerce\Store\Db;
 use QershPay\WooCommerce\Store\LockTimeout;
+use QershPay\WooCommerce\Store\Schema;
 use Yoast\PHPUnitPolyfills\TestCases\TestCase;
 
 defined( 'ABSPATH' ) || exit;
@@ -95,6 +96,128 @@ final class DbTest extends TestCase {
 		$this->assertFalse( Db::is_lock_error( "Duplicate entry '1205' for key 'PRIMARY'", 1062 ) );
 		$this->assertFalse( Db::is_lock_error( "Table 'wp_qersh_locks' doesn't exist", 1146 ) );
 		$this->assertFalse( Db::is_lock_error( '' ) );
+	}
+
+	/** A missing table of ours, in each database's words, is a missing table; anyone else's, or a damaged one, is not. */
+	public function test_is_missing_table_error(): void {
+		$this->assertTrue( Db::is_missing_table_error( "Table 'shop.wp_qersh_locks' doesn't exist", 1146, 'wp_' ) );
+		$this->assertTrue( Db::is_missing_table_error( "Tabelle 'shop.wp_qersh_locks' existiert nicht", 1146, 'wp_' ), 'by number in any language' );
+		$this->assertTrue( Db::is_missing_table_error( "Table 'shop.wp_qersh_orders' doesn't exist", 0, 'wp_' ), 'by message' );
+		$this->assertTrue( Db::is_missing_table_error( "<p>SELECT * FROM `wp_qersh_locks`</p>\nSQLSTATE[42S02]: Base table or view not found: 1146 Table 'wp_qersh_locks' doesn't exist\n</div>", 0, 'wp_' ), 'the SQLite drop-in' );
+		$this->assertTrue( Db::is_missing_table_error( 'SQLSTATE[HY000]: General error: 1 no such table: wp_qersh_orders', 0, 'wp_' ), 'SQLite itself' );
+		$this->assertTrue( Db::is_missing_table_error( "Table 'shop.wp_qersh_orders' doesn't exist", 1146, 'WP_' ), 'lower_case_table_names=1' );
+		$this->assertTrue( Db::is_missing_table_error( "Table 'shop.wp_2_qersh_orders' doesn't exist", 1146, 'wp_2_' ), 'a site of a network' );
+
+		$this->assertFalse( Db::is_missing_table_error( "Table 'shop.wp_wc_orders' doesn't exist", 1146, 'wp_' ), 'not ours' );
+		$this->assertFalse( Db::is_missing_table_error( "Table 'shop.wp_2_qersh_orders' doesn't exist", 1146, 'wp_' ), 'another site of the network' );
+		$this->assertFalse( Db::is_missing_table_error( "Table 'shop.wp_qersh_orders' doesn't exist", 1146, 'wp_2_' ), 'the main site, seen from another' );
+		$this->assertFalse( Db::is_missing_table_error( "Table 'shop.wp_qersh_orders' doesn't exist in engine", 1932, 'wp_' ), 'damaged, not missing' );
+		$this->assertFalse( Db::is_missing_table_error( "Duplicate entry '1146' for key 'wp_qersh_orders.PRIMARY'", 1062, 'wp_' ) );
+		$this->assertFalse( Db::is_missing_table_error( "<p>INSERT INTO `wp_qersh_orders` …</p>\nSQLSTATE[23000]: Integrity constraint violation: 1146", 0, 'wp_' ), 'a number in the text is not enough' );
+		$this->assertFalse( Db::is_missing_table_error( 'Lock wait timeout exceeded; try restarting transaction', 1205, 'wp_' ) );
+		$this->assertFalse( Db::is_missing_table_error( '', 1146, 'wp_' ) );
+	}
+
+	/**
+	 * A query that finds one of our tables missing outside a transaction: the schema version is forgotten at once and
+	 * Plugin::tables_ready() is false for the rest of the request (Schema::lost()). Another table's error changes
+	 * nothing.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_missing_table_forgets_the_version(): void {
+		require_once __DIR__ . '/FakeWpOptions.php';
+		$GLOBALS['qersh_wc_fake_options'][ Schema::VERSION_OPTION ] = 1;
+		$db = new Db();
+
+		$this->wpdb->on( '/^SELECT/', null, "Table 'shop.wp_posts' doesn't exist" );
+		$this->assert_read_fails( $db );
+		$this->assertFalse( Schema::lost(), 'not our table' );
+		$this->assertSame( 1, $GLOBALS['qersh_wc_fake_options'][ Schema::VERSION_OPTION ] );
+
+		$this->wpdb->on( '/^SELECT/', null, "Table 'shop.wp_qersh_orders' doesn't exist" );
+		$this->assert_read_fails( $db );
+		$this->assertTrue( Schema::lost() );
+		$this->assertArrayNotHasKey( Schema::VERSION_OPTION, $GLOBALS['qersh_wc_fake_options'] );
+		$this->assertSame( 1, $GLOBALS['qersh_wc_fake_transients'][ Schema::LOST_TRANSIENT ] );
+		$this->assertArrayNotHasKey( Schema::RETRY_TRANSIENT, $GLOBALS['qersh_wc_fake_transients'], 'the first loss does not pause installs' );
+	}
+
+	/**
+	 * Inside a transaction the option is deleted only after rollback() or commit(), never by a statement of the
+	 * transaction (a rollback would undo it); tables_ready() is false from the failed statement on.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_missing_table_in_a_transaction_waits_for_its_end(): void {
+		require_once __DIR__ . '/FakeWpOptions.php';
+		$GLOBALS['qersh_wc_fake_options'][ Schema::VERSION_OPTION ] = 1;
+		$this->wpdb->on( '/^SELECT @@innodb_lock_wait_timeout$/', '5', '', true );
+		$this->wpdb->on( '/^INSERT INTO `wp_qersh_locks`/', false, "Table 'shop.wp_qersh_locks' doesn't exist" );
+		$db = new Db();
+		$db->begin();
+		try {
+			$db->lock( array( 'payer:01001234567' ) );
+			$this->fail( 'no exception' );
+		} catch ( \RuntimeException $e ) {
+			$this->assertNotInstanceOf( LockTimeout::class, $e );
+		}
+		$this->assertTrue( Schema::lost() );
+		$this->assertSame( 1, $GLOBALS['qersh_wc_fake_options'][ Schema::VERSION_OPTION ], 'kept while the transaction is open' );
+		$db->rollback();
+		$this->assertArrayNotHasKey( Schema::VERSION_OPTION, $GLOBALS['qersh_wc_fake_options'] );
+
+		// The same with commit(): a caller that caught the failed read and committed its other writes.
+		$GLOBALS['qersh_wc_fake_options'][ Schema::VERSION_OPTION ] = 1;
+		$GLOBALS['qersh_wc_fake_transients']                        = array();
+		$this->wpdb->on( '/^SELECT \* FROM `wp_qersh_orders`/', null, "Table 'shop.wp_qersh_orders' doesn't exist" );
+		$db->begin();
+		$this->assert_read_fails( $db );
+		$this->assertSame( 1, $GLOBALS['qersh_wc_fake_options'][ Schema::VERSION_OPTION ] );
+		$db->commit();
+		$this->assertArrayNotHasKey( Schema::VERSION_OPTION, $GLOBALS['qersh_wc_fake_options'] );
+
+		// Once the transaction has ended nothing is left to do: the next transaction forgets nothing more.
+		$GLOBALS['qersh_wc_fake_options'][ Schema::VERSION_OPTION ] = 1;
+		$db->begin();
+		$db->commit();
+		$this->assertSame( 1, $GLOBALS['qersh_wc_fake_options'][ Schema::VERSION_OPTION ] );
+	}
+
+	/**
+	 * Without the WordPress option functions (or when they fail), a missing table still never breaks the query's
+	 * own error handling: the read throws its usual RuntimeException, and rollback() never throws.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_missing_table_never_fails_the_caller(): void {
+		$this->wpdb->on( '/^SELECT @@innodb_lock_wait_timeout$/', '5', '', true );
+		$this->wpdb->on( '/^SELECT \* FROM/', null, "Table 'shop.wp_qersh_orders' doesn't exist", true );
+		$db = new Db();
+		$this->assert_read_fails( $db );
+		$db->begin();
+		$this->assert_read_fails( $db );
+		$db->rollback();
+		$this->assertFalse( $db->in_transaction() );
+		$this->assertTrue( Schema::lost() );
+	}
+
+	/**
+	 * Reads a row and expects the plain RuntimeException of a failed read.
+	 *
+	 * @param Db $db Database helper.
+	 */
+	private function assert_read_fails( Db $db ): void {
+		try {
+			$db->row( 'SELECT * FROM %i WHERE order_id = %d', array( $db->table( 'orders' ), 5 ) );
+			$this->fail( 'no exception' );
+		} catch ( \RuntimeException $e ) {
+			$this->assertNotInstanceOf( LockTimeout::class, $e );
+			$this->assertSame( 'qersh: a database read failed', $e->getMessage() );
+		}
 	}
 
 	/** begin() saves and sets the lock wait timeout after START TRANSACTION; commit() puts it back. */

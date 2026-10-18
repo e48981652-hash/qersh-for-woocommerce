@@ -42,6 +42,11 @@ final class ConfigStore {
 	const TOP_KEYS = array( 'receiver', 'wallets', 'store' );
 
 	/**
+	 * Longest wallet label, in characters (the wallet form's limit).
+	 */
+	const LABEL_MAX = 60;
+
+	/**
 	 * The plugin, if any.
 	 *
 	 * @var Plugin|null
@@ -347,17 +352,39 @@ final class ConfigStore {
 	}
 
 	/**
-	 * Keeps the three top-level keys and drops receiver.keys. Pure.
+	 * Keeps the three top-level keys, drops receiver.keys and sanitizes each wallet label with clean_label(), as the
+	 * wallet form does, so an imported file, the constant and the form store labels by the same rule. A label that is
+	 * not a string stays as it is, for Core\Config::validate() to report. The other values are checked by
+	 * Core\Config::validate() (and receive_address normalised by Core\Config::with_defaults()).
 	 *
 	 * @param array $config Configuration.
 	 * @return array
 	 */
-	private static function clean( array $config ): array {
+	public static function clean( array $config ): array {
 		$out = array_intersect_key( $config, array_flip( self::TOP_KEYS ) );
 		if ( isset( $out['receiver'] ) && is_array( $out['receiver'] ) ) {
 			unset( $out['receiver']['keys'] );
 		}
+		if ( isset( $out['wallets'] ) && is_array( $out['wallets'] ) ) {
+			foreach ( $out['wallets'] as $i => $wallet ) {
+				if ( is_array( $wallet ) && isset( $wallet['label'] ) && is_string( $wallet['label'] ) ) {
+					$out['wallets'][ $i ]['label'] = self::clean_label( $wallet['label'] );
+				}
+			}
+		}
 		return $out;
+	}
+
+	/**
+	 * A wallet label as it is stored: sanitize_text_field() (no tags, line breaks or extra white space), then at
+	 * most LABEL_MAX characters, without a space left at the end by the cut.
+	 *
+	 * @param string $label Label as given.
+	 * @return string
+	 */
+	public static function clean_label( string $label ): string {
+		$label = sanitize_text_field( $label );
+		return rtrim( function_exists( 'mb_substr' ) ? (string) mb_substr( $label, 0, self::LABEL_MAX, 'UTF-8' ) : substr( $label, 0, self::LABEL_MAX ) );
 	}
 
 	/**

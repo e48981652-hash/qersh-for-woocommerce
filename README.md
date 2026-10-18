@@ -166,7 +166,7 @@ A key is at least 24 characters without white space (the app's own rule); only i
 ## What the store keeps
 
 - `qersh_deliveries`: every `delivery_id` with its stored reply, for `dedup.keep_days` (180).
-- `qersh_transfers`: one row per transfer: amount, payer key and name, operator transaction id, risk, outcome and reason, the order it paid. Transfers that matched nothing are deleted after `unmatched_retention_days` (90).
+- `qersh_transfers`: one row per transfer: amount, payer key and name, operator transaction id, risk, outcome and reason, the order it paid. A transfer that paid no order loses `payer_key` and `payer_name` (set to NULL) after `unmatched_retention_days` (90), and a transfer whose order is deleted loses them at once; the row itself (amount, times, operator transaction id, outcome) stays.
 - `qersh_orders`: one row per order of the method: payer key, price and paid amount in piasters, state (`open|partial|paid|review|expired|closed`), deadline, completion claim, the customer's transaction id.
 - `qersh_wallets`: runtime state per wallet (last delivery, last test, phone state, deletion tombstone); never exported.
 - Order meta `_qersh_*`, options `qersh_wc_*`. WooCommerce logs (source `qersh`) never hold a key, a signature, a body or what a customer pasted; numbers show their last three digits.
@@ -234,7 +234,7 @@ Integration tests (WordPress test library) and the Playwright end-to-end suite r
 2. Run every check above on a clean `main`.
 3. `node scripts/build-zip.mjs` builds `dist/qersh-for-woocommerce.zip` from an allow-list (the plugin file, `uninstall.php`, `readme.txt`, `LICENSE`, `src/`, `templates/`, `assets/js`, `assets/css`, the vendored QR library and its licence, `languages/`) and fails on any dotfile or development file. It also fails when `.distignore` (which the SVN deploy uses instead of the allow-list) would ship a different set of files.
 4. Tag with the bare version, never a `v` prefix: `git tag 0.1.0 && git push origin 0.1.0`. The release workflow builds the same zip and attaches it to the GitHub release.
-5. After wordpress.org accepts the plugin, the deploy workflow pushes the tag to SVN, and the owner confirms the release from the wordpress.org email. A confirmed tag never changes, so even raising `Tested up to` is a patch release.
+5. After wordpress.org accepts the plugin, the deploy workflow pushes the tag to SVN, and the owner confirms the release from the wordpress.org email. The deploy action, the only third-party code that sees the SVN credentials, is pinned to a full commit SHA (`scripts/check-workflows.mjs` fails on a tag); to move to a newer release, read its `deploy.sh` first. A confirmed tag never changes, so even raising `Tested up to` is a patch release.
 
 ## Links
 

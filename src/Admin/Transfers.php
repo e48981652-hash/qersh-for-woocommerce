@@ -305,7 +305,7 @@ final class Transfers {
 			Module::flash( 'error', sprintf( esc_html__( 'No order of this store was found for “%s”. Enter the order number, or the number the customer transferred from.', 'qersh-for-woocommerce' ), esc_html( '' !== $term ? $term : '#' . $order_id ) ) );
 			Module::redirect( 'transfers', $back );
 		}
-		if ( 'qersh' !== $order->get_payment_method() ) {
+		if ( ! self::method_attachable( (string) $order->get_payment_method() ) ) {
 			/* translators: %s: order number. */
 			Module::flash( 'error', sprintf( esc_html__( 'Order %s was not placed with the wallet transfer method, so a transfer cannot be attached to it.', 'qersh-for-woocommerce' ), View::ltr( '#' . $order->get_order_number() ) ) );
 			Module::redirect( 'transfers', $back );
@@ -520,6 +520,19 @@ final class Transfers {
 			}
 		}
 		return 0;
+	}
+
+	/**
+	 * Whether an order's payment method can take a transfer: ours, or none yet. WooCommerce's "Add order" screen
+	 * leaves the method empty, and the attach sets ours (Orders::apply_attach()), which is how an early transfer from
+	 * a WhatsApp or phone sale reaches the order the merchant creates afterwards. Another method is refused here,
+	 * before the confirmation step. Pure.
+	 *
+	 * @param string $method Payment method id.
+	 * @return bool
+	 */
+	public static function method_attachable( string $method ): bool {
+		return '' === $method || 'qersh' === $method;
 	}
 
 	/**

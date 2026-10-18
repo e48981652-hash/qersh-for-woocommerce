@@ -57,6 +57,14 @@ final class MatchPolicy {
 	const PAYING_OUTCOMES = array( 'matched', 'partial', 'overpaid', 'attached' );
 
 	/**
+	 * Outcomes of a transfer linked to an order whose amount still counts in that order's paid_minor: the paying
+	 * ones, and `review` left by Completion or a cancellation (order on hold, completion failed, stock short, closed,
+	 * cancelled with money), which keeps order_id and paid_minor (docs/17 §4.7). Never `dismissed`: a release keeps
+	 * order_id but takes the amount out. A review decided at arrival has no order_id (Orders::write_decision()).
+	 */
+	const COUNTED_OUTCOMES = array( 'matched', 'partial', 'overpaid', 'attached', 'review' );
+
+	/**
 	 * Live claimants of one transaction id whose payer locks a delivery takes at most (more are contested anyway).
 	 */
 	const MAX_CLAIM_LOCKS = 4;

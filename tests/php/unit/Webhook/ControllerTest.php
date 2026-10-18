@@ -59,6 +59,14 @@ final class ControllerTest extends TestCase {
 		$this->assertSame( 'ignored', Controller::event_kind( 'transfer.received', null ) );
 	}
 
+	/** Every reply carries the status updates but webhook.test's: "Test connection" never applies them. */
+	public function test_carries_updates(): void {
+		$this->assertFalse( Controller::carries_updates( 'webhook.test' ) );
+		foreach ( array( 'transfer.received', 'transfer.updated', 'device.heartbeat', 'transfer.sent', '' ) as $event ) {
+			$this->assertTrue( Controller::carries_updates( $event ), $event );
+		}
+	}
+
 	/** A status update keeps transfer_id, a known status, and reference and note cut to 64 and 200 characters. */
 	public function test_clean_update(): void {
 		$this->assertNull( Controller::clean_update( null ) );

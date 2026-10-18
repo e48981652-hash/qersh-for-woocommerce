@@ -112,9 +112,13 @@
 		var value = valueState[ 0 ];
 		var setValue = valueState[ 1 ];
 
+		// Each error in its own place: a wrong number on the field, a missing wallet on the radio group.
 		var errorState = useState( '' );
 		var error = errorState[ 0 ];
 		var setError = errorState[ 1 ];
+		var walletErrorState = useState( '' );
+		var walletError = walletErrorState[ 0 ];
+		var setWalletError = walletErrorState[ 1 ];
 
 		var billing = props.billing || {};
 		var address = billing.billingAddress || billing.billingData || {};
@@ -138,10 +142,8 @@
 			}
 		}, [ phone, kind ] ); // eslint-disable-line react-hooks/exhaustive-deps
 
+		// The payer field alone (the wallet choice is walletMissing()).
 		function check( sending ) {
-			if ( ! single && ! findWallet( wallet ) ) {
-				return sending ? { ok: false, message: messageFor( 'wallet_choice' ) } : { ok: true };
-			}
 			if ( value.trim() === '' && ! sending ) {
 				return { ok: true };
 			}
@@ -152,18 +154,35 @@
 			return { ok: true, payer: res.payer, wallet: single ? wallets[ 0 ].id : wallet };
 		}
 
+		function walletMissing() {
+			return ! single && ! findWallet( wallet );
+		}
+
+		function focusFirstWallet() {
+			var page = typeof window !== 'undefined' ? window.document : null;
+			var first = page && wallets.length ? page.getElementById( 'qersh_wallet_blocks_' + wallets[ 0 ].id ) : null;
+			if ( first && typeof first.focus === 'function' ) {
+				first.focus();
+			}
+		}
+
 		useEffect( function () {
 			if ( typeof registration.onPaymentSetup !== 'function' ) {
 				return undefined;
 			}
 			return registration.onPaymentSetup( function () {
 				var res = check( true );
+				var missing = walletMissing();
 				var types = emit.responseTypes || { ERROR: 'error', SUCCESS: 'success' };
-				if ( ! res.ok ) {
-					setError( res.message );
+				setWalletError( missing ? messageFor( 'wallet_choice' ) : '' );
+				setError( res.ok ? '' : res.message );
+				if ( missing || ! res.ok ) {
+					if ( missing ) {
+						focusFirstWallet();
+					}
 					return {
 						type: types.ERROR,
-						message: res.message,
+						message: missing ? messageFor( 'wallet_choice' ) : res.message,
 						messageContext: emit.noticeContexts ? emit.noticeContexts.PAYMENTS : undefined
 					};
 				}
@@ -177,7 +196,7 @@
 
 		function chooseWallet( w ) {
 			setWallet( w.id );
-			setError( '' );
+			setWalletError( '' );
 			if ( ! memo.kindChosen && instapayOn ) {
 				var next = w.instapay ? 'instapay' : 'number';
 				setKind( next );
@@ -198,8 +217,21 @@
 		} else if ( wallets.length > 1 ) {
 			children.push( el(
 				'fieldset',
-				{ className: 'qersh-wallets', key: 'wallets' },
-				el( 'legend', { className: 'qersh-wallets__legend' }, __( 'Which wallet will you transfer to?', 'qersh-for-woocommerce' ) ),
+				{
+					className: 'qersh-wallets' + ( walletError ? ' qersh-wallets--invalid' : '' ),
+					key: 'wallets',
+					id: 'qersh_wallets_blocks',
+					role: 'radiogroup',
+					'aria-required': 'true',
+					'aria-invalid': walletError ? 'true' : undefined
+				},
+				el(
+					'legend',
+					{ className: 'qersh-wallets__legend' },
+					__( 'Which wallet will you transfer to?', 'qersh-for-woocommerce' ),
+					' ',
+					el( 'span', { className: 'required', 'aria-hidden': 'true' }, '*' )
+				),
 				wallets.map( function ( w ) {
 					var id = 'qersh_wallet_blocks_' + w.id;
 					return el(
@@ -211,7 +243,7 @@
 							id: id,
 							value: w.id,
 							checked: wallet === w.id,
-							'aria-describedby': id + '_confirm',
+							'aria-describedby': id + '_confirm qersh_wallet_blocks_error',
 							onChange: function () {
 								chooseWallet( w );
 							}
@@ -226,7 +258,8 @@
 						),
 						el( 'p', { className: 'qersh-confirm', id: id + '_confirm' }, w.confirm )
 					);
-				} )
+				} ),
+				el( 'span', { className: 'qersh-error', id: 'qersh_wallet_blocks_error', role: 'alert', hidden: ! walletError }, walletError )
 			) );
 		}
 
@@ -276,7 +309,16 @@
 			) );
 		}
 
+		// The help follows the switch: an address has its own line (no wallet confirms an address on its own).
 		var decision = chosen ? !! chosen.decision : allDecision();
+		var help;
+		if ( kind === 'instapay' ) {
+			help = __( 'Enter the InstaPay address you will transfer from, so the store can check your transfer more easily.', 'qersh-for-woocommerce' );
+		} else if ( decision ) {
+			help = __( 'Enter the number you will transfer from, so the store can check your transfer more easily.', 'qersh-for-woocommerce' );
+		} else {
+			help = __( 'We recognize your transfer by this number, so send it from this number only.', 'qersh-for-woocommerce' );
+		}
 		children.push( el(
 			'div',
 			{ className: 'qersh-payer__row' + ( error ? ' has-error' : '' ), key: 'field' },
@@ -313,13 +355,7 @@
 					setError( res.ok ? '' : res.message );
 				}
 			} ),
-			el(
-				'span',
-				{ className: 'qersh-help', id: 'qersh_payer_blocks_help' },
-				decision
-					? __( 'Enter the number you will transfer from, so the store can check your transfer more easily.', 'qersh-for-woocommerce' )
-					: __( 'We recognize your transfer by this number, so send it from this number only.', 'qersh-for-woocommerce' )
-			),
+			el( 'span', { className: 'qersh-help', id: 'qersh_payer_blocks_help' }, help ),
 			el( 'span', { className: 'qersh-error', id: 'qersh_payer_blocks_error', role: 'alert', hidden: ! error }, error )
 		) );
 

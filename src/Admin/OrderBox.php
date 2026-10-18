@@ -44,7 +44,7 @@ final class OrderBox {
 	}
 
 	/**
-	 * Adds the box to orders placed with the wallet transfer method (add_meta_boxes).
+	 * Adds the box to the orders shows() accepts (add_meta_boxes).
 	 *
 	 * @param string $screen_or_type Screen id or post type.
 	 * @param mixed  $post_or_order  WP_Post or WC_Order.
@@ -54,10 +54,27 @@ final class OrderBox {
 			return;
 		}
 		$order = self::order_of( $post_or_order );
-		if ( ! $order || 'qersh' !== $order->get_payment_method() ) {
+		if ( ! $order || ! self::shows( (string) $order->get_payment_method(), (string) $order->get_status(), (string) $order->get_created_via() ) ) {
 			return;
 		}
 		add_meta_box( 'qersh-wc-order', __( 'Qersh', 'qersh-for-woocommerce' ), array( __CLASS__, 'render' ), $screen_or_type, 'side', 'default' );
+	}
+
+	/**
+	 * Whether an order gets the box: one placed with the wallet transfer method, or a pending order created in the
+	 * admin without a method yet, which a transfer can still be attached to (Transfers::method_attachable()); the box
+	 * then says how. Pure.
+	 *
+	 * @param string $method      Payment method id.
+	 * @param string $status      WooCommerce status, without `wc-`.
+	 * @param string $created_via WC_Order::get_created_via().
+	 * @return bool
+	 */
+	public static function shows( string $method, string $status, string $created_via ): bool {
+		if ( 'qersh' === $method ) {
+			return true;
+		}
+		return '' === $method && 'pending' === $status && 'admin' === $created_via;
 	}
 
 	/**

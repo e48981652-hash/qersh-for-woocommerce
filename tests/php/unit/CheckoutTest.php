@@ -36,7 +36,86 @@ final class CheckoutTest extends TestCase {
 		foreach ( $cases as $state => $status ) {
 			$this->assertSame( $status, Checkout::status_of( $state, 'pending' ), $state );
 		}
-		$this->assertSame( 'cancelled', Checkout::status_of( 'closed', 'processing' ), 'the row wins' );
+	}
+
+	/** Where the row stops following the order, the merchant's status wins. */
+	public function test_status_settled_by_hand(): void {
+		foreach ( array( 'processing', 'completed' ) as $wc ) {
+			foreach ( array( 'closed', 'review', 'expired' ) as $state ) {
+				$this->assertSame( 'paid', Checkout::status_of( $state, $wc ), "$state + $wc: confirmed by hand" );
+			}
+			$this->assertSame( 'paid', Checkout::status_of( 'paid', $wc ) );
+		}
+		$this->assertSame( 'review', Checkout::status_of( 'closed', 'on-hold' ), 'moved to on-hold by hand' );
+		$this->assertSame( 'review', Checkout::status_of( 'review', 'on-hold' ), 'a forgery hold' );
+		foreach ( array( 'cancelled', 'refunded', 'failed', 'trash' ) as $wc ) {
+			$this->assertSame( 'cancelled', Checkout::status_of( 'closed', $wc ), "closed + $wc" );
+		}
+		$this->assertSame( 'expired', Checkout::status_of( 'expired', 'cancelled' ), 'our expiry' );
+		$this->assertSame( 'review', Checkout::status_of( 'review', 'cancelled' ), 'still for the merchant to decide' );
+		$this->assertSame( 'waiting', Checkout::status_of( 'open', 'processing' ), 'an open row keeps its state' );
+	}
+
+	/** A completed payment whose order was cancelled or refunded afterwards shows cancelled, unless still completing. */
+	public function test_status_paid_then_cancelled(): void {
+		foreach ( array( 'cancelled', 'refunded', 'trash' ) as $wc ) {
+			$this->assertSame( 'cancelled', Checkout::status_of( 'paid', $wc ), $wc );
+			$this->assertSame( 'cancelled', Checkout::status_of( 'overpaid', $wc ), $wc );
+			$this->assertSame( 'paid', Checkout::status_of( 'paid', $wc, true ), "$wc: Completion is still completing it" );
+		}
+		$this->assertSame( 'paid', Checkout::status_of( 'paid', 'pending' ), 'a paid decision waiting for its completion' );
+		$this->assertSame( 'paid', Checkout::status_of( 'paid', 'failed' ) );
+		$this->assertSame( 'paid', Checkout::status_of( 'paid', 'processing' ) );
+	}
+
+	/** The third argument of status_of(): a paid row whose completion is due or running. */
+	public function test_completing(): void {
+		$this->assertFalse( Checkout::completing( null ) );
+		$this->assertTrue(
+			Checkout::completing(
+				array(
+					'state'      => 'paid',
+					'completion' => 'due',
+				)
+			)
+		);
+		$this->assertTrue(
+			Checkout::completing(
+				array(
+					'state'      => 'paid',
+					'completion' => 'running',
+				)
+			)
+		);
+		$this->assertFalse(
+			Checkout::completing(
+				array(
+					'state'      => 'paid',
+					'completion' => 'done',
+				)
+			)
+		);
+		$this->assertFalse(
+			Checkout::completing(
+				array(
+					'state'      => 'review',
+					'completion' => 'due',
+				)
+			)
+		);
+		$this->assertFalse( Checkout::completing( array( 'state' => 'paid' ) ), 'a row without the column' );
+	}
+
+	/** The "confirmed" line: in the Processing email, else in the first Completed email (both parts of a multipart). */
+	public function test_confirmed_line_due(): void {
+		$this->assertTrue( Checkout::confirmed_line_due( 'customer_processing_order', '' ) );
+		$this->assertTrue( Checkout::confirmed_line_due( 'customer_processing_order', 'customer_processing_order' ) );
+		$this->assertTrue( Checkout::confirmed_line_due( 'customer_completed_order', '' ), 'an order that needs no processing' );
+		$this->assertTrue( Checkout::confirmed_line_due( 'customer_completed_order', 'customer_completed_order' ), 'the other part, or a resend' );
+		$this->assertFalse( Checkout::confirmed_line_due( 'customer_completed_order', 'customer_processing_order' ), 'shipped later: said already' );
+		foreach ( array( 'customer_on_hold_order', 'customer_invoice', 'customer_note', 'new_order', '' ) as $id ) {
+			$this->assertFalse( Checkout::confirmed_line_due( $id, '' ), $id );
+		}
 	}
 
 	/** Without a row, the WooCommerce status decides. */

@@ -110,4 +110,142 @@ final class SchemaTest extends TestCase {
 		}
 		$this->assertSame( 'nul:40?', Schema::COLUMNS['transfers']['provider_txn_id'], 'a transaction id is never cut' );
 	}
+
+	/**
+	 * A fake $wpdb whose SHOW TABLES answers with the matched name in lower case, as MySQL does with
+	 * lower_case_table_names=1 (the default on Windows), or with nothing for the tables in $missing.
+	 *
+	 * @param string   $prefix  Table prefix.
+	 * @param string[] $missing Short names of the tables that do not exist.
+	 * @return FakeWpdb
+	 */
+	private function show_tables_wpdb( string $prefix, array $missing = array() ): FakeWpdb {
+		require_once __DIR__ . '/FakeWpdb.php';
+		$wpdb         = new FakeWpdb();
+		$wpdb->prefix = $prefix;
+		$wpdb->on(
+			'/^SHOW TABLES LIKE /',
+			function ( string $sql ) use ( $missing ) {
+				preg_match( "/LIKE '(.*)'$/", $sql, $m );
+				$name = str_replace( '\\', '', $m[1] );
+				foreach ( $missing as $short ) {
+					if ( substr( $name, -strlen( 'qersh_' . $short ) ) === 'qersh_' . $short ) {
+						return null;
+					}
+				}
+				return strtolower( $name );
+			},
+			'',
+			true
+		);
+		$GLOBALS['wpdb'] = $wpdb;
+		return $wpdb;
+	}
+
+	/** SHOW TABLES returns `wp_qersh_…` for the prefix `WP_` under lower_case_table_names=1: the tables exist. */
+	public function test_tables_exist_ignores_case(): void {
+		try {
+			$wpdb = $this->show_tables_wpdb( 'WP_' );
+			$this->assertTrue( Schema::tables_exist() );
+			$this->assertCount( 5, $wpdb->queries );
+			$this->assertSame( "SHOW TABLES LIKE 'WP\\\\_qersh\\\\_deliveries'", $wpdb->queries[0] );
+			$this->assertFalse( $wpdb->suppressed, 'error suppression is put back' );
+
+			$this->show_tables_wpdb( 'wp_' );
+			$this->assertTrue( Schema::tables_exist() );
+
+			$this->show_tables_wpdb( 'WP_', array( 'orders' ) );
+			$this->assertFalse( Schema::tables_exist() );
+		} finally {
+			unset( $GLOBALS['wpdb'] );
+		}
+	}
+
+	/**
+	 * install() records the schema version once SHOW TABLES finds the five tables, in whatever case it names them,
+	 * and pauses automatic installs for ten minutes while one is missing.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_install_records_the_version(): void {
+		require_once __DIR__ . '/FakeWpOptions.php';
+		$this->show_tables_wpdb( 'WP_', array( 'locks' ) );
+		Schema::install();
+		$this->assertCount( 1, $GLOBALS['qersh_wc_fake_dbdelta'] );
+		$this->assertSame( array( 'deliveries', 'transfers', 'orders', 'wallets', 'locks' ), array_keys( $GLOBALS['qersh_wc_fake_dbdelta'][0] ) );
+		$this->assertArrayNotHasKey( Schema::VERSION_OPTION, $GLOBALS['qersh_wc_fake_options'] );
+		$this->assertSame( 1, $GLOBALS['qersh_wc_fake_transients'][ Schema::RETRY_TRANSIENT ] );
+
+		Schema::maybe_upgrade();
+		$this->assertCount( 1, $GLOBALS['qersh_wc_fake_dbdelta'], 'paused' );
+
+		$this->show_tables_wpdb( 'WP_' );
+		Schema::table_missing();
+		Schema::install();
+		$this->assertSame( 1, $GLOBALS['qersh_wc_fake_options'][ Schema::VERSION_OPTION ] );
+		$this->assertArrayNotHasKey( Schema::RETRY_TRANSIENT, $GLOBALS['qersh_wc_fake_transients'] );
+		$this->assertFalse( Schema::lost(), 'the tables are back' );
+
+		Schema::maybe_upgrade();
+		$this->assertCount( 2, $GLOBALS['qersh_wc_fake_dbdelta'], 'nothing to do at the current version' );
+	}
+
+	/**
+	 * The missing tables of one site of a network never make another site's tables "not ready" in the same request
+	 * (switch_to_blog() changes the prefix), and install() clears only its own site.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_lost_is_per_site(): void {
+		require_once __DIR__ . '/FakeWpOptions.php';
+		$wpdb = $this->show_tables_wpdb( 'wp_' );
+		$this->assertFalse( Schema::lost() );
+		Schema::table_missing( 'wp_2_' );
+		$this->assertFalse( Schema::lost(), 'the main site' );
+		$wpdb->prefix = 'wp_2_';
+		$this->assertTrue( Schema::lost(), 'site 2' );
+		$wpdb->prefix = 'wp_';
+		Schema::table_missing();
+		Schema::install();
+		$this->assertFalse( Schema::lost(), 'the main site, installed again' );
+		$wpdb->prefix = 'wp_2_';
+		$this->assertTrue( Schema::lost(), 'site 2 is still lost' );
+	}
+
+	/**
+	 * forget_version() deletes the version so the next maybe_upgrade() installs again; a second loss within ten
+	 * minutes also pauses automatic installs. A version already gone, here or by a request that met the missing
+	 * tables at the same moment, changes nothing.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_forget_version(): void {
+		require_once __DIR__ . '/FakeWpOptions.php';
+		$this->show_tables_wpdb( 'wp_' );
+
+		Schema::forget_version();
+		$this->assertSame( array(), $GLOBALS['qersh_wc_fake_transients'], 'nothing installed, nothing to forget' );
+
+		$GLOBALS['qersh_wc_fake_options'][ Schema::VERSION_OPTION ] = 1;
+		$GLOBALS['qersh_wc_fake_refuse']['delete_option']           = true;
+		Schema::forget_version();
+		$this->assertSame( array(), $GLOBALS['qersh_wc_fake_transients'], 'another request deleted it first' );
+		$GLOBALS['qersh_wc_fake_refuse']['delete_option'] = false;
+
+		Schema::forget_version();
+		$this->assertArrayNotHasKey( Schema::VERSION_OPTION, $GLOBALS['qersh_wc_fake_options'] );
+		$this->assertSame( array( Schema::LOST_TRANSIENT => 1 ), $GLOBALS['qersh_wc_fake_transients'] );
+
+		Schema::maybe_upgrade();
+		$this->assertCount( 1, $GLOBALS['qersh_wc_fake_dbdelta'], 'the next request installs again' );
+		$this->assertSame( 1, $GLOBALS['qersh_wc_fake_options'][ Schema::VERSION_OPTION ] );
+
+		Schema::forget_version();
+		$this->assertSame( 1, $GLOBALS['qersh_wc_fake_transients'][ Schema::RETRY_TRANSIENT ], 'lost again within ten minutes' );
+		Schema::maybe_upgrade();
+		$this->assertCount( 1, $GLOBALS['qersh_wc_fake_dbdelta'], 'paused' );
+	}
 }

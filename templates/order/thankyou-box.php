@@ -31,7 +31,7 @@ $qersh_wc_copy    = $script['strings']['copy'];
 
 	<?php if ( $box['pending'] ) : ?>
 		<ul class="qersh-box__lines" data-qersh-pending>
-			<li class="qersh-line qersh-line--amount">
+			<li class="qersh-line qersh-line--amount" data-qersh-amount>
 				<?php
 				echo wp_kses(
 					sprintf(
@@ -42,7 +42,7 @@ $qersh_wc_copy    = $script['strings']['copy'];
 					$qersh_wc_allowed
 				);
 				?>
-				<button type="button" class="qersh-copy" data-qersh-copy="<?php echo esc_attr( Format::amount_raw( $box['due_minor'] ) ); ?>" hidden><?php echo esc_html( $qersh_wc_copy ); ?></button>
+				<button type="button" class="qersh-copy" data-qersh-copy="<?php echo esc_attr( Format::amount_raw( $box['due_minor'] ) ); ?>" aria-label="<?php esc_attr_e( 'Copy the amount', 'qersh-for-woocommerce' ); ?>" hidden><?php echo esc_html( $qersh_wc_copy ); ?></button>
 				<?php if ( $box['rounded'] ) : ?>
 					<span class="qersh-note">
 						<?php
@@ -72,8 +72,11 @@ $qersh_wc_copy    = $script['strings']['copy'];
 						$qersh_wc_line = sprintf( esc_html__( 'Send to: %s', 'qersh-for-woocommerce' ), $qersh_wc_to );
 					}
 					echo wp_kses( $qersh_wc_line, $qersh_wc_allowed );
+					$qersh_wc_copy_to = false !== strpos( $box['address'], '@' )
+						? __( 'Copy the address to send to', 'qersh-for-woocommerce' )
+						: __( 'Copy the number to send to', 'qersh-for-woocommerce' );
 					?>
-					<button type="button" class="qersh-copy" data-qersh-copy="<?php echo esc_attr( $box['address'] ); ?>" hidden><?php echo esc_html( $qersh_wc_copy ); ?></button>
+					<button type="button" class="qersh-copy" data-qersh-copy="<?php echo esc_attr( $box['address'] ); ?>" aria-label="<?php echo esc_attr( $qersh_wc_copy_to ); ?>" hidden><?php echo esc_html( $qersh_wc_copy ); ?></button>
 				</li>
 			<?php endif; ?>
 
@@ -94,7 +97,8 @@ $qersh_wc_copy    = $script['strings']['copy'];
 			<?php endif; ?>
 
 			<?php if ( null !== $box['deadline'] ) : ?>
-				<li class="qersh-line qersh-line--before">
+				<?php // data-qersh-left: thankyou.js drops "(within …)" once that duration would read differently. ?>
+				<li class="qersh-line qersh-line--before"<?php echo $box['deadline'] > $qersh_wc_now ? ' data-qersh-left' : ''; ?>>
 					<?php
 					$qersh_wc_time = '<strong>' . Format::isolate( esc_html( Format::cairo_time( $box['deadline'], $qersh_wc_now ) ), Format::HTML, ' data-qersh-time="' . esc_attr( (string) $box['deadline'] ) . '"' ) . '</strong>';
 					if ( $box['deadline'] > $qersh_wc_now ) {
@@ -138,4 +142,5 @@ $qersh_wc_copy    = $script['strings']['copy'];
 		<?php endif; ?>
 	</p>
 	<p class="qersh-nudge" data-qersh-nudge<?php echo '' === $qersh_wc_nudge ? ' hidden' : ''; ?>><?php echo esc_html( $qersh_wc_nudge ); ?></p>
+	<span class="qersh-sr" data-qersh-copy-msg role="status" aria-live="polite"></span>
 </section>

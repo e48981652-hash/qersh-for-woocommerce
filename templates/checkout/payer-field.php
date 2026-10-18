@@ -13,6 +13,8 @@
  * @var string $value         Value of the field ("Pay for order" only), or ''.
  * @var bool   $instapay      Whether an InstaPay wallet is enabled (the switch is shown).
  * @var string $kind          `number` or `instapay`.
+ * @var bool   $kept          Whether the value is the payer the order already has ("Pay for order"): the switch
+ *                            then stays where it is instead of following the wallet.
  * @var array  $store_numbers The enabled wallets' receive addresses (PayerField::browser_numbers()).
  * @var array  $messages      Error messages: invalid, store, choice.
  */
@@ -21,6 +23,7 @@ defined( 'ABSPATH' ) || exit;
 
 $qersh_wc_allowed      = \QershPay\WooCommerce\Format::allowed_html();
 $qersh_wc_single       = 1 === count( $views );
+$qersh_wc_kept         = ! empty( $kept );
 $qersh_wc_all_decision = true;
 foreach ( $views as $qersh_wc_view ) {
 	if ( ! $qersh_wc_view['decision'] ) {
@@ -31,11 +34,18 @@ $qersh_wc_label_number   = __( 'Wallet number you will transfer from', 'qersh-fo
 $qersh_wc_label_instapay = __( 'InstaPay address you will transfer from', 'qersh-for-woocommerce' );
 $qersh_wc_help_auto      = __( 'We recognize your transfer by this number, so send it from this number only.', 'qersh-for-woocommerce' );
 $qersh_wc_help_decision  = __( 'Enter the number you will transfer from, so the store can check your transfer more easily.', 'qersh-for-woocommerce' );
+$qersh_wc_help_instapay  = __( 'Enter the InstaPay address you will transfer from, so the store can check your transfer more easily.', 'qersh-for-woocommerce' );
 $qersh_wc_decision_now   = $qersh_wc_all_decision;
 foreach ( $views as $qersh_wc_view ) {
 	if ( $qersh_wc_view['id'] === $checked ) {
 		$qersh_wc_decision_now = $qersh_wc_view['decision'];
 	}
+}
+// No wallet confirms an InstaPay address on its own, so the address has one help line, whatever the wallet.
+if ( 'instapay' === $kind ) {
+	$qersh_wc_help_now = $qersh_wc_help_instapay;
+} else {
+	$qersh_wc_help_now = $qersh_wc_decision_now ? $qersh_wc_help_decision : $qersh_wc_help_auto;
 }
 ?>
 <div class="qersh-payer"
@@ -49,7 +59,8 @@ foreach ( $views as $qersh_wc_view ) {
 	data-label-number="<?php echo esc_attr( $qersh_wc_label_number ); ?>"
 	data-label-instapay="<?php echo esc_attr( $qersh_wc_label_instapay ); ?>"
 	data-help-auto="<?php echo esc_attr( $qersh_wc_help_auto ); ?>"
-	data-help-decision="<?php echo esc_attr( $qersh_wc_help_decision ); ?>">
+	data-help-decision="<?php echo esc_attr( $qersh_wc_help_decision ); ?>"
+	data-help-instapay="<?php echo esc_attr( $qersh_wc_help_instapay ); ?>"<?php echo $qersh_wc_kept ? ' data-kind-chosen="1"' : ''; ?>>
 
 	<?php if ( empty( $views ) ) : ?>
 		<p class="qersh-confirm"><?php esc_html_e( 'This store has no wallet to transfer to right now. Choose another way to pay.', 'qersh-for-woocommerce' ); ?></p>
@@ -60,12 +71,13 @@ foreach ( $views as $qersh_wc_view ) {
 			<input type="hidden" name="qersh_wallet" id="<?php echo esc_attr( 'qersh_wallet_' . $qersh_wc_view['id'] ); ?>" value="<?php echo esc_attr( $qersh_wc_view['id'] ); ?>" data-decision="<?php echo $qersh_wc_view['decision'] ? '1' : '0'; ?>" data-instapay="<?php echo $qersh_wc_view['instapay'] ? '1' : '0'; ?>" />
 			<p class="qersh-confirm"><?php echo esc_html( $qersh_wc_view['confirm'] ); ?></p>
 		<?php else : ?>
-			<fieldset class="qersh-wallets">
+			<?php // No `required` on the radios: WooCommerce hides an unselected method's box, and a hidden required input would block the other methods. ?>
+			<fieldset class="qersh-wallets" id="qersh_wallets" role="radiogroup" aria-required="true">
 				<legend class="qersh-wallets__legend"><?php esc_html_e( 'Which wallet will you transfer to?', 'qersh-for-woocommerce' ); ?> <span class="required" aria-hidden="true">*</span></legend>
 				<?php foreach ( $views as $qersh_wc_view ) : ?>
 					<?php $qersh_wc_id = 'qersh_wallet_' . $qersh_wc_view['id']; ?>
 					<div class="qersh-wallet">
-						<input type="radio" class="input-radio" name="qersh_wallet" id="<?php echo esc_attr( $qersh_wc_id ); ?>" value="<?php echo esc_attr( $qersh_wc_view['id'] ); ?>" data-decision="<?php echo $qersh_wc_view['decision'] ? '1' : '0'; ?>" data-instapay="<?php echo $qersh_wc_view['instapay'] ? '1' : '0'; ?>" aria-describedby="<?php echo esc_attr( $qersh_wc_id . '_confirm' ); ?>" <?php checked( $checked, $qersh_wc_view['id'] ); ?> />
+						<input type="radio" class="input-radio" name="qersh_wallet" id="<?php echo esc_attr( $qersh_wc_id ); ?>" value="<?php echo esc_attr( $qersh_wc_view['id'] ); ?>" data-decision="<?php echo $qersh_wc_view['decision'] ? '1' : '0'; ?>" data-instapay="<?php echo $qersh_wc_view['instapay'] ? '1' : '0'; ?>" aria-describedby="<?php echo esc_attr( $qersh_wc_id . '_confirm qersh_wallet_error' ); ?>" <?php checked( $checked, $qersh_wc_view['id'] ); ?> />
 						<label for="<?php echo esc_attr( $qersh_wc_id ); ?>">
 							<span class="qersh-wallet__name"><?php echo esc_html( '' !== $qersh_wc_view['label'] ? $qersh_wc_view['label'] : $qersh_wc_view['provider_name'] ); ?></span>
 							<?php echo wp_kses( \QershPay\WooCommerce\Format::ltr( $qersh_wc_view['address_display'] ), $qersh_wc_allowed ); ?>
@@ -76,6 +88,7 @@ foreach ( $views as $qersh_wc_view ) {
 						<p class="qersh-confirm" id="<?php echo esc_attr( $qersh_wc_id . '_confirm' ); ?>"><?php echo esc_html( $qersh_wc_view['confirm'] ); ?></p>
 					</div>
 				<?php endforeach; ?>
+				<span class="qersh-error" id="qersh_wallet_error" role="alert" hidden></span>
 			</fieldset>
 		<?php endif; ?>
 
@@ -99,7 +112,7 @@ foreach ( $views as $qersh_wc_view ) {
 				<span class="required" aria-hidden="true">*</span>
 			</label>
 			<input type="text" class="input-text" id="qersh_payer" name="qersh_payer" dir="ltr" inputmode="<?php echo 'instapay' === $kind ? 'email' : 'numeric'; ?>" autocomplete="<?php echo 'instapay' === $kind ? 'off' : 'tel'; ?>" maxlength="80" aria-required="true" aria-describedby="qersh_payer_help qersh_payer_error"<?php echo '' !== $value ? ' value="' . esc_attr( $value ) . '"' : ''; ?> />
-			<span class="qersh-help" id="qersh_payer_help"><?php echo esc_html( $qersh_wc_decision_now ? $qersh_wc_help_decision : $qersh_wc_help_auto ); ?></span>
+			<span class="qersh-help" id="qersh_payer_help"><?php echo esc_html( $qersh_wc_help_now ); ?></span>
 			<span class="qersh-error" id="qersh_payer_error" role="alert" hidden></span>
 		</p>
 

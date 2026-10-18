@@ -302,7 +302,7 @@ final class Controller {
 		if ( 'done' === $claim['state'] ) {
 			$http  = (int) $claim['http_status'];
 			$reply = is_array( $claim['reply'] ) ? $claim['reply'] : array();
-			return self::result( $http, $this->with_updates( $wallet, $http, $reply, 'transfer.received' === $event ? $envelope : null, $now ) );
+			return self::result( $http, $this->with_updates( $wallet, $event, $http, $reply, 'transfer.received' === $event ? $envelope : null, $now ) );
 		}
 
 		$token = (string) $claim['token'];
@@ -325,7 +325,7 @@ final class Controller {
 			}
 			return self::result( $http, $out['reply'] );
 		}
-		return self::result( $http, $this->with_updates( $wallet, $http, $out['reply'], null, $now ) );
+		return self::result( $http, $this->with_updates( $wallet, $event, $http, $out['reply'], null, $now ) );
 	}
 
 	/**
@@ -379,6 +379,20 @@ final class Controller {
 			default:
 				return 'ignored';
 		}
+	}
+
+	/**
+	 * Whether the reply to an event carries the wallet's status updates (docs/17 §4.4 step 10). Every event the phone
+	 * sends through its outbox does (transfer.*, device.heartbeat, ignored events), since it applies them there. Not
+	 * webhook.test, subscribed or not: the phone's "Test connection" reads only status, reference and note, and
+	 * docs/02 §H.6 sends updates on real deliveries only, so updates sent with it would use up the three replies of a
+	 * correction the phone never applied. Pure.
+	 *
+	 * @param string $event Event name.
+	 * @return bool
+	 */
+	public static function carries_updates( string $event ): bool {
+		return 'webhook.test' !== $event;
 	}
 
 	/**
@@ -551,20 +565,21 @@ final class Controller {
 
 	/**
 	 * Step 10: a 2xx reply carries the wallet's pending status updates (Orders::status_updates()), and the
-	 * transfers sent are counted (Transfers::note_synced()). For the repeat of a transfer.received whose transfer
-	 * now has another verdict than the stored reply, that transfer's own item comes first, outside the three-reply
-	 * limit. Never throws.
+	 * transfers sent are counted (Transfers::note_synced()), except the reply to webhook.test (carries_updates()).
+	 * For the repeat of a transfer.received whose transfer now has another verdict than the stored reply, that
+	 * transfer's own item comes first, outside the three-reply limit. Never throws.
 	 *
 	 * @param string     $wallet   Wallet id.
+	 * @param string     $event    Event name.
 	 * @param int        $http     HTTP status.
 	 * @param array      $reply    Reply.
 	 * @param array|null $envelope Envelope of a repeated transfer.received, or null.
 	 * @param int        $now      UTC seconds.
 	 * @return array The reply to send.
 	 */
-	private function with_updates( string $wallet, int $http, array $reply, ?array $envelope, int $now ): array {
+	private function with_updates( string $wallet, string $event, int $http, array $reply, ?array $envelope, int $now ): array {
 		unset( $reply['status_updates'] );
-		if ( $http < 200 || $http >= 300 || ! class_exists( Orders::class ) ) {
+		if ( $http < 200 || $http >= 300 || ! self::carries_updates( $event ) || ! class_exists( Orders::class ) ) {
 			return $reply;
 		}
 		try {

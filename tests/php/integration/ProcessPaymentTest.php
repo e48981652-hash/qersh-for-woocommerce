@@ -100,6 +100,85 @@ class ProcessPaymentTest extends TestCase {
 	}
 
 	/**
+	 * The classic checkout resumes the session's failed order (a declined card) with our method and no status
+	 * change: process_payment() moves it back to pending, so the exact transfer matches it.
+	 */
+	public function test_a_resumed_failed_order_goes_back_to_pending_and_matches(): void {
+		$wallet = $this->vodafone_wallet();
+		$order  = $this->order( $this->product( '140' ) );
+		$order->set_payment_method( 'cod' );
+		$order->save();
+		$order->update_status( 'failed', 'Card declined.' );
+		$order = $this->fresh( $order->get_id() );
+		$order->set_payment_method( 'qersh' ); // What WC_Checkout::create_order() does when it resumes the order.
+		$order->save();
+
+		$this->assertSame( 'success', $this->pay( $order, '01122334488', $wallet['id'] )['result'] );
+		$this->assertSame( 'pending', $this->fresh( $order->get_id() )->get_status() );
+		$this->assertSame( 'open', (string) $this->row( $order->get_id() )['state'] );
+
+		$response = $this->deliver(
+			'transfer.received',
+			$wallet,
+			array(
+				'payer'        => '01122334488',
+				'amount_minor' => 14000,
+			)
+		)['response'];
+		$this->assertSame( 'matched', $response->get_data()['status'] );
+		$this->plugin->completion()->run( $order->get_id() );
+		$this->assertContains( $this->fresh( $order->get_id() )->get_status(), array( 'processing', 'completed' ) );
+	}
+
+	/**
+	 * "Pay for order" of one of our orders that went to failed: its closed row opens again, and the transfer
+	 * matches instead of going to review as "arrived after the order was closed".
+	 */
+	public function test_pay_for_order_of_a_failed_order_reopens_its_row(): void {
+		$wallet = $this->vodafone_wallet();
+		$order  = $this->order( $this->product( '140' ) );
+		$this->assertSame( 'success', $this->pay( $order, '01122334499', $wallet['id'] )['result'] );
+		$this->fresh( $order->get_id() )->update_status( 'failed' );
+		$this->assertSame( 'closed', (string) $this->row( $order->get_id() )['state'] );
+
+		set_query_var( 'order-pay', $order->get_id() );
+		try {
+			$this->assertSame( 'success', $this->pay( $this->fresh( $order->get_id() ), '01122334499', $wallet['id'] )['result'] );
+		} finally {
+			set_query_var( 'order-pay', '' );
+		}
+		$this->assertSame( 'pending', $this->fresh( $order->get_id() )->get_status() );
+		$this->assertSame( 'open', (string) $this->row( $order->get_id() )['state'] );
+
+		$response = $this->deliver(
+			'transfer.received',
+			$wallet,
+			array(
+				'payer'        => '01122334499',
+				'amount_minor' => 14000,
+			)
+		)['response'];
+		$this->assertSame( 'matched', $response->get_data()['status'] );
+	}
+
+	/**
+	 * A refused field leaves a failed order failed (nothing else is touched).
+	 */
+	public function test_a_refused_field_leaves_a_failed_order_failed(): void {
+		$wallet = $this->vodafone_wallet();
+		$order  = $this->order( $this->product( '100' ) );
+		$order->update_status( 'failed' );
+
+		$this->with_session(
+			function () use ( $order, $wallet ) {
+				$this->assertSame( 'failure', $this->pay( $this->fresh( $order->get_id() ), $wallet['receive_address'], $wallet['id'] )['result'] );
+			}
+		);
+		$this->assertSame( 'failed', $this->fresh( $order->get_id() )->get_status() );
+		$this->assertNull( $this->row( $order->get_id() ) );
+	}
+
+	/**
 	 * Runs a callback with an in-memory WooCommerce session (wc_add_notice() needs one; a real session handler would
 	 * try to set a cookie after PHPUnit's output).
 	 *

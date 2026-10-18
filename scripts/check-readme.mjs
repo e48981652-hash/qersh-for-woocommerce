@@ -347,6 +347,21 @@ text.split('\n').forEach((line, i) => {
 });
 if (/\brecognis/i.test(text)) error('use US English spelling ("recognize", not "recognise")');
 
+// Promises the code does not keep, which this readme once made (docs/17 §4.3, §4.6 and rule 5):
+// - the daily retention (Store\Transfers::purge_personal) only erases the payer's number and name of a transfer that
+//   paid no order; it never deletes the transfer itself, so no sentence about transfers may say "deleted after N days";
+// - a transfer that arrived before its order was placed is a personal transfer: it does not wait in "Needs a decision"
+//   and is not counted in the badge, so a sentence about it may not say it waits there.
+for (const sentence of text.split(/(?<=[.!?])\s+|\n/)) {
+	const quote = sentence.trim().slice(0, 90);
+	if (/\btransfers?\b/i.test(sentence) && /\b(?:deleted|removed|purged)\s+after\s+\d+\s+days?\b/i.test(sentence)) {
+		error(`"${quote}": transfers are never deleted; the retention erases only the payer's number and name of a transfer that paid no order`);
+	}
+	if (/\bbefore\s+(?:its|the|their)\s+order\b|\bbefore\s+you\s+created\s+the\s+order\b/i.test(sentence) && /\bwaits?\b|Needs a decision/i.test(sentence)) {
+		error(`"${quote}": a transfer that arrived before its order is filed under "Personal transfers", not in "Needs a decision"`);
+	}
+}
+
 // The main file header (docs/17 §9 and Plugin_Header_Fields_Check).
 if (main.Name !== 'Qersh for WooCommerce') error(`plugin header: Plugin Name is "${main.Name}"`);
 if (!main.Description) error('plugin header: Description is missing');

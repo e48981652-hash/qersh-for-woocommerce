@@ -1,9 +1,10 @@
 # Every push and pull request (docs/17 §11 in the Qersh repository): php -l on the lowest and highest PHP, the unit
-# tests, the guards (fixtures, wording, translations, readme.txt against the current WordPress release, the
-# configuration schema, the llms section), the JavaScript normaliser vectors, the parity run against the compiled
-# core, PHPCS, the PHPCS part of Plugin Check (phpcs-plugin-check.xml) and PHPStan; then the release package from the
-# allow-list (--release: the compiled translations must be in it) and Plugin Check on it (errors fail). Every check
-# script runs unconditionally: a renamed or missing script fails the job instead of being skipped.
+# tests, the guards (fixtures, wording, the commit pins of actions that can read a secret, translations, readme.txt
+# against the current WordPress release, the configuration schema, the llms section), the JavaScript normaliser
+# vectors, the parity run against the compiled core, PHPCS, the PHPCS part of Plugin Check (phpcs-plugin-check.xml)
+# and PHPStan; then the release package from the allow-list (--release: the compiled translations must be in it) and
+# Plugin Check on it (errors fail). Every check script runs unconditionally: a renamed or missing script fails the
+# job instead of being skipped.
 name: CI
 
 on:
@@ -72,6 +73,9 @@ jobs:
 
       - name: Wording guard (with the Arabic .po)
         run: node scripts/check-wording.mjs --require-po
+
+      - name: Actions that can read a secret are pinned to a commit
+        run: node scripts/check-workflows.mjs
 
       - name: Translations
         run: node scripts/check-translations.mjs

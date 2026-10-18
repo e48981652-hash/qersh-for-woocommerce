@@ -12,7 +12,8 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Body `{ order_id, key }`. POST, never GET: LiteSpeed Cache stores every visitor GET to REST for 7 days by default
  * (docs/16 §7.3). The order key must be valid and the method ours; every refusal is the same 404 body. The answer is
- * `{ "status": waiting|partial|paid|review|expired|cancelled }` from qersh_orders.state, plus `claim` (whether a
+ * `{ "status": waiting|partial|paid|review|expired|cancelled }` from qersh_orders.state, or from the WooCommerce
+ * status where the merchant settled the order by hand (Checkout::status_of()), plus `claim` (whether a
  * transaction id is saved) for an Orange Cash order: a fact the customer knows, which says nothing about transfers.
  * Never cached (wc_nocache_headers(), litespeed_control_set_nocache).
  *
@@ -73,7 +74,7 @@ final class OrderStatusRoute {
 		$plugin = Plugin::instance();
 		$row    = Checkout::order_row( $plugin, $order->get_id() );
 		$state  = null !== $row && isset( $row['state'] ) ? (string) $row['state'] : null;
-		$out    = array( 'status' => Checkout::status_of( $state, (string) $order->get_status() ) );
+		$out    = array( 'status' => Checkout::status_of( $state, (string) $order->get_status(), Checkout::completing( $row ) ) );
 
 		$wallet = $plugin->wallet( Checkout::order_wallet_id( $order, $row ) );
 		if ( null !== $wallet && isset( $wallet['provider'] ) && 'orange_cash' === $wallet['provider'] ) {

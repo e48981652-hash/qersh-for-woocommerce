@@ -112,6 +112,16 @@
 	border-color: #b32d2e;
 }
 
+/* The wallet choice's own error, under the wallets. */
+.qersh-wallets .qersh-error {
+	display: block;
+}
+
+.qersh-wallets--invalid .qersh-wallets__legend,
+.qersh-wallets[aria-invalid="true"] .qersh-wallets__legend {
+	color: #b32d2e;
+}
+
 .qersh-box {
 	margin-block: 1.5em;
 	padding: 1em 1.25em;
@@ -139,6 +149,32 @@
 .qersh-payer bdi {
 	white-space: nowrap;
 	font-variant-numeric: tabular-nums;
+}
+
+/*
+ * An InstaPay address (up to 73 characters) has no break point of its own: let it wrap inside the box on a phone.
+ * A wallet number keeps its groups together through the no-break spaces Format::number() puts between them.
+ * `anywhere`, not `break-word`: only it lowers the min-content width the `auto 1fr` grid of .qersh-wallet needs.
+ */
+.qersh-line--to bdi,
+.qersh-line--from bdi,
+.qersh-wallet label bdi {
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+/* Visually hidden, still read by screen readers (the "Copied" live region). */
+.qersh-sr {
+	position: absolute;
+	inline-size: 1px;
+	block-size: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	clip-path: inset(50%);
+	white-space: nowrap;
+	border: 0;
 }
 
 .qersh-copy {

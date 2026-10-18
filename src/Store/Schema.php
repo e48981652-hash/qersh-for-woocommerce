@@ -29,6 +29,19 @@ final class Schema {
 	const RETRY_TRANSIENT = 'qersh_wc_schema_retry';
 
 	/**
+	 * Transient set for ten minutes when forget_version() ran: a second loss in that time pauses automatic installs.
+	 */
+	const LOST_TRANSIENT = 'qersh_wc_schema_lost';
+
+	/**
+	 * Table prefixes (one per site of a network) for which a query of this request found one of the tables missing,
+	 * as keys (Db reports it through table_missing()).
+	 *
+	 * @var array<string, true>
+	 */
+	private static $lost = array();
+
+	/**
 	 * Short table names, without `{prefix}qersh_`.
 	 */
 	const TABLES = array( 'deliveries', 'transfers', 'orders', 'wallets', 'locks' );
@@ -165,6 +178,7 @@ final class Schema {
 		}
 		delete_transient( self::RETRY_TRANSIENT );
 		update_option( self::VERSION_OPTION, self::target_version(), true );
+		unset( self::$lost[ (string) $wpdb->prefix ] );
 
 		$other = self::non_innodb_tables();
 		if ( ! empty( $other ) ) {
@@ -330,7 +344,48 @@ PRIMARY KEY  (name)
 	}
 
 	/**
-	 * True when every table exists.
+	 * True when a query of this request found one of the current site's tables missing. Plugin::tables_ready() is
+	 * then false for the rest of the request, even while an open transaction still holds back forget_version().
+	 *
+	 * @return bool
+	 */
+	public static function lost(): bool {
+		return isset( self::$lost[ self::prefix() ] );
+	}
+
+	/**
+	 * Called by Db when a query reports one of our tables missing. Db then calls forget_version(), at once or right
+	 * after the open transaction ends (a rollback would undo the delete of the option).
+	 *
+	 * @param string|null $prefix Table prefix of the query, or null for the current site's.
+	 */
+	public static function table_missing( ?string $prefix = null ): void {
+		self::$lost[ null === $prefix ? self::prefix() : $prefix ] = true;
+	}
+
+	/**
+	 * Forgets the installed schema version after a query found one of the tables missing although it was installed
+	 * (a site moved or restored without the plugin's tables, a host's cleanup). Plugin::tables_ready() then turns
+	 * false: the routes answer 503, the payment method is hidden and the tables alert shows, and the next request's
+	 * maybe_upgrade() creates the tables again. When the tables are lost again within ten minutes (recreated and
+	 * lost, or listed by SHOW TABLES yet unknown to queries), automatic installs pause for ten minutes as after a
+	 * failed install, so a broken database never runs dbDelta on every request.
+	 */
+	public static function forget_version(): void {
+		if ( false === get_option( self::VERSION_OPTION, false ) || ! delete_option( self::VERSION_OPTION ) ) {
+			return; // Already forgotten, here or by a request that met the missing tables at the same time.
+		}
+		// The option is back only through install(): a loss marked less than ten minutes ago means a second loss.
+		if ( false !== get_transient( self::LOST_TRANSIENT ) ) {
+			set_transient( self::RETRY_TRANSIENT, 1, 600 );
+		}
+		set_transient( self::LOST_TRANSIENT, 1, 600 );
+		self::log( 'warning', 'A Qersh table is missing although it was installed. The tables are created again on the next request.' );
+	}
+
+	/**
+	 * True when every table exists. The name SHOW TABLES returns is compared without case: with MySQL's
+	 * lower_case_table_names=1 (the default on Windows) a prefix such as `WP_` comes back as `wp_`.
 	 *
 	 * @return bool
 	 */
@@ -341,7 +396,7 @@ PRIMARY KEY  (name)
 		foreach ( self::table_names( $wpdb->prefix ) as $name ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom table
 			$found = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $name ) ) );
-			if ( $found !== $name ) {
+			if ( ! is_string( $found ) || 0 !== strcasecmp( $found, $name ) ) {
 				$ok = false;
 				break;
 			}
@@ -376,6 +431,16 @@ PRIMARY KEY  (name)
 			}
 		}
 		return $other;
+	}
+
+	/**
+	 * The current site's table prefix, or '' before $wpdb exists.
+	 *
+	 * @return string
+	 */
+	private static function prefix(): string {
+		global $wpdb;
+		return is_object( $wpdb ) && isset( $wpdb->prefix ) ? (string) $wpdb->prefix : '';
 	}
 
 	/**

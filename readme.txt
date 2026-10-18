@@ -47,7 +47,7 @@ Automatic: Vodafone Cash and e& money (keep Send sender details on Full name and
 
 = Privacy =
 
-Transfers stay on your phone and in your WordPress database (see External services); a message your customer pastes is never stored, only its transaction id. The plugin suggests privacy policy text and supports the WordPress personal data exporter and eraser. Transfers that matched no order are deleted after 90 days (adjustable). Logs show only the last three digits of numbers.
+Transfers stay on your phone and in your WordPress database (see External services); a message your customer pastes is never stored, only its transaction id. The plugin suggests privacy policy text and supports the WordPress personal data exporter and eraser. The payer's number and name of a transfer that paid no order are erased after 90 days (adjustable); its amount, time and transaction id stay for your records. Logs show only the last three digits of numbers.
 
 Third-party code: qrcode-generator 2.0.4 by Kazuhiko Arase, MIT licence, https://github.com/kazuhikoarase/qrcode-generator
 
@@ -75,7 +75,7 @@ No. It never contacts Qersh and locks nothing. Your phone sends transfers only w
 
 = Orders are not confirmed automatically =
 
-In the app, keep the wallet's Send sender details (Developer settings) on Full name and number, and set the balance once in "Sync balance". A transfer above the wallet's "Auto-confirm limit" waits for you, and so does a transfer that arrived before its order was placed. Each waiting transfer shows its reason in "Needs a decision".
+In the app, keep the wallet's Send sender details (Developer settings) on Full name and number, and set the balance once in "Sync balance". A transfer above the wallet's "Auto-confirm limit" waits for you in "Needs a decision", with its reason. A transfer that arrived before its order was placed is filed under "Personal transfers"; attach it from there (you are warned first).
 
 = Orange Cash, InstaPay and bank accounts? =
 

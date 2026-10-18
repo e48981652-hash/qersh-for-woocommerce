@@ -36,6 +36,13 @@ final class Plugin {
 	private $config = null;
 
 	/**
+	 * The answers of lang_dir(), by locale.
+	 *
+	 * @var array<string, string|false>
+	 */
+	private static $lang_dirs = array();
+
+	/**
 	 * Returns the singleton.
 	 *
 	 * @return Plugin
@@ -115,6 +122,31 @@ final class Plugin {
 	}
 
 	/**
+	 * The `lang_dir_for_domain` filter. wp-settings.php registers the `Domain Path` folder (languages/) only for
+	 * plugins active on the site, never for network-activated ones; there WordPress finds no folder unless a language
+	 * pack is installed. This gives the bundled folder the same role in both cases: the answer for our text domain
+	 * when WordPress found none and the folder has a translation file for the locale. Any folder WordPress found (a
+	 * language pack, or the registered Domain Path) passes through, so a language pack still wins. It covers the
+	 * just-in-time loading of PHP strings and the JSON files of the scripts.
+	 *
+	 * @param string|false $path   Folder WordPress found, or false.
+	 * @param string       $domain Text domain.
+	 * @param string       $locale Locale.
+	 * @return string|false
+	 */
+	public static function lang_dir( $path, $domain, $locale ) {
+		if ( false !== $path || 'qersh-for-woocommerce' !== $domain || ! is_string( $locale ) || 1 !== preg_match( '/^[A-Za-z0-9_-]+$/', $locale ) ) {
+			return $path;
+		}
+		if ( ! array_key_exists( $locale, self::$lang_dirs ) ) {
+			$dir                        = QERSH_WC_DIR . 'languages/';
+			$base                       = $dir . $domain . '-' . $locale;
+			self::$lang_dirs[ $locale ] = is_readable( $base . '.l10n.php' ) || is_readable( $base . '.mo' ) ? $dir : false;
+		}
+		return self::$lang_dirs[ $locale ];
+	}
+
+	/**
 	 * Adds email deferral for our webhook requests when the host cannot finish the response early. Never removes a
 	 * deferral someone else switched on. WooCommerce reads this once, at init (docs/17 §4.7).
 	 *
@@ -146,8 +178,8 @@ final class Plugin {
 			return false;
 		}
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- signed webhook, HMAC-authenticated later.
-		$uri        = isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_unslash( $_SERVER['REQUEST_URI'] ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- only searched, never output.
-		$rest_route = isset( $_GET['rest_route'] ) ? (string) wp_unslash( $_GET['rest_route'] ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- only searched, never output.
+		$uri        = isset( $_SERVER['REQUEST_URI'] ) && is_string( $_SERVER['REQUEST_URI'] ) ? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
+		$rest_route = isset( $_GET['rest_route'] ) && is_string( $_GET['rest_route'] ) ? sanitize_text_field( wp_unslash( $_GET['rest_route'] ) ) : '';
 		$wc_api     = isset( $_GET['wc-api'] ) ? sanitize_key( wp_unslash( $_GET['wc-api'] ) ) : '';
 		$has_wallet = isset( $_GET['qw'] );
 		// phpcs:enable
@@ -171,12 +203,13 @@ final class Plugin {
 	}
 
 	/**
-	 * True when our tables are at the current schema version.
+	 * True when our tables are at the current schema version, and no query of this request found one of them
+	 * missing (Store\Db then forgets the version, so the next request creates them again: Store\Schema::lost()).
 	 *
 	 * @return bool
 	 */
 	public function tables_ready() {
-		return (int) get_option( 'qersh_wc_db_version', 0 ) >= QERSH_WC_DB_VERSION;
+		return ! Store\Schema::lost() && (int) get_option( Store\Schema::VERSION_OPTION, 0 ) >= QERSH_WC_DB_VERSION;
 	}
 
 	/**

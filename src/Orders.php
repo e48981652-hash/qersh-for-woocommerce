@@ -92,6 +92,7 @@ final class Orders {
 		add_action( 'woocommerce_untrash_order', array( __CLASS__, 'on_untrash' ), 10, 2 );
 		add_action( 'untrashed_post', array( __CLASS__, 'on_untrash_post' ), 10, 2 );
 		add_action( 'woocommerce_delete_order', array( __CLASS__, 'on_delete' ), 10, 1 );
+		add_action( 'deleted_post', array( __CLASS__, 'on_deleted_post' ), 10, 2 );
 		add_action( 'woocommerce_before_order_object_save', array( __CLASS__, 'on_before_save' ), 10, 1 );
 		add_action( 'woocommerce_order_after_calculate_totals', array( __CLASS__, 'on_totals' ), 10, 2 );
 	}
@@ -99,7 +100,9 @@ final class Orders {
 	/**
 	 * Leaving `pending` is neither our payment nor our expiry: the row is closed (a cancellation, a refund, or the
 	 * merchant moving the order by hand). Back to `pending` with our method: the row opens again. A cancellation of an
-	 * order with money already received adds a note and puts its transfers in "Needs decision".
+	 * order with money already received adds a note and puts its transfers in "Needs decision". The hooks take no
+	 * lock: every write of theirs is conditional on the row they read (close_row(), reopen()), so a decision that a
+	 * delivery commits meanwhile is never overwritten.
 	 *
 	 * @param int            $order_id Order id.
 	 * @param string         $from     Old status.
@@ -128,13 +131,10 @@ final class Orders {
 				$self->reopen( $order, $row );
 				return;
 			}
-			if ( 'pending' !== $from || 'paid' === $row['state'] ) {
-				return; // A paid decision belongs to Completion, which reads the order again under the lock.
+			if ( 'pending' !== $from ) {
+				return;
 			}
-			if ( 'expired' === $row['state'] && 'cancelled' === $to ) {
-				return; // Our expiry.
-			}
-			$self->close( $order, $row, in_array( $to, array( 'cancelled', 'refunded' ), true ), (string) $to );
+			$self->close( $order, $row, in_array( $to, array( 'cancelled', 'refunded' ), true ), (string) $to, 'status' );
 		} catch ( \Throwable $e ) {
 			$self->log( 'status hook', $e );
 		}
@@ -152,10 +152,9 @@ final class Orders {
 		}
 		try {
 			$row = $self->plugin->orders_index()->get( (int) $order_id );
-			if ( null === $row || self::completion_pending( $row ) || 'closed' === $row['state'] ) {
-				return;
+			if ( null !== $row ) {
+				$self->close_row( (int) $order_id, $row, 'trash' );
 			}
-			$self->plugin->orders_index()->update( (int) $order_id, array( 'state' => 'closed' ) );
 		} catch ( \Throwable $e ) {
 			$self->log( 'trash hook', $e );
 		}
@@ -229,6 +228,44 @@ final class Orders {
 	}
 
 	/**
+	 * On deleted_post: the posts storage deletes an order for good through wp_delete_post() ("Delete Permanently",
+	 * "Empty Trash", WordPress's daily trash purge), which fires no woocommerce_delete_order. The type comes from the
+	 * hook's post: get_post_type() no longer finds a deleted post. on_delete() may run twice for one order (the data
+	 * store's delete fires both hooks); it is idempotent.
+	 *
+	 * @param int           $post_id Post id.
+	 * @param \WP_Post|null $post    The deleted post.
+	 */
+	public static function on_deleted_post( $post_id, $post = null ): void {
+		if ( ! $post instanceof \WP_Post || ! self::deletes_order( (string) $post->post_type, self::hpos_on() ) ) {
+			return;
+		}
+		self::on_delete( (int) $post_id );
+	}
+
+	/**
+	 * Whether a deleted post is a deleted order: a `shop_order` while the posts storage holds the orders. With HPOS
+	 * on, the data store fires woocommerce_delete_order itself, and a post deleted then is only a sync copy or a
+	 * placeholder of an order that may still exist, so it never deletes the row. Pure.
+	 *
+	 * @param string $post_type The deleted post's type.
+	 * @param bool   $hpos      Whether HPOS holds the orders.
+	 * @return bool
+	 */
+	public static function deletes_order( string $post_type, bool $hpos ): bool {
+		return ! $hpos && 'shop_order' === $post_type;
+	}
+
+	/**
+	 * Whether HPOS holds the orders (WooCommerce's OrderUtil; false when it is missing).
+	 *
+	 * @return bool
+	 */
+	private static function hpos_on(): bool {
+		return class_exists( '\Automattic\WooCommerce\Utilities\OrderUtil' ) && \Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled();
+	}
+
+	/**
 	 * On woocommerce_before_order_object_save: the payment method leaves `qersh` ("Pay for order" saves the new
 	 * method before its gateway runs): the row is closed.
 	 *
@@ -252,10 +289,9 @@ final class Orders {
 		}
 		try {
 			$row = $self->plugin->orders_index()->get( (int) $order->get_id() );
-			if ( null === $row || 'closed' === $row['state'] || self::completion_pending( $row ) ) {
-				return;
+			if ( null !== $row ) {
+				$self->close( $order, $row, true, '', 'method' );
 			}
-			$self->close( $order, $row, true );
 		} catch ( \Throwable $e ) {
 			$self->log( 'method hook', $e );
 		}
@@ -283,7 +319,7 @@ final class Orders {
 			}
 			$price = self::total_minor( $order );
 			if ( $price !== (int) $row['price_minor'] ) {
-				$self->plugin->orders_index()->update( (int) $order->get_id(), array( 'price_minor' => $price ) );
+				$self->write_if( (int) $order->get_id(), array( 'price_minor' => $price ), array( 'open', 'partial' ) ); // Never the price of a decided row.
 			}
 		} catch ( \Throwable $e ) {
 			$self->log( 'totals hook', $e );
@@ -1479,6 +1515,67 @@ final class Orders {
 	}
 
 	/**
+	 * Whether an order hook leaves a row as it is (docs/17 §4.3). A closed row is closed already. A status change
+	 * leaves every paid row (Completion reads the order again under the lock and corrects it) and our own expiry's
+	 * cancellation (`expired` → cancelled); the trash and a change of method leave a paid decision whose completion
+	 * has not run. Pure.
+	 *
+	 * @param array  $row  Typed qersh_orders row.
+	 * @param string $hook `status`, `trash` or `method`.
+	 * @param string $to   The new WooCommerce status, for `status`.
+	 * @return bool
+	 */
+	public static function hook_keeps( array $row, string $hook, string $to = '' ): bool {
+		if ( 'closed' === $row['state'] ) {
+			return true;
+		}
+		if ( 'status' === $hook ) {
+			return 'paid' === $row['state'] || ( 'expired' === $row['state'] && 'cancelled' === $to );
+		}
+		return self::completion_pending( $row );
+	}
+
+	/**
+	 * Whether a transfer's amount still counts toward the order it is linked to (MatchPolicy::COUNTED_OUTCOMES): it
+	 * paid the order in whole or in part, so a forgery verdict stops that order (docs/17 §4.4 step 9), also once
+	 * Completion or a cancellation left it in review. Pure.
+	 *
+	 * @param array $tr Typed qersh_transfers row.
+	 * @return bool
+	 */
+	public static function counts_toward_order( array $tr ): bool {
+		return self::linked_order( $tr ) > 0 && isset( $tr['outcome'] ) && in_array( $tr['outcome'], MatchPolicy::COUNTED_OUTCOMES, true );
+	}
+
+	/**
+	 * The amounts of the notes of a cancellation with money received (docs/17 §4.3): what to refund, and what came
+	 * from transfers suspected to be forged, which the merchant checks in the wallet app before refunding any of it,
+	 * since that money may never have arrived. Pure.
+	 *
+	 * @param int $paid    The row's paid_minor.
+	 * @param int $suspect The amounts of the order's counted transfers flagged as forged.
+	 * @return array `{ refund: int, suspect: int }`
+	 */
+	public static function cancel_amounts( int $paid, int $suspect ): array {
+		$paid    = max( 0, $paid );
+		$suspect = min( max( 0, $suspect ), $paid );
+		return array(
+			'refund'  => $paid - $suspect,
+			'suspect' => $suspect,
+		);
+	}
+
+	/**
+	 * Whether a transfer is flagged as forged and the merchant has not decided it yet. Pure.
+	 *
+	 * @param array $tr Typed qersh_transfers row.
+	 * @return bool
+	 */
+	public static function suspected( array $tr ): bool {
+		return isset( $tr['flag'] ) && 'forgery' === $tr['flag'];
+	}
+
+	/**
 	 * Whether a status the merchant set by hand decides an order that waited with money received (its overdue
 	 * reasons end): processing or completed. On hold and failed decide nothing. Pure.
 	 *
@@ -1827,7 +1924,7 @@ final class Orders {
 				if ( 'dismissed' !== $row['outcome'] ) {
 					$fields['reason'] = 'forgery';
 				}
-				if ( null !== $row['order_id'] && in_array( $row['outcome'], MatchPolicy::PAYING_OUTCOMES, true ) ) {
+				if ( self::counts_toward_order( $row ) ) {
 					$this->stop_order( (int) $row['order_id'], $now );
 					$alert = array(
 						'order_id'    => (int) $row['order_id'],
@@ -2368,76 +2465,175 @@ final class Orders {
 	 * set by hand to processing or completed, the overdue reasons are cleared, since the merchant decided. On hold
 	 * or failed is no decision: the money is still held, so those transfers stay in "Needs decision".
 	 *
+	 * A transfer flagged as forged keeps its reason (the phone and the list say why), and its amount is left out of
+	 * the refund note: a note of its own tells the merchant to check in the wallet app that the money arrived before
+	 * refunding any of it. The row is written first and only while it is as it was read (close_row()), so the notes
+	 * and the transfers follow the money the row really holds.
+	 *
 	 * @param \WC_Order $order  Order.
-	 * @param array     $row    Row.
+	 * @param array     $row    Row, as the hook read it.
 	 * @param bool      $cancel True for a cancellation, a refund or a change of method.
 	 * @param string    $to     The new WooCommerce status ('' for a change of method).
+	 * @param string    $hook   `status` or `method` (hook_keeps()).
 	 */
-	private function close( \WC_Order $order, array $row, bool $cancel, string $to = '' ): void {
-		$id   = (int) $order->get_id();
-		$paid = (int) $row['paid_minor'];
-		if ( $paid > 0 ) {
-			$transfers = $this->plugin->transfers();
-			$page      = $transfers->list_page( array( 'order_id' => $id ), 1, 200 );
-			foreach ( $page['rows'] as $transfer ) {
-				$tid = (string) $transfer['transfer_id'];
-				if ( $cancel && in_array( $transfer['outcome'], MatchPolicy::PAYING_OUTCOMES, true ) ) {
-					$transfers->update(
-						$tid,
-						array(
-							'outcome' => 'review',
-							'reason'  => 'cancelled_paid',
-							'note'    => MatchPolicy::reason_text( 'cancelled_paid', array( 'N' => $id ) ),
-						)
-					);
-					$transfers->request_sync( $tid, time() );
-				} elseif ( ! $cancel && self::merchant_decided( $to ) && in_array( $transfer['reason'], array( 'partial_overdue', 'claim_overdue' ), true ) ) {
-					$transfers->update(
-						$tid,
-						array(
-							'reason' => null,
-							'note'   => null,
-						)
-					);
-				}
+	private function close( \WC_Order $order, array $row, bool $cancel, string $to, string $hook ): void {
+		$id  = (int) $order->get_id();
+		$row = $this->close_row( $id, $row, $hook, $to );
+		if ( null === $row || (int) $row['paid_minor'] <= 0 ) {
+			return;
+		}
+		$paid      = (int) $row['paid_minor'];
+		$suspect   = 0;
+		$transfers = $this->plugin->transfers();
+		$page      = $transfers->list_page( array( 'order_id' => $id ), 1, 200 );
+		foreach ( $page['rows'] as $transfer ) {
+			$tid    = (string) $transfer['transfer_id'];
+			$forged = self::suspected( $transfer );
+			if ( $forged && self::counts_toward_order( $transfer ) ) {
+				$suspect += max( 0, (int) $transfer['amount_minor'] );
 			}
-			if ( $cancel ) {
-				$order->add_order_note(
-					sprintf(
-						/* translators: %s: amount received. */
-						__( 'This order has %s paid: refund it to the customer from the wallet app.', 'qersh-for-woocommerce' ),
-						$this->money( $paid, $order )
+			if ( $cancel && in_array( $transfer['outcome'], MatchPolicy::PAYING_OUTCOMES, true ) ) {
+				$reason = $forged ? 'forgery' : 'cancelled_paid';
+				$transfers->update(
+					$tid,
+					array(
+						'outcome' => 'review',
+						'reason'  => $reason,
+						'note'    => MatchPolicy::reason_text( $reason, array( 'N' => $id ) ),
+					)
+				);
+				$transfers->request_sync( $tid, time() );
+			} elseif ( ! $cancel && self::merchant_decided( $to ) && in_array( $transfer['reason'], array( 'partial_overdue', 'claim_overdue' ), true ) ) {
+				$transfers->update(
+					$tid,
+					array(
+						'reason' => null,
+						'note'   => null,
 					)
 				);
 			}
 		}
-		$this->plugin->orders_index()->update( $id, array( 'state' => 'closed' ) );
+		if ( ! $cancel ) {
+			return;
+		}
+		$amounts = self::cancel_amounts( $paid, $suspect );
+		if ( $amounts['refund'] > 0 ) {
+			$order->add_order_note(
+				sprintf(
+					/* translators: %s: amount received. */
+					__( 'This order has %s paid: refund it to the customer from the wallet app.', 'qersh-for-woocommerce' ),
+					$this->money( $amounts['refund'], $order )
+				)
+			);
+		}
+		if ( $amounts['suspect'] > 0 ) {
+			$order->add_order_note(
+				sprintf(
+					/* translators: %s: amount of the transfers suspected to be forged. */
+					__( '%s of what this order received comes from a transfer suspected to be forged: check in the wallet app that this money really arrived before you refund any of it.', 'qersh-for-woocommerce' ),
+					$this->money( $amounts['suspect'], $order )
+				)
+			);
+		}
+	}
+
+	/**
+	 * Closes the row of an order hook unless the hook leaves it as it is (hook_keeps()). The hooks read the row
+	 * without a lock, and on InnoDB a plain read does not wait for a delivery's open transaction; so the write is
+	 * conditional on the row read (write_if()): when a delivery committed a decision meanwhile it misses, and the row
+	 * is read again and judged again, once. A paid decision then stays for Completion, which reads the order under the
+	 * lock and leaves it with its transfers in "Needs decision".
+	 *
+	 * @param int    $order_id Order id.
+	 * @param array  $row      Row, as the hook read it.
+	 * @param string $hook     `status`, `trash` or `method`.
+	 * @param string $to       The new WooCommerce status, for `status`.
+	 * @return array|null The row as it was when closed, or null when it was left as it is.
+	 */
+	private function close_row( int $order_id, array $row, string $hook, string $to = '' ): ?array {
+		for ( $try = 0; $try < 2; $try++ ) {
+			if ( self::hook_keeps( $row, $hook, $to ) ) {
+				return null;
+			}
+			if ( $this->write_if( $order_id, array( 'state' => 'closed' ), array( (string) $row['state'] ), (int) $row['paid_minor'] ) ) {
+				return $row;
+			}
+			$row = $this->plugin->orders_index()->get( $order_id );
+			if ( null === $row ) {
+				return null;
+			}
+		}
+		$this->plugin->logger()->warning( 'qersh: an order hook left the row, it changed twice meanwhile', array( 'order' => $order_id ) );
+		return null; // The next delivery's shape() and the expiry read the order again.
 	}
 
 	/**
 	 * Back to pending with our method: a closed or expired row opens again (partial when money arrived), with a new
-	 * deadline and expiry action when the old deadline has passed.
+	 * deadline and expiry action when the old deadline has passed. Written only while the row is as it was read
+	 * (write_if()), read again once otherwise: a revival a delivery committed meanwhile stays for Completion.
 	 *
 	 * @param \WC_Order $order Order.
-	 * @param array     $row   Row.
+	 * @param array     $row   Row, as the hook read it.
 	 */
 	private function reopen( \WC_Order $order, array $row ): void {
-		if ( ! in_array( $row['state'], array( 'closed', 'expired' ), true ) ) {
-			return;
+		$id   = (int) $order->get_id();
+		$opts = MatchPolicy::options( $this->plugin->config() );
+		for ( $try = 0; $try < 2; $try++ ) {
+			if ( ! in_array( $row['state'], array( 'closed', 'expired' ), true ) ) {
+				return;
+			}
+			$now      = time();
+			$deadline = (int) $row['expires_at'];
+			$fields   = array( 'state' => (int) $row['paid_minor'] > 0 ? 'partial' : 'open' );
+			$renew    = $deadline + $opts['late_window_min'] * 60 <= $now;
+			if ( $renew ) {
+				$deadline             = $now + $opts['order_ttl_min'] * 60;
+				$fields['expires_at'] = $deadline;
+			}
+			if ( $this->write_if( $id, $fields, array( (string) $row['state'] ), (int) $row['paid_minor'] ) ) {
+				if ( $renew ) {
+					$order->update_meta_data( '_qersh_deadline', (string) $deadline );
+					$order->save_meta_data();
+				}
+				$this->schedule_expiry( $id, $deadline + $opts['late_window_min'] * 60 );
+				return;
+			}
+			$row = $this->plugin->orders_index()->get( $id );
+			if ( null === $row ) {
+				return;
+			}
 		}
-		$id       = (int) $order->get_id();
-		$now      = time();
-		$opts     = MatchPolicy::options( $this->plugin->config() );
-		$deadline = (int) $row['expires_at'];
-		$fields   = array( 'state' => (int) $row['paid_minor'] > 0 ? 'partial' : 'open' );
-		if ( $deadline + $opts['late_window_min'] * 60 <= $now ) {
-			$deadline             = $now + $opts['order_ttl_min'] * 60;
-			$fields['expires_at'] = $deadline;
-			$order->update_meta_data( '_qersh_deadline', (string) $deadline );
-			$order->save_meta_data();
+		$this->plugin->logger()->warning( 'qersh: an order hook left the row, it changed twice meanwhile', array( 'order' => $id ) );
+	}
+
+	/**
+	 * The conditional write of the order hooks: an UPDATE that hits only while the row is in one of `$states` (and,
+	 * when given, still holds `$paid`). InnoDB evaluates the WHERE again on the committed row after waiting for a
+	 * delivery's row lock, so a decision committed meanwhile makes it miss instead of being overwritten. Each caller
+	 * changes a column (MySQL counts changed rows only).
+	 *
+	 * @param int      $order_id Order id.
+	 * @param array    $fields   Column => value (not order_id).
+	 * @param string[] $states   States the row may be in.
+	 * @param int|null $paid     paid_minor the row must still hold, or null for any.
+	 * @return bool True when the row was written.
+	 */
+	private function write_if( int $order_id, array $fields, array $states, ?int $paid = null ): bool {
+		unset( $fields['order_id'] );
+		if ( empty( $fields ) || empty( $states ) ) {
+			return false;
 		}
-		$this->plugin->orders_index()->update( $id, $fields );
-		$this->schedule_expiry( $id, $deadline + $opts['late_window_min'] * 60 );
+		$db = $this->plugin->db();
+
+		list( $set, $args ) = Db::set_sql( 'orders', $fields );
+
+		$sql  = 'UPDATE %i SET ' . $set . ' WHERE order_id = %d AND state IN (' . implode( ', ', array_fill( 0, count( $states ), '%s' ) ) . ')';
+		$args = array_merge( array( $db->table( 'orders' ) ), $args, array( $order_id ), array_values( $states ) );
+		if ( null !== $paid ) {
+			$sql   .= ' AND paid_minor = %d';
+			$args[] = $paid;
+		}
+		return 1 === $db->exec( $sql, $args );
 	}
 
 	/**
