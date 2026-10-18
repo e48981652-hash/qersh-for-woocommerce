@@ -1,7 +1,8 @@
 <?php
 /**
  * Tests of Core\Config: the receiver tests of packages/qersh-webhook/test/config.test.ts (without keys), the plugin
- * rules of docs/17 §4.2, and the key and id helpers.
+ * rules of docs/17 §4.2 (a wallet has no type: one number rule for every e-wallet, a legacy `provider` dropped), and
+ * the key and id helpers.
  *
  * @package QershPay\WooCommerce\Tests
  */
@@ -50,13 +51,24 @@ final class ConfigTest extends TestCase {
 		$c['wallets'] = array(
 			array(
 				'id'              => 'k7q2m9x4p1rz',
-				'label'           => 'فودافون كاش المتجر',
-				'provider'        => 'vodafone_cash',
+				'label'           => 'محفظة المتجر',
 				'receive_address' => '01001234567',
 				'enabled'         => true,
 			),
 		);
 		return $c;
+	}
+
+	/**
+	 * The issues of a configuration whose only wallet has this receive_address.
+	 *
+	 * @param mixed $address Value.
+	 * @return array
+	 */
+	private static function address_issues( $address ): array {
+		$c                                  = self::valid();
+		$c['wallets'][0]['receive_address'] = $address;
+		return Config::validate( $c );
 	}
 
 	public function test_defaults_are_the_docs_17_values(): void {
@@ -89,7 +101,9 @@ final class ConfigTest extends TestCase {
 
 	public function test_constants(): void {
 		$this->assertSame( array( 'transfer.received', 'transfer.updated', 'webhook.test' ), Config::EVENTS_ALLOWED );
-		$this->assertSame( array( 'vodafone_cash', 'etisalat_cash', 'orange_cash', 'instapay_app', 'bank_nbe', 'bank_cib', 'bank_egbank' ), Config::PROVIDERS );
+		// A wallet has no type: no list of wallet types, and no type field in a wallet entry.
+		$this->assertSame( array( 'id', 'label', 'receive_address', 'enabled' ), Config::WALLET_FIELDS );
+		$this->assertFalse( defined( Config::class . '::PROVIDERS' ) );
 		$this->assertCount( 9, Config::QERSH_EVENTS );
 		$schema = json_decode( qersh_wc_test_fixture( 'fixtures/webhook.v1.schema.json' ), true );
 		$this->assertSame( $schema['$defs']['eventName']['enum'], Config::QERSH_EVENTS );
@@ -316,24 +330,6 @@ final class ConfigTest extends TestCase {
 			$this->assertSame( array( 'wallets[0].id' ), self::paths( $c ), var_export( $id, true ) );
 		}
 
-		$c                           = self::valid();
-		$c['wallets'][0]['provider'] = 'bank_kfh';
-		$this->assertSame( array( 'wallets[0].provider' ), self::paths( $c ) );
-
-		$c                                  = self::valid();
-		$c['wallets'][0]['receive_address'] = '0111***3445';
-		$this->assertSame( array( 'wallets[0].receive_address' ), self::paths( $c ) );
-
-		$c                                  = self::valid();
-		$c['wallets'][0]['receive_address'] = 'shop@instapay';
-		$this->assertSame( array( 'wallets[0].receive_address' ), self::paths( $c ) ); // a handle on a number wallet
-
-		$c                           = self::valid();
-		$c['wallets'][0]['provider'] = 'instapay_app';
-		$this->assertSame( array( 'wallets[0].receive_address' ), self::paths( $c ) ); // a number on an InstaPay wallet
-		$c['wallets'][0]['receive_address'] = 'Shop.Cairo@InstaPay';
-		$this->assertSame( array(), Config::validate( $c ) );
-
 		$c                          = self::valid();
 		$c['wallets'][0]['enabled'] = 1;
 		$c['wallets'][0]['label']   = null;
@@ -344,6 +340,55 @@ final class ConfigTest extends TestCase {
 		$this->assertSame( array( 'wallets' ), self::paths( $c ) );
 		$c['wallets'] = array( 'not a wallet' );
 		$this->assertSame( array( 'wallets[0]' ), self::paths( $c ) );
+
+		// The number rule names the second wallet by its own index.
+		$c                                  = self::valid();
+		$c['wallets'][]                     = array_merge( $c['wallets'][0], array( 'id' => 'a1b2c3d4e5f6' ) );
+		$c['wallets'][1]['receive_address'] = 'shop@instapay';
+		$this->assertSame( array( 'wallets[1].receive_address' ), self::paths( $c ) );
+	}
+
+	public function test_receive_address_is_a_wallet_number_for_every_wallet(): void {
+		// Any spelling of an 11-digit 01 number is accepted (with_defaults() stores it normalised).
+		foreach ( array( '01001234567', '01112223344', '01212345678', '01501234567', '+20 100 123 4567', '+2001001234567', '00201001234567', '201001234567', '1001234567', '0100-123-4567', ' 0100 123 4567 ', '٠١٠٠١٢٣٤٥٦٧', '۰۱۰۰۱۲۳۴۵۶۷' ) as $ok ) {
+			$this->assertSame( array(), self::address_issues( $ok ), $ok );
+		}
+		// Anything else is refused with one message, whatever the wallet: an InstaPay address or another handle, a
+		// masked or short number, a landline, a value that is not text, or no value.
+		$refused = array( 'shop@instapay', 'Shop.Cairo@InstaPay', 'shopcairo', '0111***3445', '0100123456', '010012345678', '0223456789', '', '   ', 1001234567, 1.5, true, null, array( '01001234567' ) );
+		foreach ( $refused as $bad ) {
+			$this->assertSame(
+				array(
+					array(
+						'path'    => 'wallets[0].receive_address',
+						'message' => 'an 11-digit wallet number such as 01001234567',
+					),
+				),
+				self::address_issues( $bad ),
+				var_export( $bad, true )
+			);
+		}
+		$c = self::valid();
+		unset( $c['wallets'][0]['receive_address'] );
+		$this->assertSame( array( 'wallets[0].receive_address' ), self::paths( $c ) );
+	}
+
+	public function test_a_legacy_provider_is_ignored_never_refused(): void {
+		// Configurations saved while wallets had a type (the option, an export, QERSH_WC_CONFIG, a deleted wallet's
+		// snapshot) still pass, whatever their `provider` says, and the type changes no rule: the old InstaPay type
+		// with a number passes, and with an address it is refused like any other wallet.
+		foreach ( array( 'vodafone_cash', 'etisalat_cash', 'orange_cash', 'instapay_app', 'bank_nbe', 'another_wallet', '', 7, null, array( 'x' ) ) as $provider ) {
+			$c                           = self::valid();
+			$c['wallets'][0]['provider'] = $provider;
+			$this->assertSame( array(), Config::validate( $c ), var_export( $provider, true ) );
+			$this->assertSame( array(), Config::validate( Config::with_defaults( $c ) ), var_export( $provider, true ) );
+			$this->assertArrayNotHasKey( 'provider', Config::with_defaults( $c )['wallets'][0], var_export( $provider, true ) );
+		}
+		$c                                  = self::valid();
+		$c['wallets'][0]['provider']        = 'instapay_app';
+		$c['wallets'][0]['receive_address'] = 'shop.cairo@instapay';
+		$this->assertSame( array( 'wallets[0].receive_address' ), self::paths( $c ) );
+		$this->assertSame( array( 'wallets[0].receive_address' ), self::paths( Config::with_defaults( $c ) ) );
 	}
 
 	public function test_with_defaults_shapes_wallets(): void {
@@ -356,22 +401,67 @@ final class ConfigTest extends TestCase {
 						'receive_address' => '+20 121 234 5678',
 						'secret'          => 'never stored',
 					),
+					array(
+						'enabled'         => false,
+						'receive_address' => '٠١١١٢٢٢٣٣٤٤',
+						'label'           => 'محفظة ثانية',
+						'id'              => 'a1b2c3d4e5f6',
+						'type'            => 'e_wallet',
+					),
 				),
 			)
 		);
+		// The known fields only, in their order: the legacy provider and any other field are dropped.
 		$this->assertSame(
 			array(
-				'id'              => 'k7q2m9x4p1rz',
-				'label'           => '',
-				'provider'        => 'orange_cash',
-				'receive_address' => '01212345678',
-				'enabled'         => true,
+				array(
+					'id'              => 'k7q2m9x4p1rz',
+					'label'           => '',
+					'receive_address' => '01212345678',
+					'enabled'         => true,
+				),
+				array(
+					'id'              => 'a1b2c3d4e5f6',
+					'label'           => 'محفظة ثانية',
+					'receive_address' => '01112223344',
+					'enabled'         => false,
+				),
 			),
-			$c['wallets'][0]
+			$c['wallets']
 		);
 		$this->assertSame( array(), Config::validate( $c ) );
+		$this->assertSame( $c, Config::with_defaults( $c ) ); // a stored configuration reads back the same
+
 		$broken = Config::with_defaults( array( 'wallets' => array( array( 'label' => 'x' ) ) ) );
-		$this->assertSame( array( 'wallets[0].id', 'wallets[0].provider', 'wallets[0].receive_address' ), self::paths( $broken ) );
+		$this->assertSame( array( 'wallets[0].id', 'wallets[0].receive_address' ), self::paths( $broken ) );
+		// A value that is not a wallet number is kept as given, for validate() to name: a handle never becomes
+		// name@instapay, a masked number stays masked.
+		foreach ( array( 'ShopCairo', 'Shop@InstaPay', '0111***3445', 1001234567 ) as $kept ) {
+			$c = Config::with_defaults(
+				array(
+					'wallets' => array(
+						array(
+							'id'              => 'k7q2m9x4p1rz',
+							'receive_address' => $kept,
+						),
+					),
+				)
+			);
+			$this->assertSame( $kept, $c['wallets'][0]['receive_address'], var_export( $kept, true ) );
+			$this->assertSame( array( 'wallets[0].receive_address' ), self::paths( $c ), var_export( $kept, true ) );
+		}
+	}
+
+	public function test_wallet_number(): void {
+		$this->assertSame( '01001234567', Config::wallet_number( '01001234567' ) );
+		$this->assertSame( '01001234567', Config::wallet_number( '+20 100 123 4567' ) );
+		$this->assertSame( '01001234567', Config::wallet_number( '0020 100 123 4567' ) );
+		$this->assertSame( '01001234567', Config::wallet_number( '1001234567' ) );
+		$this->assertSame( '01112223344', Config::wallet_number( '٠١١١٢٢٢٣٣٤٤' ) );
+		$this->assertSame( '01112223344', Config::wallet_number( "\u{00A0}0111-222-3344\n" ) );
+		foreach ( array( 'shop@instapay', 'shopcairo', '0111***3445', '0100123456', '0223456789', '', 1001234567, null, array( '01001234567' ) ) as $bad ) {
+			$this->assertNull( Config::wallet_number( $bad ), var_export( $bad, true ) );
+		}
 	}
 
 	public function test_store_rules(): void {

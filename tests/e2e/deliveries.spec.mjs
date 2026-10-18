@@ -4,8 +4,9 @@
 //   (both probes 401), --late 72 and --held 15 (the order that was open when the money arrived is paid, a second
 //   order of the same payer opened now is not), --forgery (the paid order is stopped and flagged);
 // - our sender (tests/e2e/deliver.mjs): one delivery id sent six times at once and again later gets the same reply
-//   and completes the order once; two transfers of one payer at the same time pay its two orders; an Orange Cash
-//   transfer that arrives before the customer types its transaction id pays the order once the id is typed;
+//   and completes the order once; two transfers of one payer at the same time pay its two orders; on either wallet,
+//   a transfer whose message names no payer number (a name only, or a masked number) that arrives before the customer
+//   types its transaction id pays the order once the id is typed (the same rule for every wallet);
 // - the reply time: with every email taking 5 seconds (tests/e2e/mu/qersh-test-mail.php), a delivery that pays an
 //   order is answered within 3 seconds, and "Processing order" and "New order" go out after one Action Scheduler run.
 // The orders of the scenarios without a browser are made on the server through the method's process_payment()
@@ -39,7 +40,7 @@ test.describe(`the kit's sender against a reset store (${REST_OFF ? 'fallback ad
 	});
 
 	test('--probe: the delivery pays the order, the bad signature and the stale timestamp get 401', () => {
-		const w = wallet('vodafone_cash');
+		const w = wallet('main');
 		const order = createOrder({ product: state().products['10000'], w, payer: KIT.payer, backdate: 60 });
 		const { lines, out } = kitSend(w, ['--probe', '--amount', '100']);
 		const main = lines.find((l) => l.label === 'transfer.received');
@@ -56,7 +57,7 @@ test.describe(`the kit's sender against a reset store (${REST_OFF ? 'fallback ad
 		['--held', '15', 15 * 60],
 	]) {
 		test(`${option} ${value}: the order open when the money arrived is paid, a newer order of the payer is not`, () => {
-			const w = wallet('vodafone_cash');
+			const w = wallet('main');
 			const product = state().products['10000'];
 			const open = createOrder({ product, w, payer: KIT.payer, shift: back + MARGIN });
 			const newer = createOrder({ product, w, payer: KIT.payer });
@@ -75,7 +76,7 @@ test.describe(`the kit's sender against a reset store (${REST_OFF ? 'fallback ad
 	}
 
 	test('--forgery: the paid order is stopped and flagged', () => {
-		const w = wallet('vodafone_cash');
+		const w = wallet('main');
 		const order = createOrder({ product: state().products['10000'], w, payer: KIT.payer, backdate: 60 });
 		const { lines, out } = kitSend(w, ['--forgery', '--amount', '100']);
 		const main = lines.find((l) => l.label === 'transfer.received');
@@ -93,7 +94,7 @@ test.describe(`the kit's sender against a reset store (${REST_OFF ? 'fallback ad
 
 test.describe(`our sender (${REST_OFF ? 'fallback address' : 'REST'})`, () => {
 	test('one delivery sent six times at once, then again, gets one reply and completes the order once', () => {
-		const w = wallet('vodafone_cash');
+		const w = wallet('main');
 		const payer = randPayer();
 		// The 1,500 product: no other scenario completes an order of it, so its stock shows this order's completion.
 		const product = state().products['150000'];
@@ -123,7 +124,7 @@ test.describe(`our sender (${REST_OFF ? 'fallback address' : 'REST'})`, () => {
 	});
 
 	test('two transfers of one payer at the same time pay its two orders', async () => {
-		const w = wallet('vodafone_cash');
+		const w = wallet('main');
 		const payer = randPayer();
 		const product = state().products['10000'];
 		const first = createOrder({ product, w, payer, backdate: 120 });
@@ -142,22 +143,30 @@ test.describe(`our sender (${REST_OFF ? 'fallback address' : 'REST'})`, () => {
 		}
 	});
 
-	test('Orange Cash: a transfer that arrives before its transaction id is typed pays the order once it is', async () => {
-		const w = wallet('orange_cash');
-		const payer = randPayer();
-		const txn = randTxn();
-		const order = createOrder({ product: state().products['14000'], w, payer, backdate: 60 });
-		const [reply] = deliver(w, ['--no-payer', '--txn', txn, '--amount', '140', '--reasons', '', '--auto-ok', 'true', '--risk', 'low']);
-		expect(reply.status, show(reply)).toBe(200);
-		expect(reply.body.status, show(reply)).toBe('review');
+	// The id decides only a transfer without a payer number, through rule 4a, by exact equality with the canonical
+	// provider_txn_id of the delivery; nothing depends on the wallet behind it.
+	for (const [label, form, payerArgs] of [
+		['main', 'a name only', ['--no-payer']],
+		// A masked sender also marks the wallet as one whose messages hide the sender (Diagnostics): the second one.
+		['second', 'a masked number', ['--payer', '0111****445']],
+	]) {
+		test(`${label} wallet, ${form}: a transfer that arrives before its transaction id is typed pays the order once it is`, async () => {
+			const w = wallet(label);
+			const payer = randPayer();
+			const txn = randTxn();
+			const order = createOrder({ product: state().products['14000'], w, payer, backdate: 60 });
+			const [reply] = deliver(w, [...payerArgs, '--txn', txn, '--amount', '140', '--reasons', '', '--auto-ok', 'true', '--risk', 'low']);
+			expect(reply.status, show(reply)).toBe(200);
+			expect(reply.body.status, show(reply)).toBe('review');
 
-		const claim = await postTxn(order, txn);
-		expect(claim.http, show(claim)).toBe(200);
-		expect(claim.body && claim.body.status, show(claim)).toBe('saved');
-		const after = await settled(order.id);
-		expect(paid(after), show(after)).toBe(true);
-		expect(after.meta._qersh_claim_txn).toBe(txn);
-	});
+			const claim = await postTxn(order, txn);
+			expect(claim.http, show(claim)).toBe(200);
+			expect(claim.body && claim.body.status, show(claim)).toBe('saved');
+			const after = await settled(order.id);
+			expect(paid(after), show(after)).toBe(true);
+			expect(after.meta._qersh_claim_txn).toBe(txn);
+		});
+	}
 });
 
 test.describe(`the reply does not wait for the mail (${REST_OFF ? 'fallback address' : 'REST'}${FINISH ? ', fastcgi_finish_request' : ''})`, () => {
@@ -171,7 +180,7 @@ test.describe(`the reply does not wait for the mail (${REST_OFF ? 'fallback addr
 	for (const form of forms) {
 		test(`a delivery is answered within 3 seconds while each email takes 5 (${form})`, async ({ page }) => {
 			test.skip(!mail().active, 'needs tests/e2e/mu/qersh-test-mail.php (wp-env-override.mjs --mu-mail)');
-			const w = wallet('vodafone_cash');
+			const w = wallet('main');
 			const payer = randPayer();
 			const order = await placeOrder(page, { product: state().products['14000'], w, payer });
 

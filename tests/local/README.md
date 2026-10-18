@@ -22,10 +22,10 @@ The site needs WordPress, WooCommerce, the SQLite Database Integration plugin wi
 ```sh
 php tests/local/setup-store.php on pretty   # EGP, Cairo time, stock on, HPOS on, pretty permalinks, four test products
 php tests/local/smoke-plugin.php            # activates the plugin, reports tables, routes, method, emails, hooks, notices
-php tests/local/setup-wallets.php           # three test wallets (Vodafone Cash, Orange Cash, InstaPay) with fresh test keys
+php tests/local/setup-wallets.php           # two test e-wallets, `main` and `second`, with fresh test keys; the transaction-id box on
 ```
 
-`setup-wallets.php` replaces the plugin's wallets each time it runs, with new ids and keys.
+`setup-wallets.php` replaces the plugin's wallets each time it runs, with new ids and keys. A wallet is a number and a label, with no type (the plugin never asks which operator is behind a number), so `e2e.mjs` tells the two apart by their label.
 
 ## Running
 
@@ -39,10 +39,10 @@ Then:
 
 ```sh
 node tests/local/e2e.mjs                       # every scenario, several minutes
-node tests/local/e2e.mjs --only vodafone-match,orange-claim-first
+node tests/local/e2e.mjs --only payer-match,txn-claim-first
 ```
 
-Each scenario prints `PASS` or `FAIL` with the reply or order state that did not match; the exit code is 1 when one fails. The scenarios: a Vodafone Cash match, six concurrent copies of one delivery, a bad signature and an unknown wallet, a partial transfer then the rest, a personal transfer, 140 for a 139.50 order, the Orange Cash transaction id before and after the delivery, a forgery update after the match, the `?wc-api=qersh` fallback address, and the expiry.
+Each scenario prints `PASS` or `FAIL` with the reply or order state that did not match; the exit code is 1 when one fails. The scenarios: a match by the payer's number; the payer field takes a number only (an address, a name or a store number is refused at checkout); six concurrent copies of one delivery; a bad signature and an unknown wallet; a partial transfer then the rest; a personal transfer; 140 for a 139.50 order; the same verdict whatever the envelope's `wallet.provider` says (kept on the transfer's row as information only); on either wallet, the transaction id typed (or pasted inside a whole message) before and after the delivery of a transfer without a payer number (a name only, or a masked number); an id typed on one wallet's order never matching a transfer that reached the other wallet; a transfer that names its payer paying that payer's order, whatever id another order typed; a forgery update after the match; the `?wc-api=qersh` fallback address; and the expiry.
 
 ## A copy of the store
 

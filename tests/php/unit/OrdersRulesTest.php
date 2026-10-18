@@ -3,7 +3,8 @@
  * Tests of the pure rules of Orders and Expiry around the merchant's decisions (docs/17 §4.6, §4.7): what attaching
  * or dismissing a transfer means, the stored risk reasons, the overdue reasons a status clears, the switch of the
  * admin's "Cancelled order" email, what the order hooks leave alone, the forgery stop, the notes of a cancellation,
- * a deleted order post, and the transfers that hold an order at its deadline for a typed transaction id.
+ * a deleted order post, the transfers that hold an order at its deadline for a typed transaction id, the rows a typed
+ * id may decide later, and the type of the wallet kept as information only.
  *
  * @package QershPay\WooCommerce\Tests
  */
@@ -20,8 +21,9 @@ defined( 'ABSPATH' ) || exit;
 
 /**
  * Orders::attach_kind(), dismiss_kind(), waits_with_order(), released_fields(), stored_reasons(), merchant_decided(),
- * hook_keeps(), counts_toward_order(), suspected(), cancel_amounts(), deletes_order(), Expiry::mutes_admin_cancel_email(),
- * Expiry::holds_for_claim() and Claims::personal().
+ * hook_keeps(), counts_toward_order(), suspected(), cancel_amounts(), deletes_order(), provider_of(), payerless(),
+ * Expiry::mutes_admin_cancel_email(), Expiry::holds_for_claim(), Expiry::same_wallet(), Claims::eligible() and
+ * Claims::personal().
  */
 final class OrdersRulesTest extends TestCase {
 
@@ -305,13 +307,65 @@ final class OrdersRulesTest extends TestCase {
 		$this->assertSame( 'after_commit', Expiry::cancel_email_now( Expiry::mutes_admin_cancel_email( array( 'store' => array( 'admin_cancel_email_on_expiry' => false ) ) ) ) );
 	}
 
-	/** The refusals of a text that may hold an id one or two digits longer than the shape (the drift's second trigger). */
-	public function test_counts_long_run(): void {
-		$this->assertTrue( Claims::counts_long_run( 'qersh_txn_format' ) );
-		$this->assertTrue( Claims::counts_long_run( 'qersh_txn_wallet_number' ), "an Orange message with the sender's number" );
-		foreach ( array( 'qersh_txn_empty', 'qersh_txn_too_long', 'qersh_txn_several', 'qersh_txn_closed', 'qersh_txn_wait', '' ) as $code ) {
-			$this->assertFalse( Claims::counts_long_run( $code ), $code );
+	/**
+	 * The late path decides alone only a payerless transfer in review for that alone (no payer number, or a masked
+	 * one), with no order, no flag and the phone's confirmation; the type of its wallet never matters.
+	 */
+	public function test_claims_eligible(): void {
+		$row = $this->transfer( array( 'auto_confirm_ok' => 1 ) );
+		$this->assertTrue( Claims::eligible( $row ), 'no_payer' );
+		$this->assertTrue( Claims::eligible( array_merge( $row, array( 'reason' => 'masked' ) ) ), 'masked' );
+		foreach ( array( 'vodafone_cash', 'orange_cash', 'etisalat_cash', 'a_type_from_a_later_app', '' ) as $provider ) {
+			$this->assertTrue( Claims::eligible( array_merge( $row, array( 'provider' => $provider ) ) ), $provider );
 		}
+		foreach ( array( 'txn_amount', 'txn_window', 'txn_contested', 'claim_overdue', 'unknown_risk', 'no_baseline', null ) as $reason ) {
+			$this->assertFalse( Claims::eligible( array_merge( $row, array( 'reason' => $reason ) ) ), (string) $reason );
+		}
+		$this->assertFalse( Claims::eligible( array_merge( $row, array( 'auto_confirm_ok' => 0 ) ) ), 'not confirmed by the phone' );
+		$this->assertFalse( Claims::eligible( array_merge( $row, array( 'flag' => 'forgery' ) ) ) );
+		$this->assertFalse( Claims::eligible( array_merge( $row, array( 'order_id' => 7 ) ) ) );
+		$this->assertFalse(
+			Claims::eligible(
+				array_merge(
+					$row,
+					array(
+						'outcome' => 'unmatched',
+						'reason'  => 'personal',
+					)
+				)
+			),
+			'a personal transfer keeps its outcome'
+		);
+		$this->assertSame( array( 'no_payer', 'masked' ), Claims::ELIGIBLE_REASONS );
+	}
+
+	/** The provider column keeps what the phone sent, as printable text of at most 32 characters, '' without it. */
+	public function test_provider_of(): void {
+		$this->assertSame( 'vodafone_cash', Orders::provider_of( array( 'wallet' => array( 'provider' => 'vodafone_cash' ) ) ) );
+		$this->assertSame( 'a_type_from_a_later_app', Orders::provider_of( array( 'wallet' => array( 'provider' => 'a_type_from_a_later_app' ) ) ), 'an unknown type is kept, never refused' );
+		$this->assertSame( '', Orders::provider_of( array( 'wallet' => array( 'id' => 'wal000000001' ) ) ) );
+		$this->assertSame( '', Orders::provider_of( array( 'wallet' => array( 'provider' => 7 ) ) ) );
+		$this->assertSame( '', Orders::provider_of( array() ) );
+		$this->assertSame( '', Orders::provider_of( array( 'wallet' => 'vodafone_cash' ) ) );
+		$this->assertSame( 32, strlen( Orders::provider_of( array( 'wallet' => array( 'provider' => str_repeat( 'x', 80 ) ) ) ) ) );
+		$this->assertSame( 'orangecash', Orders::provider_of( array( 'wallet' => array( 'provider' => "orange cash\u{200F}\n" ) ) ), 'white space and invisible marks go' );
+	}
+
+	/** A transfer is payerless without a payer key: a name only, a masked number, or nothing. */
+	public function test_payerless(): void {
+		$this->assertTrue( Orders::payerless( $this->transfer() ) );
+		$this->assertTrue( Orders::payerless( $this->transfer( array( 'payer_key' => null ) ) ) );
+		$this->assertTrue( Orders::payerless( $this->transfer( array( 'payer_key' => '' ) ) ) );
+		$this->assertFalse( Orders::payerless( $this->transfer( array( 'payer_key' => '01001234567' ) ) ) );
+	}
+
+	/** A transfer holds an order at its deadline only on the wallet the order chose. */
+	public function test_expiry_same_wallet(): void {
+		$order = array( 'wallet' => 'wal000000001' );
+		$this->assertTrue( Expiry::same_wallet( $this->transfer( array( 'wallet' => 'wal000000001' ) ), $order ) );
+		$this->assertFalse( Expiry::same_wallet( $this->transfer( array( 'wallet' => 'wal000000002' ) ), $order ) );
+		$this->assertFalse( Expiry::same_wallet( $this->transfer(), $order ), 'a row without a wallet' );
+		$this->assertFalse( Expiry::same_wallet( $this->transfer( array( 'wallet' => '' ) ), array( 'wallet' => '' ) ) );
 	}
 
 	/**

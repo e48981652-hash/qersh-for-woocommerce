@@ -55,7 +55,7 @@ $qersh_e2e_order->set_billing_phone( $qersh_e2e_opts['payer'] );
 $qersh_e2e_order->set_billing_country( 'EG' );
 $qersh_e2e_order->set_currency( get_woocommerce_currency() );
 $qersh_e2e_order->set_payment_method( 'qersh' );
-$qersh_e2e_order->set_payment_method_title( 'Wallet transfer' );
+$qersh_e2e_order->set_payment_method_title( \QershPay\WooCommerce\Gateway::default_title() );
 $qersh_e2e_order->set_created_via( 'checkout' );
 $qersh_e2e_order->calculate_totals( false );
 $qersh_e2e_order->save();

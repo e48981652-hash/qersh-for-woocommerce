@@ -3,7 +3,8 @@
  * CLI: php tests/local/order-state.php <order id> [--expire-now] [--backdate-created <seconds>] [--run-expiry]
  *
  * Prints one JSON line with what the end-to-end runs assert on: the WooCommerce order status, the stock of its
- * items, its notes, the Qersh meta, the qersh_orders row and the transfers attached to it. Test store only.
+ * items, its notes, the Qersh meta, the qersh_orders row and the transfers attached to it (with the envelope's
+ * wallet.provider, which the plugin only keeps as information). Test store only.
  * --expire-now moves the deadline seven hours into the past (to test the expiry); --backdate-created moves the
  * row's created_at back by that many seconds; --run-expiry runs the plugin's expiry of the order before printing.
  *
@@ -67,7 +68,7 @@ echo wp_json_encode(
 		'stock'     => $qersh_stock,
 		'meta'      => $qersh_meta,
 		'row'       => $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$qersh_t_orders} WHERE order_id = %d", $qersh_order_id ), ARRAY_A ), // phpcs:ignore WordPress.DB -- the test store's own tables, in a test script.
-		'transfers' => $wpdb->get_results( $wpdb->prepare( "SELECT transfer_id, outcome, reason, amount_minor, payer_key, provider_txn_id, flag, phone_sync FROM {$qersh_t_trf} WHERE order_id = %d", $qersh_order_id ), ARRAY_A ), // phpcs:ignore WordPress.DB -- the test store's own tables, in a test script.
+		'transfers' => $wpdb->get_results( $wpdb->prepare( "SELECT transfer_id, wallet, provider, outcome, reason, amount_minor, payer_key, provider_txn_id, flag, phone_sync FROM {$qersh_t_trf} WHERE order_id = %d", $qersh_order_id ), ARRAY_A ), // phpcs:ignore WordPress.DB -- the test store's own tables, in a test script.
 		'notes'     => array_reverse( $qersh_notes ),
 	),
 	JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES

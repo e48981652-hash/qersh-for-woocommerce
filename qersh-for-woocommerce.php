@@ -25,7 +25,7 @@ define( 'QERSH_WC_VERSION', '0.1.0' );
 define( 'QERSH_WC_FILE', __FILE__ );
 define( 'QERSH_WC_DIR', plugin_dir_path( __FILE__ ) );
 define( 'QERSH_WC_URL', plugin_dir_url( __FILE__ ) );
-define( 'QERSH_WC_DB_VERSION', 1 );
+define( 'QERSH_WC_DB_VERSION', 2 );
 define( 'QERSH_WC_MIN_WC', '11.0' );
 
 require_once __DIR__ . '/src/Autoloader.php';

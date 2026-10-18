@@ -2,7 +2,8 @@
 /**
  * Tests of the pure rules behind the review fixes of package E: which rows need a decision and which of them are
  * already linked to an order, which reason a row shows, the uninstall's unschedule calls, the wallet and settings
- * form checks, the restore's configuration, the exporter's pages and the self-test's skipped probes.
+ * form checks, the restore's configuration, the developer's link without a wallet type, the exporter's pages and
+ * the self-test's skipped probes.
  *
  * @package QershPay\WooCommerce\Tests
  */
@@ -17,6 +18,7 @@ use QershPay\WooCommerce\Admin\Transfers;
 use QershPay\WooCommerce\Admin\Uninstall;
 use QershPay\WooCommerce\Admin\Wallets;
 use QershPay\WooCommerce\Core\Config;
+use QershPay\WooCommerce\Core\SetupLink;
 use QershPay\WooCommerce\Diagnostics;
 use QershPay\WooCommerce\Privacy;
 use Yoast\PHPUnitPolyfills\TestCases\TestCase;
@@ -268,10 +270,7 @@ final class AdminReviewFixesTest extends TestCase {
 
 	/** Risk sentences only on rows that need a decision; a dismissed row shows its note. */
 	public function test_pick_risk_only_when_deciding(): void {
-		$risk = array(
-			'risk_reasons' => array( 'notification_only' ),
-			'provider'     => 'instapay_app',
-		);
+		$risk = array( 'risk_reasons' => array( 'notification_only' ) );
 		$this->assertSame( 'notification_only', Reasons::pick( $this->row( $risk ) )['code'] );
 		$this->assertSame(
 			'notification_only',
@@ -428,56 +427,48 @@ final class AdminReviewFixesTest extends TestCase {
 		$this->assertContains( 'qersh_wc_claim_eval', $hooks );
 	}
 
-	/** The wallet form's address, by Core\Config's rule, in the merchant's words. */
+	/** The wallet form's number, by Core\Config's rule (one rule for every wallet), in the merchant's words. */
 	public function test_address_problem(): void {
-		$this->assertSame( '', Wallets::address_problem( 'vodafone_cash', '01001234567' ) );
-		$this->assertSame( '', Wallets::address_problem( 'vodafone_cash', '+20 100 123 4567' ) );
-		$this->assertSame( 'number', Wallets::address_problem( 'vodafone_cash', '0100123456' ) );
-		$this->assertSame( 'number', Wallets::address_problem( 'orange_cash', 'shop@instapay' ) );
-		$this->assertSame( '', Wallets::address_problem( 'instapay_app', 'shop@instapay' ) );
-		$this->assertSame( 'instapay', Wallets::address_problem( 'instapay_app', '01001234567' ) );
-		$this->assertSame( 'instapay', Wallets::address_problem( 'instapay_app', '' ) );
-		// Whatever address_problem() accepts, Core\Config accepts.
-		foreach ( array( array( 'vodafone_cash', '٠١٠٠١٢٣٤٥٦٧' ), array( 'bank_cib', '01001234567' ), array( 'instapay_app', 'Shop@InstaPay' ) ) as $case ) {
-			if ( '' !== Wallets::address_problem( $case[0], $case[1] ) ) {
-				continue;
-			}
-			$config = Config::with_defaults(
-				array(
-					'wallets' => array(
-						array(
-							'id'              => 'k7q2m9x4p1rz',
-							'label'           => 'Shop',
-							'provider'        => $case[0],
-							'receive_address' => $case[1],
-							'enabled'         => true,
-						),
-					),
-				)
-			);
-			$this->assertSame( array(), Config::validate( $config ), $case[0] . ' ' . $case[1] );
+		foreach ( array( '01001234567', '+20 100 123 4567', '00201112223344', '٠١٠٠١٢٣٤٥٦٧', ' 0111 222 3344 ' ) as $number ) {
+			$this->assertSame( '', Wallets::address_problem( $number ), $number );
 		}
+		foreach ( array( '0100123456', '010012345678', 'shop@instapay', 'Shop@InstaPay', 'shop', '0111***3344', '02 2345 6789', '' ) as $other ) {
+			$this->assertSame( 'number', Wallets::address_problem( $other ), $other );
+		}
+		// What address_problem() accepts, Core\Config accepts, and what it refuses, Core\Config refuses at the number.
+		foreach ( array( '٠١٠٠١٢٣٤٥٦٧', '+20 100 123 4567', '01001234567', 'shop@instapay', '0100123456', 'shop' ) as $address ) {
+			$issues = Config::validate( Config::with_defaults( array( 'wallets' => array( $this->wallet( 'k7q2m9x4p1rz', $address ) ) ) ) );
+			if ( '' === Wallets::address_problem( $address ) ) {
+				$this->assertSame( array(), $issues, $address );
+			} else {
+				$this->assertContains( 'wallets[0].receive_address', array_column( $issues, 'path' ), $address );
+			}
+		}
+	}
+
+	/**
+	 * A wallet entry as the form saves it: number and name, no type.
+	 *
+	 * @param string $id      Wallet id.
+	 * @param string $address Number customers transfer to.
+	 * @param string $label   Name.
+	 * @return array
+	 */
+	private function wallet( string $id, string $address, string $label = 'Shop' ): array {
+		return array(
+			'id'              => $id,
+			'label'           => $label,
+			'receive_address' => $address,
+			'enabled'         => true,
+		);
 	}
 
 	/** The restore's configuration: the saved entry is back, valid; an incomplete one is refused before any change. */
 	public function test_config_with_entry(): void {
-		$config   = Config::with_defaults(
-			array(
-				'wallets' => array(
-					array(
-						'id'              => 'aaaaaaaaaaaa',
-						'label'           => 'Main',
-						'provider'        => 'vodafone_cash',
-						'receive_address' => '01001234567',
-						'enabled'         => true,
-					),
-				),
-			)
-		);
+		$config   = Config::with_defaults( array( 'wallets' => array( $this->wallet( 'aaaaaaaaaaaa', '01001234567', 'Main' ) ) ) );
 		$snapshot = array(
 			'id'              => 'k7q2m9x4p1rz',
-			'label'           => 'Orange',
-			'provider'        => 'orange_cash',
+			'label'           => 'Second',
 			'receive_address' => '01201234567',
 			'enabled'         => true,
 			'extra'           => 'dropped',
@@ -492,7 +483,37 @@ final class AdminReviewFixesTest extends TestCase {
 		$this->assertCount( 2, $again['wallets'], 'never twice' );
 
 		$bare = Wallets::config_with_entry( $config, array( 'id' => 'k7q2m9x4p1rz' ), 'k7q2m9x4p1rz' );
-		$this->assertNotEmpty( Config::validate( Config::with_defaults( $bare ) ), 'a snapshot without type or address is refused' );
+		$this->assertNotEmpty( Config::validate( Config::with_defaults( $bare ) ), 'a snapshot without a number is refused' );
+
+		// A snapshot saved while wallets had a type still restores; its type does not come back.
+		$legacy = Wallets::config_with_entry( $config, array( 'provider' => 'orange_cash' ) + $snapshot, 'k7q2m9x4p1rz' );
+		$this->assertArrayNotHasKey( 'provider', $legacy['wallets'][1] );
+		$this->assertSame( array(), Config::validate( Config::with_defaults( $legacy ) ) );
+		$this->assertSame( $out, $legacy, 'the type changes nothing' );
+	}
+
+	/** The developer's link carries the store URL, the name and (generated) the key: never a wallet type. */
+	public function test_setup_link_has_no_provider(): void {
+		$url = 'https://shop.example/wp-json/qersh/v1/webhook/k7q2m9x4p1rz';
+		$key = 'qsk_T3stK3yInvent3dF0rUn1tT3sts0nly';
+		foreach ( array( null, $key ) as $secret ) {
+			// A name that looks like a type id stays a name.
+			foreach ( array( 'Shop wallet', 'vodafone_cash', '' ) as $label ) {
+				$link = Wallets::setup_link( $url, $label, $secret );
+				$this->assertIsString( $link );
+				$this->assertStringNotContainsString( 'provider=', $link, $label );
+				$this->assertStringStartsWith( 'qersh://setup?v=1&url=', $link );
+				$parsed = SetupLink::parse( $link );
+				$this->assertTrue( $parsed['ok'], $label );
+				$this->assertNull( $parsed['link']['provider'], 'the app asks for the type itself' );
+				$this->assertSame( $url, $parsed['link']['url'] );
+				$this->assertSame( '' === $label ? null : $label, $parsed['link']['label'] );
+				$this->assertSame( $secret, $parsed['link']['secret'] );
+				$this->assertNull( $parsed['link']['events'], 'never events' );
+			}
+		}
+		$this->assertNull( Wallets::setup_link( 'http://shop.example/wp-json/qersh/v1/webhook/k7q2m9x4p1rz', 'Shop', null ), 'a URL the app refuses' );
+		$this->assertNull( Wallets::setup_link( $url, 'Shop', 'short' ), 'a key the app refuses' );
 	}
 
 	/** The settings form's values, by Core\Config's store rules. */

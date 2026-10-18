@@ -47,12 +47,6 @@ final class Config {
 	const EVENTS_ALLOWED = array( 'transfer.received', 'transfer.updated', 'webhook.test' );
 
 	/**
-	 * Wallet types a store wallet may have (no bank_kfh or we_pay while the template pack reads no incoming
-	 * transfer for them).
-	 */
-	const PROVIDERS = array( 'vodafone_cash', 'etisalat_cash', 'orange_cash', 'instapay_app', 'bank_nbe', 'bank_cib', 'bank_egbank' );
-
-	/**
 	 * The REST path of the webhook, relative to the REST root; the wallet id is appended.
 	 */
 	const ENDPOINT_PATH = 'qersh/v1/webhook';
@@ -86,9 +80,11 @@ final class Config {
 	);
 
 	/**
-	 * The fields of a wallet entry.
+	 * The fields of a wallet entry. A wallet has no type: every store wallet is an e-wallet number, and the plugin
+	 * never branches on the operator behind it (the Qersh app reads the SMS and knows it). The `provider` of a
+	 * configuration saved before wallets lost their type is dropped by with_defaults(), never refused.
 	 */
-	const WALLET_FIELDS = array( 'id', 'label', 'provider', 'receive_address', 'enabled' );
+	const WALLET_FIELDS = array( 'id', 'label', 'receive_address', 'enabled' );
 
 	/**
 	 * Boolean store values.
@@ -107,12 +103,12 @@ final class Config {
 
 	/**
 	 * A configuration completed with the defaults: withDefaults of config.ts for the receiver (keys dropped), plus
-	 * the plugin's parts. Only known fields are kept, so nothing else (a key above all) reaches the stored option.
-	 * Values of the wrong type are kept for validate() to report, a `wallets` or `store` that is present but not an
-	 * array included (so an import of `"wallets": null` is refused, never read as "no wallets"); a missing `wallets`
-	 * is an empty list and a missing `store` takes the defaults. A non-object `receiver` takes the defaults, as in
-	 * withDefaults() of config.ts. A whole-number float within the int range becomes an int (JSON `300.0`), and a
-	 * receive_address that normalises is stored normalised.
+	 * the plugin's parts. Only known fields are kept, so nothing else (a key above all, or the legacy `provider` of a
+	 * wallet) reaches the stored option. Values of the wrong type are kept for validate() to report, a `wallets` or
+	 * `store` that is present but not an array included (so an import of `"wallets": null` is refused, never read as
+	 * "no wallets"); a missing `wallets` is an empty list and a missing `store` takes the defaults. A non-object
+	 * `receiver` takes the defaults, as in withDefaults() of config.ts. A whole-number float within the int range
+	 * becomes an int (JSON `300.0`), and a receive_address that normalises to a wallet number is stored normalised.
 	 *
 	 * @param array $c A partial or complete configuration.
 	 * @return array
@@ -217,6 +213,19 @@ final class Config {
 	 */
 	public static function wallet_id_ok( $id ): bool {
 		return is_string( $id ) && 1 === preg_match( '/^[a-z0-9]{12}$/D', $id );
+	}
+
+	/**
+	 * A store wallet number in its stored form: the `01XXXXXXXXX` that Payer::normalize() reads from any spelling
+	 * (+20…, spaces, Arabic-Indic digits). Null for anything else: a value that is not a string, a masked number, a
+	 * payment address or any other handle (a store wallet is an e-wallet number, whatever its operator).
+	 *
+	 * @param mixed $address Value.
+	 * @return string|null
+	 */
+	public static function wallet_number( $address ): ?string {
+		$normalized = is_string( $address ) ? Payer::normalize( $address ) : null;
+		return null !== $normalized && 1 === preg_match( '/^01[0-9]{9}$/D', $normalized ) ? $normalized : null;
 	}
 
 	/**
@@ -418,7 +427,8 @@ final class Config {
 	}
 
 	/**
-	 * The wallet rules of docs/17 §4.2.
+	 * The wallet rules of docs/17 §4.2. No rule looks at a wallet type: a legacy `provider` in the entry is ignored,
+	 * and receive_address is a wallet number for every wallet.
 	 *
 	 * @param mixed $wallets The wallets part.
 	 * @return array
@@ -446,17 +456,7 @@ final class Config {
 			if ( ! array_key_exists( 'label', $w ) || ! is_string( $w['label'] ) ) {
 				$issues[] = self::issue( $at . '.label', 'text' );
 			}
-			$provider = array_key_exists( 'provider', $w ) ? $w['provider'] : null;
-			if ( ! is_string( $provider ) || ! in_array( $provider, self::PROVIDERS, true ) ) {
-				$issues[] = self::issue( $at . '.provider', 'one of ' . implode( ', ', self::PROVIDERS ) );
-			}
-			$address    = array_key_exists( 'receive_address', $w ) ? $w['receive_address'] : null;
-			$normalized = Payer::normalize( is_string( $address ) ? $address : null );
-			if ( 'instapay_app' === $provider ) {
-				if ( null === $normalized || false === strpos( $normalized, '@' ) ) {
-					$issues[] = self::issue( $at . '.receive_address', 'an InstaPay address such as name@instapay' );
-				}
-			} elseif ( null === $normalized || false !== strpos( $normalized, '@' ) ) {
+			if ( null === self::wallet_number( array_key_exists( 'receive_address', $w ) ? $w['receive_address'] : null ) ) {
 				$issues[] = self::issue( $at . '.receive_address', 'an 11-digit wallet number such as 01001234567' );
 			}
 			if ( ! array_key_exists( 'enabled', $w ) || ! is_bool( $w['enabled'] ) ) {
@@ -512,8 +512,9 @@ final class Config {
 	}
 
 	/**
-	 * A wallet entry with the known fields only: a missing label becomes '' and a missing enabled true, and a
-	 * receive_address that normalises (Payer::normalize) is kept normalised. Everything else is kept as given.
+	 * A wallet entry with the known fields only (WALLET_FIELDS, so a legacy `provider` is dropped): a missing label
+	 * becomes '' and a missing enabled true, and a receive_address that normalises to a wallet number
+	 * (wallet_number()) is kept normalised. Everything else is kept as given, for validate() to report.
 	 *
 	 * @param array $w Wallet entry.
 	 * @return array
@@ -529,11 +530,9 @@ final class Config {
 		if ( null === $out['enabled'] ) {
 			$out['enabled'] = true;
 		}
-		if ( is_string( $out['receive_address'] ) ) {
-			$normalized = Payer::normalize( $out['receive_address'] );
-			if ( null !== $normalized ) {
-				$out['receive_address'] = $normalized;
-			}
+		$number = self::wallet_number( $out['receive_address'] );
+		if ( null !== $number ) {
+			$out['receive_address'] = $number;
 		}
 		return $out;
 	}

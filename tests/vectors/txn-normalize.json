@@ -1,7 +1,6 @@
 [
 	{
-		"name": "14 digits (today's wording)",
-		"provider": "orange_cash",
+		"name": "14 digits (Orange Cash style)",
 		"raw": "25007294067405",
 		"payer_key": "01001234567",
 		"store_numbers": [
@@ -10,12 +9,10 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		},
-		"long_run": null
+		}
 	},
 	{
-		"name": "10 digits (older wording)",
-		"provider": "orange_cash",
+		"name": "10 digits (older Orange Cash wording)",
 		"raw": "7700031948",
 		"payer_key": "01001234567",
 		"store_numbers": [
@@ -24,12 +21,46 @@
 		"expect": {
 			"ok": true,
 			"txn": "7700031948"
-		},
-		"long_run": null
+		}
+	},
+	{
+		"name": "12 digits (Vodafone Cash style)",
+		"raw": "913372004518",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "913372004518"
+		}
+	},
+	{
+		"name": "15 digits (e& money style)",
+		"raw": "250046173830512",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "250046173830512"
+		}
+	},
+	{
+		"name": "13 digits",
+		"raw": "2500729406114",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "2500729406114"
+		}
 	},
 	{
 		"name": "leading zeros kept, 10 digits",
-		"provider": "orange_cash",
 		"raw": "0012345678",
 		"payer_key": "01001234567",
 		"store_numbers": [
@@ -38,12 +69,10 @@
 		"expect": {
 			"ok": true,
 			"txn": "0012345678"
-		},
-		"long_run": null
+		}
 	},
 	{
 		"name": "leading zeros kept, 14 digits",
-		"provider": "orange_cash",
 		"raw": "00012345678901",
 		"payer_key": "01001234567",
 		"store_numbers": [
@@ -52,683 +81,23 @@
 		"expect": {
 			"ok": true,
 			"txn": "00012345678901"
-		},
-		"long_run": null
+		}
 	},
 	{
-		"name": "spaces inside",
-		"provider": "orange_cash",
-		"raw": "2500 7294 0674 05",
+		"name": "the shortest id: 6 characters",
+		"raw": "913372",
 		"payer_key": "01001234567",
 		"store_numbers": [
 			"01212345678"
 		],
 		"expect": {
 			"ok": true,
-			"txn": "25007294067405"
-		},
-		"long_run": null
+			"txn": "913372"
+		}
 	},
 	{
-		"name": "hyphens inside",
-		"provider": "orange_cash",
-		"raw": "2500-7294-0674-05",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25007294067405"
-		},
-		"long_run": null
-	},
-	{
-		"name": "dots, number sign and colon",
-		"provider": "orange_cash",
-		"raw": "#2500.7294.0674.05:",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25007294067405"
-		},
-		"long_run": null
-	},
-	{
-		"name": "en dashes inside",
-		"provider": "orange_cash",
-		"raw": "2500\u20137294\u20130674\u201305",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25007294067405"
-		},
-		"long_run": null
-	},
-	{
-		"name": "white space around, tab and NBSP inside",
-		"provider": "orange_cash",
-		"raw": " \t2500\u00a07294067405\n",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25007294067405"
-		},
-		"long_run": null
-	},
-	{
-		"name": "Arabic-Indic digits",
-		"provider": "orange_cash",
-		"raw": "٢٥٠٠٧٢٩٤٠٦٧٤٠٥",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25007294067405"
-		},
-		"long_run": null
-	},
-	{
-		"name": "Persian digits",
-		"provider": "orange_cash",
-		"raw": "۲۵۰۰۷۲۹۴۰۶۷۴۰۵",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25007294067405"
-		},
-		"long_run": null
-	},
-	{
-		"name": "mixed digit scripts",
-		"provider": "orange_cash",
-		"raw": "٢٥٠٠7294067405",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25007294067405"
-		},
-		"long_run": null
-	},
-	{
-		"name": "RLM and LRM around",
-		"provider": "orange_cash",
-		"raw": "\u200f25007294067405\u200e",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25007294067405"
-		},
-		"long_run": null
-	},
-	{
-		"name": "bidi isolates and embeddings inside",
-		"provider": "orange_cash",
-		"raw": "\u20662500\u20697294\u202a0674\u202c05",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25007294067405"
-		},
-		"long_run": null
-	},
-	{
-		"name": "zero-width space inside",
-		"provider": "orange_cash",
-		"raw": "25007\u200b294067405",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25007294067405"
-		},
-		"long_run": null
-	},
-	{
-		"name": "tatweel inside Arabic-Indic digits",
-		"provider": "orange_cash",
-		"raw": "٢٥٠٠٧\u0640٢٩٤٠٦٧٤٠٥",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25007294067405"
-		},
-		"long_run": null
-	},
-	{
-		"name": "BOM and Arabic letter mark before",
-		"provider": "orange_cash",
-		"raw": "\ufeff\u061c25007294067405",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25007294067405"
-		},
-		"long_run": null
-	},
-	{
-		"name": "label and full-width colon before",
-		"provider": "orange_cash",
-		"raw": "رقم المعاملة\uff1a\u00a025007294067405",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25007294067405"
-		},
-		"long_run": null
-	},
-	{
-		"name": "C1 «تم استلام مبلغ» (name, balance)",
-		"provider": "orange_cash",
-		"raw": "تم استلام مبلغ 11.00 جنيه من AHMED M.، رصيدك الحالي 288.40 جنية، رقم المعاملة 25007294067405.",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25007294067405"
-		},
-		"long_run": null
-	},
-	{
-		"name": "C2 «لقد استقبلت تحويل أموال», sender is the order's payer",
-		"provider": "orange_cash",
-		"raw": "لقد استقبلت تحويل أموال بمبلغ 25.00 جنيه من 00201001234567 رصيد اورنچ كاش الجديد 19.07 جنيه رقم المعاملة 25005172944183",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25005172944183"
-		},
-		"long_run": null
-	},
-	{
-		"name": "C2, sender is another number (0020 form is a phone number, never an id)",
-		"provider": "orange_cash",
-		"raw": "لقد استقبلت تحويل أموال بمبلغ 25.00 جنيه من 00201119876543 رصيد اورنچ كاش الجديد 19.07 جنيه رقم المعاملة 25005172944183",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25005172944183"
-		},
-		"long_run": null
-	},
-	{
-		"name": "C3 «تم استلام عملية تحويل أموال»",
-		"provider": "orange_cash",
-		"raw": "تم استلام عملية تحويل أموال بمبلغ 1050.00 جنيه من MONA S.، رصيدك الحالي 1203.15 جنيه. رقم المعاملة 25004617383051 استخدم خدمات اورنچ كاش …",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25004617383051"
-		},
-		"long_run": null
-	},
-	{
-		"name": "cashback note before C3",
-		"provider": "orange_cash",
-		"raw": "عميلنا العزيز، متبقي لك 0 جنيه من عرض الكاش باك …\nتم استلام عملية تحويل أموال بمبلغ 1050.00 جنيه من MONA S.، رصيدك الحالي 1203.15 جنيه. رقم المعاملة 25004617383051 استخدم خدمات اورنچ كاش …",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25004617383051"
-		},
-		"long_run": null
-	},
-	{
-		"name": "advert block before C1",
-		"provider": "orange_cash",
-		"raw": "عرض مايتفوتش! … https://myo.orange.eg/YANGO\nلأي استفسار كلم 7770 أو تواصل معانا على الواتساب: https://myo.orange.eg/O-whatsapp\nتم استلام مبلغ 11.00 جنيه من AHMED M.، رصيدك الحالي 288.40 جنية، رقم المعاملة 25007294067405.",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25007294067405"
-		},
-		"long_run": null
-	},
-	{
-		"name": "advert block before C2",
-		"provider": "orange_cash",
-		"raw": "عرض مايتفوتش! … https://myo.orange.eg/YANGO\nلأي استفسار كلم 7770 أو تواصل معانا على الواتساب: https://myo.orange.eg/O-whatsapp\nلقد استقبلت تحويل أموال بمبلغ 25.00 جنيه من 00201001234567 رصيد اورنچ كاش الجديد 19.07 جنيه رقم المعاملة 25005172944183",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25005172944183"
-		},
-		"long_run": null
-	},
-	{
-		"name": "older wording, 10-digit id",
-		"provider": "orange_cash",
-		"raw": "تم إستلام عملية تحويل أموال بمبلغ 150.00 جنيه من OMAR K.، رصيدك الحالي 849.24 جنيه. رقم المعاملة 7700031948\n100 جنيه كاش باك لما تحول، تدفع او تودع فلوس في محفظة اورنچ كاش",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "7700031948"
-		},
-		"long_run": null
-	},
-	{
-		"name": "older wording, Arabic-Indic digits",
-		"provider": "orange_cash",
-		"raw": "تم إستلام عملية تحويل اموال بمبلغ ٢٠٠٠.٠٠ جنيه من محمد أحمد ، رقم المعاملة ٢٩٩٥٨٣١٣٣٨\nكاش باك أو دقائق أو ميجابايتس كل ما تستعلم عن رصيدك",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "2995831338"
-		},
-		"long_run": null
-	},
-	{
-		"name": "the customer's own debit SMS (store number inside)",
-		"provider": "orange_cash",
-		"raw": "عملية تحويل أموال ناجحة بمبلغ 100.00 جنيه، لرقم 01212345678، رسوم التحويل 1.00 جنيه، رصيدك الحالي 276.30 جنيه، رقم المعاملة 25006831596394.",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25006831596394"
-		},
-		"long_run": null
-	},
-	{
-		"name": "debit SMS with «رقم العملية» and a link tail",
-		"provider": "orange_cash",
-		"raw": "عملية تحويل أموال ناجحة بمبلغ 100.00 جنيه، لرقم 01212345678، رسوم التحويل 1.00 جنيه، رصيدك الحالي 276.30 جنيه، رقم العملية 25006831596394. https://myo.orange.eg/O-whatsapp",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25006831596394"
-		},
-		"long_run": null
-	},
-	{
-		"name": "C1 with RLM marks around the numbers",
-		"provider": "orange_cash",
-		"raw": "تم استلام مبلغ \u200f11.00\u200f جنيه من AHMED M.، رصيدك الحالي 288.40 جنية، رقم المعاملة \u200f25007294067405\u200f.",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25007294067405"
-		},
-		"long_run": null
-	},
-	{
-		"name": "C1 in Arabic-Indic digits",
-		"provider": "orange_cash",
-		"raw": "تم استلام مبلغ ١١.٠٠ جنيه من AHMED M.، رصيدك الحالي ٢٨٨.٤٠ جنية، رقم المعاملة ٢٥٠٠٧٢٩٤٠٦٧٤٠٥.",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25007294067405"
-		},
-		"long_run": null
-	},
-	{
-		"name": "order's number written 1xxxxxxxxx next to the id",
-		"provider": "orange_cash",
-		"raw": "حولت من 1001234567 رقم المعاملة 25007294067405",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25007294067405"
-		},
-		"long_run": null
-	},
-	{
-		"name": "store number written 1xxxxxxxxx next to the id",
-		"provider": "orange_cash",
-		"raw": "حولت على 1212345678 رقم المعاملة 25007294067405",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25007294067405"
-		},
-		"long_run": null
-	},
-	{
-		"name": "order's number 01xxxxxxxxx next to the id",
-		"provider": "orange_cash",
-		"raw": "من 01001234567 رقم المعاملة 25007294067405",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25007294067405"
-		},
-		"long_run": null
-	},
-	{
-		"name": "only the order's number as a 10-digit run in a sentence",
-		"provider": "orange_cash",
-		"raw": "حولت 500 جنيه من 1001234567",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_wallet_number"
-		},
-		"long_run": null
-	},
-	{
-		"name": "order's number in a sentence",
-		"provider": "orange_cash",
-		"raw": "حولت من 01001234567",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_wallet_number"
-		},
-		"long_run": null
-	},
-	{
-		"name": "two 14-digit runs",
-		"provider": "orange_cash",
-		"raw": "25007294067405 25005172944183",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_several"
-		},
-		"long_run": null
-	},
-	{
-		"name": "a 14-digit and a 10-digit run",
-		"provider": "orange_cash",
-		"raw": "رقم المعاملة 25007294067405 والقديم 7700031948",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_several"
-		},
-		"long_run": null
-	},
-	{
-		"name": "two messages pasted together",
-		"provider": "orange_cash",
-		"raw": "تم استلام مبلغ 11.00 جنيه من AHMED M.، رصيدك الحالي 288.40 جنية، رقم المعاملة 25007294067405.\nتم استلام عملية تحويل أموال بمبلغ 1050.00 جنيه من MONA S.، رصيدك الحالي 1203.15 جنيه. رقم المعاملة 25004617383051 استخدم خدمات اورنچ كاش …",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_several"
-		},
-		"long_run": null
-	},
-	{
-		"name": "the same id twice counts once",
-		"provider": "orange_cash",
-		"raw": "25007294067405\n25007294067405",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25007294067405"
-		},
-		"long_run": null
-	},
-	{
-		"name": "the same message twice",
-		"provider": "orange_cash",
-		"raw": "تم استلام مبلغ 11.00 جنيه من AHMED M.، رصيدك الحالي 288.40 جنية، رقم المعاملة 25007294067405.\nتم استلام مبلغ 11.00 جنيه من AHMED M.، رصيدك الحالي 288.40 جنية، رقم المعاملة 25007294067405.",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25007294067405"
-		},
-		"long_run": null
-	},
-	{
-		"name": "order's number",
-		"provider": "orange_cash",
-		"raw": "01001234567",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_wallet_number"
-		},
-		"long_run": null
-	},
-	{
-		"name": "order's number as 1xxxxxxxxx (has the 10-digit shape)",
-		"provider": "orange_cash",
-		"raw": "1001234567",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_wallet_number"
-		},
-		"long_run": null
-	},
-	{
-		"name": "order's number as +20 with spaces",
-		"provider": "orange_cash",
-		"raw": "+20 100 123 4567",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_wallet_number"
-		},
-		"long_run": null
-	},
-	{
-		"name": "order's number as 0020 (has the 14-digit shape)",
-		"provider": "orange_cash",
-		"raw": "00201001234567",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_wallet_number"
-		},
-		"long_run": null
-	},
-	{
-		"name": "order's number in Arabic-Indic digits",
-		"provider": "orange_cash",
-		"raw": "٠١٠٠١٢٣٤٥٦٧",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_wallet_number"
-		},
-		"long_run": null
-	},
-	{
-		"name": "store number",
-		"provider": "orange_cash",
-		"raw": "01212345678",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_wallet_number"
-		},
-		"long_run": null
-	},
-	{
-		"name": "store number as 1xxxxxxxxx",
-		"provider": "orange_cash",
-		"raw": "1212345678",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_wallet_number"
-		},
-		"long_run": null
-	},
-	{
-		"name": "another mobile number, 01xxxxxxxxx",
-		"provider": "orange_cash",
-		"raw": "01112223334",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_wallet_number"
-		},
-		"long_run": null
-	},
-	{
-		"name": "another mobile number, 0020 form",
-		"provider": "orange_cash",
-		"raw": "00201112223334",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_wallet_number"
-		},
-		"long_run": null
-	},
-	{
-		"name": "10-digit id starting with 1 that is not a known number",
-		"provider": "orange_cash",
-		"raw": "1234567890",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "1234567890"
-		},
-		"long_run": null
-	},
-	{
-		"name": "1xxxxxxxxx without a payer key or store numbers is an id",
-		"provider": "orange_cash",
-		"raw": "1001234567",
-		"payer_key": null,
-		"store_numbers": [],
-		"expect": {
-			"ok": true,
-			"txn": "1001234567"
-		},
-		"long_run": null
-	},
-	{
-		"name": "13 digits",
-		"provider": "orange_cash",
-		"raw": "2500729406114",
+		"name": "5 characters is too short",
+		"raw": "91337",
 		"payer_key": "01001234567",
 		"store_numbers": [
 			"01212345678"
@@ -736,13 +105,23 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_format"
-		},
-		"long_run": null
+		}
 	},
 	{
-		"name": "15 digits",
-		"provider": "orange_cash",
-		"raw": "250072940674051",
+		"name": "the longest id: 40 characters",
+		"raw": "1234567890123456789012345678901234567890",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "1234567890123456789012345678901234567890"
+		}
+	},
+	{
+		"name": "41 characters is too long",
+		"raw": "12345678901234567890123456789012345678901",
 		"payer_key": "01001234567",
 		"store_numbers": [
 			"01212345678"
@@ -750,12 +129,34 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_format"
-		},
-		"long_run": "250072940674051"
+		}
+	},
+	{
+		"name": "lowercase letters become upper case",
+		"raw": "a1b2c3d4e5",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "A1B2C3D4E5"
+		}
+	},
+	{
+		"name": "letters and digits split by hyphens",
+		"raw": "ab12-cd34-ef56",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "AB12CD34EF56"
+		}
 	},
 	{
 		"name": "letters only",
-		"provider": "orange_cash",
 		"raw": "abc",
 		"payer_key": "01001234567",
 		"store_numbers": [
@@ -764,13 +165,23 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_format"
-		},
-		"long_run": null
+		}
 	},
 	{
-		"name": "id split by spaces inside a sentence",
-		"provider": "orange_cash",
-		"raw": "رقم المعاملة: 2500 7294 0674 05",
+		"name": "letters only, long enough",
+		"raw": "abcdefgh",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_format"
+		}
+	},
+	{
+		"name": "spaces inside",
+		"raw": "2500 7294 0674 05",
 		"payer_key": "01001234567",
 		"store_numbers": [
 			"01212345678"
@@ -778,13 +189,71 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		},
-		"long_run": null
+		}
 	},
 	{
-		"name": "id split 10 + 4 by a space in a sentence is never its first 10 digits",
-		"provider": "orange_cash",
-		"raw": "رقم المعاملة 2500517294 4183",
+		"name": "hyphens inside",
+		"raw": "2500-7294-0674-05",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25007294067405"
+		}
+	},
+	{
+		"name": "dots, number sign and colon",
+		"raw": "#2500.7294.0674.05:",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25007294067405"
+		}
+	},
+	{
+		"name": "en dashes inside",
+		"raw": "2500\u20137294\u20130674\u201305",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25007294067405"
+		}
+	},
+	{
+		"name": "white space around, tab and NBSP inside",
+		"raw": " \t2500\u00a07294067405\n",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25007294067405"
+		}
+	},
+	{
+		"name": "several separators in a row",
+		"raw": "9133 - 7200 - 4518",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "913372004518"
+		}
+	},
+	{
+		"name": "split 7 + 7 typed alone",
+		"raw": "2500517 2944183",
 		"payer_key": "01001234567",
 		"store_numbers": [
 			"01212345678"
@@ -792,83 +261,59 @@
 		"expect": {
 			"ok": true,
 			"txn": "25005172944183"
-		},
-		"long_run": null
+		}
 	},
 	{
-		"name": "id split 10 + 4 by a hyphen in a sentence",
-		"provider": "orange_cash",
-		"raw": "رقم المعاملة 2500517294-4183",
+		"name": "split 6 + 6 typed alone",
+		"raw": "913372 004518",
 		"payer_key": "01001234567",
 		"store_numbers": [
 			"01212345678"
 		],
 		"expect": {
 			"ok": true,
-			"txn": "25005172944183"
-		},
-		"long_run": null
+			"txn": "913372004518"
+		}
 	},
 	{
-		"name": "id split 4 + 10 by a hyphen in a sentence",
-		"provider": "orange_cash",
-		"raw": "رقم 2500-7294067405",
+		"name": "a plus sign before the id",
+		"raw": "+913372004518",
 		"payer_key": "01001234567",
 		"store_numbers": [
 			"01212345678"
 		],
 		"expect": {
 			"ok": true,
-			"txn": "25007294067405"
-		},
-		"long_run": null
+			"txn": "913372004518"
+		}
 	},
 	{
-		"name": "10-digit id and a number on the same line that join to 13 digits",
-		"provider": "orange_cash",
-		"raw": "رقم المعاملة 7700031948 100 جنيه كاش باك",
+		"name": "a word before the id",
+		"raw": "ID 913372004518",
 		"payer_key": "01001234567",
 		"store_numbers": [
 			"01212345678"
 		],
 		"expect": {
 			"ok": true,
-			"txn": "7700031948"
-		},
-		"long_run": null
+			"txn": "913372004518"
+		}
 	},
 	{
-		"name": "a line break never joins numbers",
-		"provider": "orange_cash",
-		"raw": "رقم المعاملة 7700031948\n1000 جنيه كاش باك",
+		"name": "a label and a colon before the id",
+		"raw": "Ref: 913372004518",
 		"payer_key": "01001234567",
 		"store_numbers": [
 			"01212345678"
 		],
 		"expect": {
 			"ok": true,
-			"txn": "7700031948"
-		},
-		"long_run": null
+			"txn": "913372004518"
+		}
 	},
 	{
-		"name": "a paragraph separator never joins numbers",
-		"provider": "orange_cash",
-		"raw": "رقم المعاملة 7700031948 1000 جنيه كاش باك",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "7700031948"
-		},
-		"long_run": null
-	},
-	{
-		"name": "order's number split by spaces next to the id",
-		"provider": "orange_cash",
-		"raw": "حولت من 100 123 4567 رقم المعاملة 25007294067405",
+		"name": "Arabic-Indic digits",
+		"raw": "٢٥٠٠٧٢٩٤٠٦٧٤٠٥",
 		"payer_key": "01001234567",
 		"store_numbers": [
 			"01212345678"
@@ -876,13 +321,119 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		},
-		"long_run": null
+		}
 	},
 	{
-		"name": "only the order's number split by spaces in a sentence",
-		"provider": "orange_cash",
-		"raw": "حولت 500 جنيه من 100 123 4567",
+		"name": "Arabic-Indic digits, 12",
+		"raw": "٩١٣٣٧٢٠٠٤٥١٨",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "913372004518"
+		}
+	},
+	{
+		"name": "Persian digits",
+		"raw": "۲۵۰۰۷۲۹۴۰۶۷۴۰۵",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25007294067405"
+		}
+	},
+	{
+		"name": "mixed digit scripts",
+		"raw": "٢٥٠٠7294067405",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25007294067405"
+		}
+	},
+	{
+		"name": "RLM and LRM around",
+		"raw": "\u200f25007294067405\u200e",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25007294067405"
+		}
+	},
+	{
+		"name": "bidi isolates and embeddings inside",
+		"raw": "\u20662500\u20697294\u202a0674\u202c05",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25007294067405"
+		}
+	},
+	{
+		"name": "zero-width space inside",
+		"raw": "25007\u200b294067405",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25007294067405"
+		}
+	},
+	{
+		"name": "tatweel inside Arabic-Indic digits",
+		"raw": "٢٥٠٠٧\u0640٢٩٤٠٦٧٤٠٥",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25007294067405"
+		}
+	},
+	{
+		"name": "BOM and Arabic letter mark before",
+		"raw": "\ufeff\u061c25007294067405",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25007294067405"
+		}
+	},
+	{
+		"name": "label and full-width colon before",
+		"raw": "رقم المعاملة\uff1a\u00a025007294067405",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25007294067405"
+		}
+	},
+	{
+		"name": "order's number",
+		"raw": "01001234567",
 		"payer_key": "01001234567",
 		"store_numbers": [
 			"01212345678"
@@ -890,293 +441,11 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_wallet_number"
-		},
-		"long_run": null
+		}
 	},
 	{
-		"name": "a message without an id",
-		"provider": "orange_cash",
-		"raw": "عميلنا العزيز، متبقي لك 0 جنيه من عرض الكاش باك …",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_format"
-		},
-		"long_run": null
-	},
-	{
-		"name": "empty",
-		"provider": "orange_cash",
-		"raw": "",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_empty"
-		},
-		"long_run": null
-	},
-	{
-		"name": "white space only",
-		"provider": "orange_cash",
-		"raw": " \u00a0\t\n",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_empty"
-		},
-		"long_run": null
-	},
-	{
-		"name": "marks only",
-		"provider": "orange_cash",
-		"raw": "\u200f\u200e\u0640",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_empty"
-		},
-		"long_run": null
-	},
-	{
-		"name": "separators only",
-		"provider": "orange_cash",
-		"raw": "- . # :",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_empty"
-		},
-		"long_run": null
-	},
-	{
-		"name": "null",
-		"provider": "orange_cash",
-		"raw": null,
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_empty"
-		},
-		"long_run": null
-	},
-	{
-		"name": "a number instead of text",
-		"provider": "orange_cash",
-		"raw": 25007294067405,
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_format"
-		},
-		"long_run": null
-	},
-	{
-		"name": "exactly 400 characters",
-		"provider": "orange_cash",
-		"raw": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx25007294067405",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25007294067405"
-		},
-		"long_run": null
-	},
-	{
-		"name": "401 characters",
-		"provider": "orange_cash",
-		"raw": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx25007294067405",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_too_long"
-		},
-		"long_run": null
-	},
-	{
-		"name": "400 Arabic letters",
-		"provider": "orange_cash",
-		"raw": "رررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررر25007294067405",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25007294067405"
-		},
-		"long_run": null
-	},
-	{
-		"name": "401 Arabic letters",
-		"provider": "orange_cash",
-		"raw": "ررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررر25007294067405",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_too_long"
-		},
-		"long_run": null
-	},
-	{
-		"name": "emoji count two units: 400",
-		"provider": "orange_cash",
-		"raw": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀25007294067405",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": true,
-			"txn": "25007294067405"
-		},
-		"long_run": null
-	},
-	{
-		"name": "emoji count two units: 402",
-		"provider": "orange_cash",
-		"raw": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀25007294067405",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_too_long"
-		},
-		"long_run": null
-	},
-	{
-		"name": "401 spaces is too long, not empty",
-		"provider": "orange_cash",
-		"raw": "                                                                                                                                                                                                                                                                                                                                                                                                                 ",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_too_long"
-		},
-		"long_run": null
-	},
-	{
-		"name": "provider without a shape",
-		"provider": "vodafone_cash",
-		"raw": "25007294067405",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_format"
-		},
-		"long_run": null
-	},
-	{
-		"name": "longer id: 16 digits",
-		"provider": "orange_cash",
-		"raw": "2500729406740512",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_format"
-		},
-		"long_run": "2500729406740512"
-	},
-	{
-		"name": "longer id: 17 digits is not one",
-		"provider": "orange_cash",
-		"raw": "25007294067405123",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_format"
-		},
-		"long_run": null
-	},
-	{
-		"name": "longer id: 15 digits split by spaces",
-		"provider": "orange_cash",
-		"raw": "2500 7294 0674 051",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_format"
-		},
-		"long_run": "250072940674051"
-	},
-	{
-		"name": "longer id: 15 Arabic-Indic digits with RLM marks",
-		"provider": "orange_cash",
-		"raw": "\u200f٢٥٠٠٧٢٩٤٠٦٧٤٠٥١\u200f",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_format"
-		},
-		"long_run": "250072940674051"
-	},
-	{
-		"name": "longer id: C1 with a 15-digit id",
-		"provider": "orange_cash",
-		"raw": "تم استلام مبلغ 11.00 جنيه من AHMED M.، رصيدك الحالي 288.40 جنية، رقم المعاملة 250072940674051.",
-		"payer_key": "01001234567",
-		"store_numbers": [
-			"01212345678"
-		],
-		"expect": {
-			"ok": false,
-			"error": "qersh_txn_format"
-		},
-		"long_run": "250072940674051"
-	},
-	{
-		"name": "longer id: C2 with a 15-digit id (the sender's 0020 number left out, so a wallet number)",
-		"provider": "orange_cash",
-		"raw": "لقد استقبلت تحويل أموال بمبلغ 25.00 جنيه من 00201001234567 رصيد اورنچ كاش الجديد 19.07 جنيه رقم المعاملة 250051729441831",
+		"name": "order's number as 1xxxxxxxxx",
+		"raw": "1001234567",
 		"payer_key": "01001234567",
 		"store_numbers": [
 			"01212345678"
@@ -1184,12 +453,46 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_wallet_number"
-		},
-		"long_run": "250051729441831"
+		}
 	},
 	{
-		"name": "longer id: a mobile number written 0020 01xxxxxxxxx is never one",
-		"provider": "orange_cash",
+		"name": "order's number as +20 with spaces",
+		"raw": "+20 100 123 4567",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_wallet_number"
+		}
+	},
+	{
+		"name": "order's number as 0020",
+		"raw": "00201001234567",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_wallet_number"
+		}
+	},
+	{
+		"name": "order's number as 20 1xxxxxxxxx",
+		"raw": "201001234567",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_wallet_number"
+		}
+	},
+	{
+		"name": "order's number as 0020 01xxxxxxxxx",
 		"raw": "002001001234567",
 		"payer_key": "01001234567",
 		"store_numbers": [
@@ -1198,41 +501,175 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_wallet_number"
-		},
-		"long_run": null
+		}
 	},
 	{
-		"name": "longer id: another mobile number written 0020 01xxxxxxxxx in a sentence is never one",
-		"provider": "orange_cash",
-		"raw": "من 002001112223334",
+		"name": "order's number in Arabic-Indic digits",
+		"raw": "٠١٠٠١٢٣٤٥٦٧",
 		"payer_key": "01001234567",
 		"store_numbers": [
 			"01212345678"
 		],
 		"expect": {
 			"ok": false,
-			"error": "qersh_txn_format"
-		},
-		"long_run": null
+			"error": "qersh_txn_wallet_number"
+		}
 	},
 	{
-		"name": "longer id: a line break never joins one",
-		"provider": "orange_cash",
-		"raw": "25007294\n0674051",
+		"name": "store number",
+		"raw": "01212345678",
 		"payer_key": "01001234567",
 		"store_numbers": [
 			"01212345678"
 		],
 		"expect": {
 			"ok": false,
-			"error": "qersh_txn_format"
-		},
-		"long_run": null
+			"error": "qersh_txn_wallet_number"
+		}
 	},
 	{
-		"name": "longer id: found next to an id that is read (only a refusal records it)",
-		"provider": "orange_cash",
-		"raw": "رقم المعاملة 25007294067405 مرجع 250072940674059",
+		"name": "store number as 1xxxxxxxxx",
+		"raw": "1212345678",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_wallet_number"
+		}
+	},
+	{
+		"name": "store number split by hyphens",
+		"raw": "0121-234-5678",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_wallet_number"
+		}
+	},
+	{
+		"name": "another mobile number, 01xxxxxxxxx",
+		"raw": "01112223344",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_wallet_number"
+		}
+	},
+	{
+		"name": "another mobile number, 0020 form",
+		"raw": "00201112223344",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_wallet_number"
+		}
+	},
+	{
+		"name": "another mobile number, 0020 form, without a payer key",
+		"raw": "00201112223344",
+		"payer_key": "",
+		"store_numbers": [],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_wallet_number"
+		}
+	},
+	{
+		"name": "another mobile number written 20 1xxxxxxxxx",
+		"raw": "201234567890",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_wallet_number"
+		}
+	},
+	{
+		"name": "11 digits without an Egyptian mobile prefix can be an id",
+		"raw": "01334567890",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "01334567890"
+		}
+	},
+	{
+		"name": "12 digits of 20 and no Egyptian mobile prefix can be an id",
+		"raw": "201334567890",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "201334567890"
+		}
+	},
+	{
+		"name": "10-digit id starting with 1 that is not a known number",
+		"raw": "1234567890",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "1234567890"
+		}
+	},
+	{
+		"name": "1xxxxxxxxx without a payer key or store numbers is an id",
+		"raw": "1001234567",
+		"payer_key": "",
+		"store_numbers": [],
+		"expect": {
+			"ok": true,
+			"txn": "1001234567"
+		}
+	},
+	{
+		"name": "the order's number next to the id is left out",
+		"raw": "01001234567 913372004518",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "913372004518"
+		}
+	},
+	{
+		"name": "two wallet numbers and no id",
+		"raw": "01001234567 01212345678",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_wallet_number"
+		}
+	},
+	{
+		"name": "id split by spaces inside a sentence",
+		"raw": "رقم المعاملة: 2500 7294 0674 05",
 		"payer_key": "01001234567",
 		"store_numbers": [
 			"01212345678"
@@ -1240,13 +677,623 @@
 		"expect": {
 			"ok": true,
 			"txn": "25007294067405"
-		},
-		"long_run": "250072940674059"
+		}
 	},
 	{
-		"name": "longer id: none for a provider without a shape",
-		"provider": "vodafone_cash",
-		"raw": "250072940674051",
+		"name": "id split 10 + 4 by a space in a sentence is never its first 10 digits",
+		"raw": "رقم المعاملة 2500517294 4183",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25005172944183"
+		}
+	},
+	{
+		"name": "id split 10 + 4 by a hyphen in a sentence",
+		"raw": "رقم المعاملة 2500517294-4183",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25005172944183"
+		}
+	},
+	{
+		"name": "id split 10 + 4 by a dot in a sentence",
+		"raw": "رقم المعاملة 2500517294.4183",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25005172944183"
+		}
+	},
+	{
+		"name": "id split 10 + 4 by a colon in a sentence",
+		"raw": "رقم المعاملة 2500517294:4183",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25005172944183"
+		}
+	},
+	{
+		"name": "id split 10 + 4 by number signs in a sentence",
+		"raw": "رقم المعاملة #2500517294#4183",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25005172944183"
+		}
+	},
+	{
+		"name": "id split 4 + 10 by a hyphen in a sentence",
+		"raw": "رقم 2500-7294067405",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25007294067405"
+		}
+	},
+	{
+		"name": "id split 6 + 6 by a space in a sentence",
+		"raw": "رقم العملية 913372 004518",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "913372004518"
+		}
+	},
+	{
+		"name": "id split by dots in a sentence",
+		"raw": "رقم المعاملة 2500.7294.0674.05",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25007294067405"
+		}
+	},
+	{
+		"name": "two ids joined by one space are one value (it never equals either)",
+		"raw": "913372004518 250046173830512",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "913372004518250046173830512"
+		}
+	},
+	{
+		"name": "runs that join to more than 40 characters are read one by one",
+		"raw": "913372004518 250046173830512 25007294067405",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_several"
+		}
+	},
+	{
+		"name": "Orange Cash C1 «تم استلام مبلغ» (name, balance)",
+		"raw": "تم استلام مبلغ 11.00 جنيه من AHMED M.، رصيدك الحالي 288.40 جنية، رقم المعاملة 25007294067405.",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25007294067405"
+		}
+	},
+	{
+		"name": "Orange Cash C2 «لقد استقبلت تحويل أموال», sender is the order's payer",
+		"raw": "لقد استقبلت تحويل أموال بمبلغ 25.00 جنيه من 00201001234567 رصيد اورنچ كاش الجديد 19.07 جنيه رقم المعاملة 25005172944183",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25005172944183"
+		}
+	},
+	{
+		"name": "Orange Cash C2, sender is another number (the 0020 form is a mobile number, never an id)",
+		"raw": "لقد استقبلت تحويل أموال بمبلغ 25.00 جنيه من 00201119876543 رصيد اورنچ كاش الجديد 19.07 جنيه رقم المعاملة 25005172944183",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25005172944183"
+		}
+	},
+	{
+		"name": "Orange Cash C3 «تم استلام عملية تحويل أموال»",
+		"raw": "تم استلام عملية تحويل أموال بمبلغ 1050.00 جنيه من MONA S.، رصيدك الحالي 1203.15 جنيه. رقم المعاملة 25004617383051 استخدم خدمات اورنچ كاش …",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25004617383051"
+		}
+	},
+	{
+		"name": "Orange Cash cashback note before C3",
+		"raw": "عميلنا العزيز، متبقي لك 0 جنيه من عرض الكاش باك …\nتم استلام عملية تحويل أموال بمبلغ 1050.00 جنيه من MONA S.، رصيدك الحالي 1203.15 جنيه. رقم المعاملة 25004617383051 استخدم خدمات اورنچ كاش …",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25004617383051"
+		}
+	},
+	{
+		"name": "advert block before C1",
+		"raw": "عرض مايتفوتش! … https://myo.orange.eg/YANGO\nلأي استفسار كلم 7770 أو تواصل معانا على الواتساب: https://myo.orange.eg/O-whatsapp\nتم استلام مبلغ 11.00 جنيه من AHMED M.، رصيدك الحالي 288.40 جنية، رقم المعاملة 25007294067405.",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25007294067405"
+		}
+	},
+	{
+		"name": "Orange Cash advert block before C2",
+		"raw": "عرض مايتفوتش! … https://myo.orange.eg/YANGO\nلأي استفسار كلم 7770 أو تواصل معانا على الواتساب: https://myo.orange.eg/O-whatsapp\nلقد استقبلت تحويل أموال بمبلغ 25.00 جنيه من 00201001234567 رصيد اورنچ كاش الجديد 19.07 جنيه رقم المعاملة 25005172944183",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25005172944183"
+		}
+	},
+	{
+		"name": "Orange Cash older wording, 10-digit id",
+		"raw": "تم إستلام عملية تحويل أموال بمبلغ 150.00 جنيه من OMAR K.، رصيدك الحالي 849.24 جنيه. رقم المعاملة 7700031948\n100 جنيه كاش باك لما تحول، تدفع او تودع فلوس في محفظة اورنچ كاش",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "7700031948"
+		}
+	},
+	{
+		"name": "Orange Cash older wording, Arabic-Indic digits",
+		"raw": "تم إستلام عملية تحويل اموال بمبلغ ٢٠٠٠.٠٠ جنيه من محمد أحمد ، رقم المعاملة ٢٩٩٥٨٣١٣٣٨\nكاش باك أو دقائق أو ميجابايتس كل ما تستعلم عن رصيدك",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "2995831338"
+		}
+	},
+	{
+		"name": "Orange Cash, the customer's own debit SMS (store number inside)",
+		"raw": "عملية تحويل أموال ناجحة بمبلغ 100.00 جنيه، لرقم 01212345678، رسوم التحويل 1.00 جنيه، رصيدك الحالي 276.30 جنيه، رقم المعاملة 25006831596394.",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25006831596394"
+		}
+	},
+	{
+		"name": "Orange Cash debit SMS with «رقم العملية» and a link tail",
+		"raw": "عملية تحويل أموال ناجحة بمبلغ 100.00 جنيه، لرقم 01212345678، رسوم التحويل 1.00 جنيه، رصيدك الحالي 276.30 جنيه، رقم العملية 25006831596394. https://myo.orange.eg/O-whatsapp",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25006831596394"
+		}
+	},
+	{
+		"name": "Orange Cash C1 with RLM marks around the numbers",
+		"raw": "تم استلام مبلغ \u200f11.00\u200f جنيه من AHMED M.، رصيدك الحالي 288.40 جنية، رقم المعاملة \u200f25007294067405\u200f.",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25007294067405"
+		}
+	},
+	{
+		"name": "Orange Cash C1 in Arabic-Indic digits",
+		"raw": "تم استلام مبلغ ١١.٠٠ جنيه من AHMED M.، رصيدك الحالي ٢٨٨.٤٠ جنية، رقم المعاملة ٢٥٠٠٧٢٩٤٠٦٧٤٠٥.",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25007294067405"
+		}
+	},
+	{
+		"name": "Vodafone Cash style, Arabic, sender is the order's payer",
+		"raw": "تم استلام مبلغ 150.00 جنيه من رقم 01001234567 المسجل باسم AHMED M؛ رصيدك الحالي 1250.50 جنيه. رقم العملية 913372004518. تاريخ العملية 18-10-26 14:35",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "913372004518"
+		}
+	},
+	{
+		"name": "Vodafone Cash style, Arabic, sender is another number",
+		"raw": "تم استلام مبلغ 150.00 جنيه من رقم 01112223344 المسجل باسم AHMED M؛ رصيدك الحالي 1250.50 جنيه. رقم العملية 913372004518. تاريخ العملية 18-10-26 14:35",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "913372004518"
+		}
+	},
+	{
+		"name": "Vodafone Cash style, English",
+		"raw": "You have received EGP 150.00 from 01001234567 (AHMED M). Your current balance is EGP 1250.50. Transaction ID: 913372004518 on 18/10/2026 at 2:35 PM.",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "913372004518"
+		}
+	},
+	{
+		"name": "Vodafone Cash style, name only (no number to leave out)",
+		"raw": "تم استلام مبلغ 150.00 جنيه من AHMED M. رصيدك الحالي 1250.50 جنيه. رقم العملية 913372004518",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "913372004518"
+		}
+	},
+	{
+		"name": "Vodafone Cash style, Arabic-Indic digits and the Arabic decimal separator",
+		"raw": "تم استلام مبلغ ١٥٠\u066b٠٠ جنيه من رقم ٠١٠٠١٢٣٤٥٦٧؛ رصيدك الحالي ١٢٥٠\u066b٥٠ جنيه. رقم العملية ٩١٣٣٧٢٠٠٤٥١٨",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "913372004518"
+		}
+	},
+	{
+		"name": "Vodafone Cash style, a link with digits after the id",
+		"raw": "رقم العملية 913372004518. حمل التطبيق من https://short.example/Ab12Cd34",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "913372004518"
+		}
+	},
+	{
+		"name": "e& money style, Arabic, date and time with seconds",
+		"raw": "تم استلام 200.00 جنيه من 01112223344 بنجاح. رصيدك الحالي 450.75 جنيه. رقم العملية: 250046173830512 بتاريخ 2026-10-18 الساعة 09:15:42",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "250046173830512"
+		}
+	},
+	{
+		"name": "e& money style, English, a currency after the amounts",
+		"raw": "Dear customer, you received 200 EGP from 01112223344. Ref. No 250046173830512. Balance 450.75 EGP. 18-10-2026 09:15",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "250046173830512"
+		}
+	},
+	{
+		"name": "e& money style, masked sender",
+		"raw": "تم استلام 200.00 جنيه من 0111****344. رقم العملية 250046173830512",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "250046173830512"
+		}
+	},
+	{
+		"name": "e& money style, an amount in «ج.م»",
+		"raw": "استلمت 1500 ج.م من MONA S. رقم المرجع 250046173830512",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "250046173830512"
+		}
+	},
+	{
+		"name": "order's number written 1xxxxxxxxx next to the id",
+		"raw": "حولت من 1001234567 رقم المعاملة 25007294067405",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25007294067405"
+		}
+	},
+	{
+		"name": "store number written 1xxxxxxxxx next to the id",
+		"raw": "حولت على 1212345678 رقم المعاملة 25007294067405",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25007294067405"
+		}
+	},
+	{
+		"name": "order's number 01xxxxxxxxx next to the id",
+		"raw": "من 01001234567 رقم المعاملة 25007294067405",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25007294067405"
+		}
+	},
+	{
+		"name": "order's number written +20 next to the id",
+		"raw": "من +201001234567 رقم العملية 913372004518",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "913372004518"
+		}
+	},
+	{
+		"name": "order's number split by spaces next to the id",
+		"raw": "حولت من 100 123 4567 رقم المعاملة 25007294067405",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25007294067405"
+		}
+	},
+	{
+		"name": "only the order's number as a 10-digit run in a sentence",
+		"raw": "حولت 500 جنيه من 1001234567",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_wallet_number"
+		}
+	},
+	{
+		"name": "order's number in a sentence",
+		"raw": "حولت من 01001234567",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_wallet_number"
+		}
+	},
+	{
+		"name": "only the order's number split by spaces in a sentence",
+		"raw": "حولت 500 جنيه من 100 123 4567",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_wallet_number"
+		}
+	},
+	{
+		"name": "a mobile number written 0020 1xxxxxxxxx in a sentence",
+		"raw": "من 0020 1001234567 فقط",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_wallet_number"
+		}
+	},
+	{
+		"name": "another mobile number written 0020 01xxxxxxxxx in a sentence",
+		"raw": "من 002001112223344",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_wallet_number"
+		}
+	},
+	{
+		"name": "an amount after the id on the same line is never joined to it",
+		"raw": "رقم المعاملة 7700031948 100 جنيه كاش باك",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "7700031948"
+		}
+	},
+	{
+		"name": "a date after the id typed alone",
+		"raw": "913372004518 18-10-2026",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "913372004518"
+		}
+	},
+	{
+		"name": "digits that are no date (month 33) are never cut from an id typed with mixed separators",
+		"raw": "91-33-72 004518",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "913372004518"
+		}
+	},
+	{
+		"name": "digits that are no date (month 00) are never cut from an id",
+		"raw": "25-00-72 94067405",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25007294067405"
+		}
+	},
+	{
+		"name": "a real date before the digits is a date",
+		"raw": "25-01-72 94067405",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "94067405"
+		}
+	},
+	{
+		"name": "a date with the month first after the id typed alone",
+		"raw": "913372004518 10/25/2026",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "913372004518"
+		}
+	},
+	{
+		"name": "digits that are no time (hour 91) are never cut from an id",
+		"raw": "91:72 004518",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "9172004518"
+		}
+	},
+	{
+		"name": "digits that are no time (minutes 72) are never cut from an id",
+		"raw": "09:72 004518",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "0972004518"
+		}
+	},
+	{
+		"name": "a six-digit date with hyphens is never an id",
+		"raw": "تاريخ العملية 18-10-26",
 		"payer_key": "01001234567",
 		"store_numbers": [
 			"01212345678"
@@ -1254,7 +1301,414 @@
 		"expect": {
 			"ok": false,
 			"error": "qersh_txn_format"
-		},
-		"long_run": null
+		}
+	},
+	{
+		"name": "a date with the year first is never an id",
+		"raw": "بتاريخ 2026-10-18",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_format"
+		}
+	},
+	{
+		"name": "a time with seconds is never an id",
+		"raw": "الساعة 09:15:42",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_format"
+		}
+	},
+	{
+		"name": "an amount with decimals is never an id",
+		"raw": "مبلغ 125000.00 جنيه",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_format"
+		}
+	},
+	{
+		"name": "an amount with a decimal comma is never an id",
+		"raw": "مبلغ 125000,50",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_format"
+		}
+	},
+	{
+		"name": "a number before «جنيه» is never an id",
+		"raw": "تم تحويل 125000 جنيه",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_format"
+		}
+	},
+	{
+		"name": "a number before EGP is never an id",
+		"raw": "You received 125000 EGP",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_format"
+		}
+	},
+	{
+		"name": "an amount alone is not an id",
+		"raw": "1250.50",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_format"
+		}
+	},
+	{
+		"name": "a date alone is not an id",
+		"raw": "2026-10-18",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_format"
+		}
+	},
+	{
+		"name": "a time alone is not an id",
+		"raw": "14:35:20",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_format"
+		}
+	},
+	{
+		"name": "a link with digits is never an id",
+		"raw": "https://short.example/Ab12Cd34",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_format"
+		}
+	},
+	{
+		"name": "a message without an id",
+		"raw": "عميلنا العزيز، متبقي لك 0 جنيه من عرض الكاش باك …",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_format"
+		}
+	},
+	{
+		"name": "two ids on two lines",
+		"raw": "25007294067405\n913372004518",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_several"
+		}
+	},
+	{
+		"name": "a 14-digit and a 10-digit run",
+		"raw": "رقم المعاملة 25007294067405 والقديم 7700031948",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_several"
+		}
+	},
+	{
+		"name": "ids of two wallets in one text",
+		"raw": "رقم العملية 913372004518 ورقم المعاملة 25007294067405",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_several"
+		}
+	},
+	{
+		"name": "two messages pasted together",
+		"raw": "تم استلام مبلغ 11.00 جنيه من AHMED M.، رصيدك الحالي 288.40 جنية، رقم المعاملة 25007294067405.\nتم استلام عملية تحويل أموال بمبلغ 1050.00 جنيه من MONA S.، رصيدك الحالي 1203.15 جنيه. رقم المعاملة 25004617383051 استخدم خدمات اورنچ كاش …",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_several"
+		}
+	},
+	{
+		"name": "the same id twice counts once",
+		"raw": "25007294067405\n25007294067405",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25007294067405"
+		}
+	},
+	{
+		"name": "the same message twice",
+		"raw": "تم استلام مبلغ 11.00 جنيه من AHMED M.، رصيدك الحالي 288.40 جنية، رقم المعاملة 25007294067405.\nتم استلام مبلغ 11.00 جنيه من AHMED M.، رصيدك الحالي 288.40 جنية، رقم المعاملة 25007294067405.",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25007294067405"
+		}
+	},
+	{
+		"name": "the same id in Latin and Arabic-Indic digits counts once",
+		"raw": "913372004518 / ٩١٣٣٧٢٠٠٤٥١٨",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "913372004518"
+		}
+	},
+	{
+		"name": "the same id in lower and upper case counts once",
+		"raw": "ab12cd34 / AB12CD34",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "AB12CD34"
+		}
+	},
+	{
+		"name": "a line break never joins numbers",
+		"raw": "رقم المعاملة 7700031948\n4183",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "7700031948"
+		}
+	},
+	{
+		"name": "a paragraph separator never joins numbers",
+		"raw": "رقم المعاملة 7700031948\u20294183",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "7700031948"
+		}
+	},
+	{
+		"name": "empty",
+		"raw": "",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_empty"
+		}
+	},
+	{
+		"name": "white space only",
+		"raw": " \u00a0\t\n",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_empty"
+		}
+	},
+	{
+		"name": "marks only",
+		"raw": "\u200f\u200e\u0640",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_empty"
+		}
+	},
+	{
+		"name": "separators only",
+		"raw": "- . # :",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_empty"
+		}
+	},
+	{
+		"name": "null",
+		"raw": null,
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_empty"
+		}
+	},
+	{
+		"name": "a number instead of text",
+		"raw": 25007294067405,
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_format"
+		}
+	},
+	{
+		"name": "exactly 400 characters",
+		"raw": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 25007294067405",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25007294067405"
+		}
+	},
+	{
+		"name": "401 characters",
+		"raw": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 25007294067405",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_too_long"
+		}
+	},
+	{
+		"name": "400 Arabic letters",
+		"raw": "رررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررر25007294067405",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25007294067405"
+		}
+	},
+	{
+		"name": "401 Arabic letters",
+		"raw": "ررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررررر25007294067405",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_too_long"
+		}
+	},
+	{
+		"name": "emoji count two units: 400",
+		"raw": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀25007294067405",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": true,
+			"txn": "25007294067405"
+		}
+	},
+	{
+		"name": "emoji count two units: 402",
+		"raw": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀25007294067405",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_too_long"
+		}
+	},
+	{
+		"name": "401 spaces is too long, not empty",
+		"raw": "                                                                                                                                                                                                                                                                                                                                                                                                                 ",
+		"payer_key": "01001234567",
+		"store_numbers": [
+			"01212345678"
+		],
+		"expect": {
+			"ok": false,
+			"error": "qersh_txn_too_long"
+		}
 	}
 ]

@@ -4,7 +4,7 @@
  * - Fills the field from the billing phone only while it is empty and the customer has not touched it (the
  *   checkout refresh replaces the payment box, so the "touched" state lives here, not on the element).
  * - Normalises the value when the field loses focus, and shows the error in place before the order is sent.
- * - The InstaPay switch follows the chosen wallet until the customer changes it.
+ * - Takes an e-wallet number only, the same for every wallet (PayerField::check()).
  * The server checks everything again (Gateway::validate_fields()). Plain ES5, no build step.
  */
 ( function ( win, doc ) {
@@ -17,7 +17,6 @@
 
 	var touched = false;
 	var prefilled = '';
-	var kindChosen = false;
 
 	function root() {
 		return doc.querySelector( '[data-qersh-payer]' );
@@ -48,11 +47,6 @@
 
 	function walletCount( box ) {
 		return box.querySelectorAll( 'input[name="qersh_wallet"]' ).length;
-	}
-
-	function kind() {
-		var instapay = doc.getElementById( 'qersh_payer_kind_instapay' );
-		return instapay && instapay.checked ? 'instapay' : 'number';
 	}
 
 	// The payer field's error. `mark` false shows the text without marking the field invalid (a wallet error of a
@@ -97,56 +91,17 @@
 		return !! out;
 	}
 
-	function applyKind( box ) {
-		var el = field();
-		if ( ! el ) {
-			return;
-		}
-		var instapay = kind() === 'instapay';
-		var label = box.querySelector( '[data-qersh-payer-label]' );
-		if ( label ) {
-			label.textContent = box.getAttribute( instapay ? 'data-label-instapay' : 'data-label-number' ) || label.textContent;
-		}
-		// The help follows the switch: an address has its own line (no wallet confirms an address on its own); a
-		// number has the line of the chosen wallet.
-		var help = doc.getElementById( 'qersh_payer_help' );
-		if ( help ) {
-			var wallet = chosenWallet( box );
-			var decision = wallet ? wallet.getAttribute( 'data-decision' ) === '1' : box.getAttribute( 'data-all-decision' ) === '1';
-			var numberHelp = box.getAttribute( decision ? 'data-help-decision' : 'data-help-auto' );
-			help.textContent = ( instapay ? box.getAttribute( 'data-help-instapay' ) : '' ) || numberHelp || help.textContent;
-		}
-		el.setAttribute( 'inputmode', instapay ? 'email' : 'numeric' );
-		el.setAttribute( 'autocomplete', instapay ? 'off' : 'tel' );
-		if ( instapay && ! touched && prefilled && el.value === prefilled ) {
-			el.value = '';
-			prefilled = '';
-		}
-	}
-
-	function applyWallet( box ) {
-		var wallet = chosenWallet( box );
-		var toInstapay = doc.getElementById( 'qersh_payer_kind_instapay' );
-		var toNumber = doc.getElementById( 'qersh_payer_kind_number' );
-		if ( wallet && toInstapay && toNumber && ! kindChosen ) {
-			var instapay = wallet.getAttribute( 'data-instapay' ) === '1';
-			toInstapay.checked = instapay;
-			toNumber.checked = ! instapay;
-		}
-		applyKind( box );
-	}
-
 	function prefill( box ) {
 		var el = field();
-		if ( ! el || touched || kind() !== 'number' ) {
+		if ( ! el || touched ) {
 			return;
 		}
 		if ( el.value !== '' && el.value !== prefilled ) {
 			return;
 		}
 		var phone = doc.getElementById( 'billing_phone' );
-		var n = N.normalizePayer( phone ? phone.value : '' );
-		if ( n && n.indexOf( '@' ) === -1 && ! N.isStoreNumber( n, storeNumbers( box ) ) ) {
+		var n = N.numberOf( phone ? phone.value : '' );
+		if ( n && ! N.isStoreNumber( n, storeNumbers( box ) ) ) {
 			el.value = n;
 			prefilled = n;
 		} else if ( prefilled && el.value === prefilled ) {
@@ -169,7 +124,8 @@
 		if ( el.value.trim() === '' && ! sending ) {
 			return '';
 		}
-		var res = N.checkPayer( el.value, box.getAttribute( 'data-instapay' ) === '1', storeNumbers( box ) );
+		// No address: a number only, as PayerField::check() takes it.
+		var res = N.checkPayer( el.value, storeNumbers( box ) );
 		if ( res.ok ) {
 			el.value = res.payer;
 			return '';
@@ -216,11 +172,6 @@
 		if ( ! box ) {
 			return;
 		}
-		// "Pay for order" with the payer the order already has: the switch stays on that payer's kind.
-		if ( box.getAttribute( 'data-kind-chosen' ) === '1' ) {
-			kindChosen = true;
-		}
-		applyWallet( box );
 		prefill( box );
 	}
 
@@ -255,11 +206,6 @@
 			if ( ! setWalletError( box, '' ) && input && ! input.getAttribute( 'aria-invalid' ) ) {
 				setError( box, '' ); // A theme's copy without a place for the wallet error showed it under the field.
 			}
-			applyWallet( box );
-			prefill( box );
-		} else if ( t.name === 'qersh_payer_kind' ) {
-			kindChosen = true;
-			applyKind( box );
 			prefill( box );
 		}
 	}, true );

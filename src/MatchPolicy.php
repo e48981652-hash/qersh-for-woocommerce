@@ -28,23 +28,24 @@ defined( 'ABSPATH' ) || exit;
  * the locks, and applies the result. Only the text methods at the end call WordPress (and Admin\Reasons, whose
  * sentences they are).
  *
- * The normalised transfer (read_transfer(), transfer_from_row()) has: transfer_id, wallet, provider, amount_minor
- * (int|null), currency, payer_key (string|null), payer_name, masked (bool: the sender number came with `*`), txn (the
- * canonical id of a claim provider, or null), txn_stored (the value stored in provider_txn_id), money_at (UTC
- * seconds: data.received_at, a missing or future one being now), time_ok (false when received_at is present but
- * unreadable), sms_at (int|null), risk, risk_reasons (array), auto_confirm_ok (bool), balance_chain, forgery (bool),
- * channel, and matcher (what Matcher::match() reads: the envelope data itself, or a copy built from the row).
+ * No rule here looks at the type of the e-wallet: the same transfer gets the same decision whatever wallet.provider
+ * of the envelope says. What decides is what the webhook carries: a payer number (Payer::key_of()), or none (a name
+ * or a handle only, a masked number, or nothing: "payerless"), and the operator's transaction id, compared by exact
+ * equality of its canonical form (TxnId::canonical_stored()), never by its shape.
+ *
+ * The normalised transfer (read_transfer(), transfer_from_row()) has: transfer_id, wallet, amount_minor (int|null),
+ * currency, payer_key (the e-wallet number, or null), payer_name (the name, else a handle), masked (bool: the sender
+ * number came with `*`), txn (the canonical form of provider_txn_id, or null), txn_stored (the value stored in
+ * provider_txn_id), money_at (UTC seconds: data.received_at, a missing or future one being now), time_ok (false when
+ * received_at is present but unreadable), sms_at (int|null), risk, risk_reasons (array), auto_confirm_ok (bool),
+ * balance_chain, forgery (bool), channel, and matcher (what Matcher::match() reads: the envelope data itself, a copy
+ * of it without the counterparty's number and handle when they name a handle only, or a copy built from the row).
  *
  * An order row (qersh_orders, typed) gets `kind` from classify(): `normal`, `expired` (cancelled by our expiry, or
  * about to be), `obstacle` (docs/17 §4.6 rule 3), `paid` (decided paid: never a candidate, rule 7 reads it).
  * For `normal` and `expired` rows, `price_minor` is the live total of the WooCommerce order.
  */
 final class MatchPolicy {
-
-	/**
-	 * Wallets whose messages name the payer, so a missing number never needs a typed transaction id.
-	 */
-	const PAYER_PROVIDERS = array( 'vodafone_cash', 'etisalat_cash' );
 
 	/**
 	 * States of a live order: it can still take a transfer (expired = cancelled by our expiry, revivable).
@@ -68,6 +69,12 @@ final class MatchPolicy {
 	 * Live claimants of one transaction id whose payer locks a delivery takes at most (more are contested anyway).
 	 */
 	const MAX_CLAIM_LOCKS = 4;
+
+	/**
+	 * A payer key that is a payer: an e-wallet number, as Payer::normalize() gives it. Payer::key_of() can also give
+	 * a handle, which read_transfer() reads as no payer (docs/17 D1).
+	 */
+	const PAYER_NUMBER = '/^01[0-9]{9}$/D';
 
 	/**
 	 * Builds the service. Every rule is a static method, so the plugin the service container passes is not kept.
@@ -97,15 +104,15 @@ final class MatchPolicy {
 	}
 
 	/**
-	 * Reads `data` of a transfer.received into the normalised transfer. Pure.
+	 * Reads `data` of a transfer.received into the normalised transfer. Pure. The type of the wallet is never an
+	 * input: Orders stores the envelope's wallet.provider beside the row as information only.
 	 *
-	 * @param mixed  $data     Envelope data.
-	 * @param string $wallet   Wallet id (from the URL).
-	 * @param string $provider Provider of that wallet (the store's configuration).
-	 * @param int    $now      UTC seconds.
+	 * @param mixed  $data   Envelope data.
+	 * @param string $wallet Wallet id (from the URL).
+	 * @param int    $now    UTC seconds.
 	 * @return array|null Null when there is no usable transfer_id (a row cannot be stored without it).
 	 */
-	public static function read_transfer( $data, string $wallet, string $provider, int $now ): ?array {
+	public static function read_transfer( $data, string $wallet, int $now ): ?array {
 		if ( ! is_array( $data ) ) {
 			return null;
 		}
@@ -113,11 +120,20 @@ final class MatchPolicy {
 		if ( '' === $id || strlen( $id ) > 40 ) {
 			return null;
 		}
-		$cp       = isset( $data['counterparty'] ) && is_array( $data['counterparty'] ) ? $data['counterparty'] : null;
-		$number   = null !== $cp && isset( $cp['number'] ) && is_string( $cp['number'] ) ? $cp['number'] : '';
-		$name     = null !== $cp && isset( $cp['name'] ) && is_string( $cp['name'] ) ? trim( $cp['name'] ) : '';
+		$cp      = isset( $data['counterparty'] ) && is_array( $data['counterparty'] ) ? $data['counterparty'] : null;
+		$number  = null !== $cp && isset( $cp['number'] ) && is_string( $cp['number'] ) ? $cp['number'] : '';
+		$name    = null !== $cp && isset( $cp['name'] ) && is_string( $cp['name'] ) ? trim( $cp['name'] ) : '';
+		$key     = Payer::key_of( $cp );
+		$matcher = $data;
+		if ( null !== $key && 1 !== preg_match( self::PAYER_NUMBER, $key ) ) {
+			// A handle only (docs/17 D1: the store serves e-wallets, whose payers are mobile numbers, and no order can
+			// carry a handle): the transfer is payerless, for the Matcher too. The handle still names the sender.
+			$name    = '' === $name ? $key : $name;
+			$key     = null;
+			$matcher = self::without_payer( $data );
+		}
 		$raw_txn  = isset( $data['provider_txn_id'] ) && is_string( $data['provider_txn_id'] ) ? trim( $data['provider_txn_id'] ) : '';
-		$canon    = '' === $raw_txn ? null : TxnId::canonical_stored( $provider, $raw_txn );
+		$canon    = '' === $raw_txn ? null : TxnId::canonical_stored( $raw_txn );
 		$stored   = null !== $canon ? $canon : ( '' === $raw_txn || strlen( $raw_txn ) > 40 ? null : $raw_txn );
 		$received = array_key_exists( 'received_at', $data ) ? $data['received_at'] : null;
 		$got      = is_string( $received ) ? Time::iso_to_sec( $received ) : ( is_int( $received ) ? $received : null );
@@ -127,13 +143,12 @@ final class MatchPolicy {
 		return array(
 			'transfer_id'     => $id,
 			'wallet'          => $wallet,
-			'provider'        => $provider,
 			'amount_minor'    => self::integer( isset( $data['amount_minor'] ) ? $data['amount_minor'] : null ),
 			'currency'        => isset( $data['currency'] ) && is_string( $data['currency'] ) && '' !== $data['currency'] ? substr( $data['currency'], 0, 8 ) : 'EGP',
-			'payer_key'       => Payer::key_of( $cp ),
+			'payer_key'       => $key,
 			'payer_name'      => '' === $name ? null : $name,
 			'masked'          => false !== strpos( $number, '*' ),
-			'txn'             => in_array( $provider, TxnId::CLAIM_PROVIDERS, true ) ? $canon : null,
+			'txn'             => $canon,
 			'txn_stored'      => $stored,
 			'money_at'        => null !== $got && $got < $now ? $got : $now,
 			'time_ok'         => null === $received || null !== $got,
@@ -144,25 +159,39 @@ final class MatchPolicy {
 			'balance_chain'   => isset( $checks['balance_chain'] ) && is_string( $checks['balance_chain'] ) ? $checks['balance_chain'] : null,
 			'forgery'         => self::forged( $data ),
 			'channel'         => isset( $data['channel'] ) && is_string( $data['channel'] ) ? $data['channel'] : null,
-			'matcher'         => $data,
+			'matcher'         => $matcher,
 		);
 	}
 
 	/**
-	 * The normalised transfer of a stored row (the late path of a typed transaction id, and the advice). Pure.
+	 * The envelope data without the counterparty's `number` and `handle`, for the Matcher of a transfer whose only
+	 * payer identifier is a handle (read_transfer()): the Matcher then reads no payer either, whichever of the two
+	 * fields held the handle. The name stays. Pure.
+	 *
+	 * @param array $data Envelope data with an array counterparty.
+	 * @return array
+	 */
+	private static function without_payer( array $data ): array {
+		unset( $data['counterparty']['number'], $data['counterparty']['handle'] );
+		return $data;
+	}
+
+	/**
+	 * The normalised transfer of a stored row (the late path of a typed transaction id, and the advice). Pure. The
+	 * row keeps no channel: a transfer the phone saw as a notification alone carries `notification_only` in its stored
+	 * risk reasons.
 	 *
 	 * @param array $row Typed qersh_transfers row.
 	 * @return array
 	 */
 	public static function transfer_from_row( array $row ): array {
-		$provider = isset( $row['provider'] ) ? (string) $row['provider'] : '';
-		$stored   = isset( $row['provider_txn_id'] ) ? (string) $row['provider_txn_id'] : null;
-		$payer    = isset( $row['payer_key'] ) && '' !== $row['payer_key'] ? (string) $row['payer_key'] : null;
-		$money    = isset( $row['money_at'] ) ? (int) $row['money_at'] : 0;
-		$amount   = isset( $row['amount_minor'] ) ? (int) $row['amount_minor'] : null;
-		$auto     = isset( $row['auto_confirm_ok'] ) && 1 === (int) $row['auto_confirm_ok'];
-		$reasons  = isset( $row['risk_reasons'] ) && is_array( $row['risk_reasons'] ) ? $row['risk_reasons'] : array();
-		$matcher  = array(
+		$stored  = isset( $row['provider_txn_id'] ) ? (string) $row['provider_txn_id'] : null;
+		$payer   = isset( $row['payer_key'] ) && '' !== $row['payer_key'] ? (string) $row['payer_key'] : null;
+		$money   = isset( $row['money_at'] ) ? (int) $row['money_at'] : 0;
+		$amount  = isset( $row['amount_minor'] ) ? (int) $row['amount_minor'] : null;
+		$auto    = isset( $row['auto_confirm_ok'] ) && 1 === (int) $row['auto_confirm_ok'];
+		$reasons = isset( $row['risk_reasons'] ) && is_array( $row['risk_reasons'] ) ? $row['risk_reasons'] : array();
+		$matcher = array(
 			'transfer_id'     => isset( $row['transfer_id'] ) ? (string) $row['transfer_id'] : '',
 			'amount_minor'    => $amount,
 			'received_at'     => $money,
@@ -172,16 +201,16 @@ final class MatchPolicy {
 		if ( null !== $payer ) {
 			$matcher['payer'] = array( 'key' => $payer );
 		}
+		$notification = in_array( 'notification_only', $reasons, true );
 		return array(
 			'transfer_id'     => $matcher['transfer_id'],
 			'wallet'          => isset( $row['wallet'] ) ? (string) $row['wallet'] : '',
-			'provider'        => $provider,
 			'amount_minor'    => $amount,
 			'currency'        => isset( $row['currency'] ) ? (string) $row['currency'] : 'EGP',
 			'payer_key'       => $payer,
 			'payer_name'      => isset( $row['payer_name'] ) ? $row['payer_name'] : null,
 			'masked'          => isset( $row['reason'] ) && 'masked' === $row['reason'],
-			'txn'             => null !== $stored && in_array( $provider, TxnId::CLAIM_PROVIDERS, true ) ? TxnId::canonical_stored( $provider, $stored ) : null,
+			'txn'             => null !== $stored ? TxnId::canonical_stored( $stored ) : null,
 			'txn_stored'      => $stored,
 			'money_at'        => $money,
 			'time_ok'         => true,
@@ -191,14 +220,26 @@ final class MatchPolicy {
 			'auto_confirm_ok' => $auto,
 			'balance_chain'   => isset( $row['balance_chain'] ) ? $row['balance_chain'] : null,
 			'forgery'         => isset( $row['flag'] ) && 'forgery' === $row['flag'],
-			'channel'         => 'instapay_app' === $provider ? 'notification' : 'sms',
+			'channel'         => $notification ? 'notification' : 'sms',
 			'matcher'         => $matcher,
 		);
 	}
 
 	/**
-	 * The lock of the transfer itself (docs/17 §4.4 step 8): `payer:<key>` when it has a payer, else
-	 * `txn:<provider>:<id>` for a claim provider with a well-formed id, else `trf:<transfer_id>`. Pure.
+	 * The lock of a canonical transaction id: `txn:<id>`. A payerless delivery that carries the id takes it
+	 * (transfer_lock()), and so does the customer who types it (Claims::submit(), Claims::evaluate()), so the two
+	 * paths of rule 4a always meet on the same name. Pure.
+	 *
+	 * @param string $txn Canonical transaction id (TxnId::canonical_stored(), TxnId::canonical_typed()).
+	 * @return string
+	 */
+	public static function txn_lock( string $txn ): string {
+		return 'txn:' . $txn;
+	}
+
+	/**
+	 * The lock of the transfer itself (docs/17 §4.4 step 8): `payer:<key>` when it has a payer, else txn_lock() of
+	 * its canonical transaction id when it has one, else `trf:<transfer_id>`. Pure.
 	 *
 	 * @param array $t Normalised transfer, or a typed qersh_transfers row.
 	 * @return string
@@ -208,15 +249,14 @@ final class MatchPolicy {
 		if ( '' !== $payer ) {
 			return 'payer:' . $payer;
 		}
-		$provider = isset( $t['provider'] ) ? (string) $t['provider'] : '';
-		$txn      = null;
+		$txn = null;
 		if ( array_key_exists( 'txn', $t ) ) {
 			$txn = $t['txn'];
 		} elseif ( isset( $t['provider_txn_id'] ) && is_string( $t['provider_txn_id'] ) ) {
-			$txn = TxnId::canonical_stored( $provider, $t['provider_txn_id'] );
+			$txn = TxnId::canonical_stored( $t['provider_txn_id'] );
 		}
-		if ( is_string( $txn ) && '' !== $txn && in_array( $provider, TxnId::CLAIM_PROVIDERS, true ) ) {
-			return 'txn:' . $provider . ':' . $txn;
+		if ( is_string( $txn ) && '' !== $txn ) {
+			return self::txn_lock( $txn );
 		}
 		return 'trf:' . ( isset( $t['transfer_id'] ) ? (string) $t['transfer_id'] : '' );
 	}
@@ -226,7 +266,7 @@ final class MatchPolicy {
 	 * lock while customers may type ids, the payer locks of the live claimants of the hint read before. Pure.
 	 *
 	 * @param array $t         Normalised transfer.
-	 * @param array $claimants Hint: qersh_orders rows whose claim_txn is the transfer's id (with `provider`).
+	 * @param array $claimants Hint: qersh_orders rows whose claim_txn is the transfer's id, on any wallet.
 	 * @param bool  $txn_entry store.txn_entry.
 	 * @return string[]
 	 */
@@ -236,7 +276,7 @@ final class MatchPolicy {
 			return $names;
 		}
 		$payers = array();
-		foreach ( self::orange_claimants( $claimants ) as $row ) {
+		foreach ( $claimants as $row ) {
 			if ( in_array( (string) $row['state'], self::LIVE_STATES, true ) && '' !== (string) $row['payer_key'] ) {
 				$payers[ 'payer:' . $row['payer_key'] ] = true;
 			}
@@ -305,7 +345,7 @@ final class MatchPolicy {
 
 	/**
 	 * Whether an amount pays exactly what remains, the remainder rounded up to the pound when the store allows it
-	 * (a *9# transfer carries no piasters). Pure.
+	 * (a wallet transfer made by code carries whole pounds only). Pure.
 	 *
 	 * @param int      $remainder Remainder in piasters.
 	 * @param int|null $amount    Amount, or null when the message has none.
@@ -340,7 +380,8 @@ final class MatchPolicy {
 
 	/**
 	 * The one reason of a transfer the phone did not confirm on its own (auto_confirm_ok false), by the reasons
-	 * table of docs/17 §4.6. The notification channel is decided here, since the row does not keep it. Pure.
+	 * table of docs/17 §4.6. A notification alone is told by the channel of the message or by `notification_only` in
+	 * its reasons, never by the type of the wallet. Pure.
 	 *
 	 * @param array $t Normalised transfer.
 	 * @return string
@@ -370,7 +411,7 @@ final class MatchPolicy {
 		if ( null !== $has( array( 'amount_over_limit' ) ) ) {
 			return 'amount_over_limit';
 		}
-		$notification = 'notification' === $t['channel'] || 'instapay_app' === $t['provider'];
+		$notification = 'notification' === $t['channel'] || in_array( 'notification_only', $reasons, true );
 		if ( $notification && null !== $has( array( 'notification_only', 'balance_unavailable' ) ) ) {
 			return 'notification_only';
 		}
@@ -388,10 +429,10 @@ final class MatchPolicy {
 	 * The decision on a transfer.received (docs/17 §4.6): the rules before the Matcher, the literal Matcher, then the
 	 * rules after it. Pure.
 	 *
-	 * Context: `now`; `config` (options()); `duplicates` (rows of Transfers::find_by_txn( provider, txn_stored ));
+	 * Context: `now`; `config` (options()); `duplicates` (rows of Transfers::find_by_txn( txn_stored ), store-wide);
 	 * `payer_rows` (rows of the payer from at − 2 × late to at + skew, with `kind`); `wallet_rows` (rows of the
 	 * wallet in the same span, for a transfer without a payer); `claimants` (rows whose claim_txn is the transfer's
-	 * canonical id, with `provider` of their wallet and, for live ones, `kind`).
+	 * canonical id, on any wallet, and, for live ones, `kind`).
 	 *
 	 * @param array $t   Normalised transfer.
 	 * @param array $ctx Context.
@@ -433,12 +474,13 @@ final class MatchPolicy {
 	}
 
 	/**
-	 * Rule 4a (docs/17 §4.6): the transaction id a customer typed, for a transfer without a payer. Counts the
-	 * claimants, then runs gates 1 to 6 on the one live claimant X. Pure.
+	 * Rule 4a (docs/17 §4.6): the transaction id a customer typed, for a transfer without a payer (no payer key: a
+	 * name only, a masked number, or nothing) that carries a transaction id. Counts the claimants, on every wallet,
+	 * then runs gates 1 to 6 on the one live claimant X: a claimant whose order chose another wallet fails gate 1.
+	 * Pure.
 	 *
-	 * Context: as decide(); the claimants carry `kind` (rule 3 under the payer lock: gate 2), `provider` of their
-	 * wallet, and `price_minor` live for normal and expired ones. With `$advice` (the suggestions of the admin
-	 * screens) auto_confirm_ok is ignored.
+	 * Context: as decide(); the claimants carry `kind` (rule 3 under the payer lock: gate 2) and `price_minor` live
+	 * for normal and expired ones. With `$advice` (the suggestions of the admin screens) auto_confirm_ok is ignored.
 	 *
 	 * @param array $t      Normalised transfer.
 	 * @param array $ctx    Context.
@@ -456,7 +498,7 @@ final class MatchPolicy {
 
 		$live = array();
 		$dead = array();
-		foreach ( self::orange_claimants( isset( $ctx['claimants'] ) ? $ctx['claimants'] : array() ) as $row ) {
+		foreach ( isset( $ctx['claimants'] ) ? $ctx['claimants'] : array() as $row ) {
 			if ( in_array( (string) $row['state'], self::LIVE_STATES, true ) ) {
 				$live[] = $row;
 			} else {
@@ -642,9 +684,9 @@ final class MatchPolicy {
 	 * The suggestions of "Needs decision", computed when read (docs/17 §4.6), so they include an id typed after the
 	 * transfer arrived. Pure.
 	 *
-	 * - The owners of the transaction id (claim_txn = the transfer's canonical id, on an Orange wallet) come first,
-	 *   pinned. Gates 1 to 6 run as advice only, ignoring auto_confirm_ok: `ready` (the badge and the ready button)
-	 *   only when one owner passes them all; otherwise each owner shows its reason. A dead order is never preselected.
+	 * - The owners of the transaction id (claim_txn = the transfer's canonical id, on any wallet) come first, pinned.
+	 *   Gates 1 to 6 run as advice only, ignoring auto_confirm_ok: `ready` (the badge and the ready button) only when
+	 *   one owner passes them all; otherwise each owner shows its reason. A dead order is never preselected.
 	 * - Then the payer's live orders (or, without a payer, the live orders of the wallet created before the money
 	 *   whose remainder fits the amount), those that fit the amount first.
 	 *
@@ -674,7 +716,7 @@ final class MatchPolicy {
 		if ( null !== $t['txn'] ) {
 			$live = array();
 			$dead = array();
-			foreach ( self::orange_claimants( isset( $ctx['claimants'] ) ? $ctx['claimants'] : array() ) as $row ) {
+			foreach ( isset( $ctx['claimants'] ) ? $ctx['claimants'] : array() as $row ) {
 				if ( in_array( (string) $row['state'], self::LIVE_STATES, true ) ) {
 					$live[] = $row;
 				} else {
@@ -786,7 +828,9 @@ final class MatchPolicy {
 	}
 
 	/**
-	 * Rule 2: an earlier transfer with the same provider and stored transaction id, and a verdict. Pure.
+	 * Rule 2: an earlier transfer with the same stored transaction id, on any wallet of the store, and a verdict.
+	 * Store-wide is the safe side: two operators' ids that happen to be equal only send the later transfer to review,
+	 * and a wallet deleted and added again keeps its earlier ids. Pure.
 	 *
 	 * @param array $t    Normalised transfer.
 	 * @param array $rows Rows of Transfers::find_by_txn().
@@ -800,7 +844,7 @@ final class MatchPolicy {
 			if ( (string) $row['transfer_id'] === (string) $t['transfer_id'] ) {
 				continue;
 			}
-			if ( (string) $row['provider'] !== (string) $t['provider'] || (string) $row['provider_txn_id'] !== (string) $t['txn_stored'] ) {
+			if ( (string) $row['provider_txn_id'] !== (string) $t['txn_stored'] ) {
 				continue;
 			}
 			if ( isset( $row['outcome'] ) ) {
@@ -899,7 +943,7 @@ final class MatchPolicy {
 		$amount = $t['amount_minor'];
 		$ids    = array();
 		if ( ! empty( $cfg['txn_entry'] ) && null !== $t['txn'] ) {
-			foreach ( self::orange_claimants( isset( $ctx['claimants'] ) ? $ctx['claimants'] : array() ) as $row ) {
+			foreach ( isset( $ctx['claimants'] ) ? $ctx['claimants'] : array() as $row ) {
 				$ids[] = (int) $row['order_id'];
 			}
 		}
@@ -1055,6 +1099,8 @@ final class MatchPolicy {
 
 	/**
 	 * The transfer has no payer key: the Matcher (which then never reads the candidates), rule 4a, rule 5, rule 4.
+	 * Rule 4a runs for every payerless transfer that carries a transaction id while customers may type ids, a masked
+	 * one included; the `txn` variant of rule 4 says that no customer has typed this id yet.
 	 *
 	 * @param array $t   Normalised transfer.
 	 * @param array $ctx Context.
@@ -1076,7 +1122,7 @@ final class MatchPolicy {
 		if ( 'unmatched' !== $m['status'] ) {
 			return self::review( 'no_payer', array(), null ); // The Matcher never matches without a payer.
 		}
-		$claim_rule = ! empty( $cfg['txn_entry'] ) && null !== $t['txn'] && in_array( $t['provider'], TxnId::CLAIM_PROVIDERS, true );
+		$claim_rule = ! empty( $cfg['txn_entry'] ) && null !== $t['txn'];
 		if ( $claim_rule ) {
 			$claim = self::claim_decision( $t, $ctx );
 			if ( 'none' !== $claim['outcome'] ) {
@@ -1088,11 +1134,10 @@ final class MatchPolicy {
 			return self::personal();
 		}
 		$code         = ! empty( $t['masked'] ) ? 'masked' : 'no_payer';
-		$orange       = in_array( $t['provider'], TxnId::CLAIM_PROVIDERS, true ) && ! empty( $cfg['txn_entry'] );
-		$out          = self::review( $code, 'no_payer' === $code ? array( 'orange' => $orange ) : array(), null, $takers );
+		$out          = self::review( $code, 'no_payer' === $code ? array( 'txn' => $claim_rule ) : array(), null, $takers );
 		$out['reply'] = array(
 			'status' => 'review',
-			'note'   => 'masked' === $code ? 'no_payer' : ( $orange ? 'no_payer_orange' : 'no_payer' ),
+			'note'   => 'no_payer' === $code && $claim_rule ? 'no_payer_txn' : 'no_payer',
 		);
 		return $out;
 	}
@@ -1136,22 +1181,6 @@ final class MatchPolicy {
 			}
 		}
 		return empty( $fit ) ? self::ids( $rows ) : $fit;
-	}
-
-	/**
-	 * The claimants on an Orange wallet (a claim provider), in their order.
-	 *
-	 * @param array $rows Rows with `provider`.
-	 * @return array
-	 */
-	private static function orange_claimants( array $rows ): array {
-		$out = array();
-		foreach ( $rows as $row ) {
-			if ( isset( $row['provider'] ) && in_array( $row['provider'], TxnId::CLAIM_PROVIDERS, true ) ) {
-				$out[] = $row;
-			}
-		}
-		return $out;
 	}
 
 	/**
@@ -1309,7 +1338,8 @@ final class MatchPolicy {
 	 *
 	 * @param string $code Reason code (or a risk reason).
 	 * @param array  $args `N`, `M` (order ids), `T` (transfer id), `Z` (piasters), `W` (wallet id), `form`, `values`,
-	 *                     `orange` (bool, for no_payer).
+	 *                     `txn` (bool, for no_payer: the transfer carries a transaction id that customers may type,
+	 *                     and none has).
 	 * @return string
 	 */
 	public static function reason_text( string $code, array $args = array() ): string {
@@ -1349,7 +1379,7 @@ final class MatchPolicy {
 	 * A note of the reply to the phone, or of a status update, plain text of at most 200 characters. The two notes of
 	 * a transfer without the payer's number are the reason's sentence without its full stop, as the kit writes them.
 	 *
-	 * @param string|null $code Note code: a reason, or `personal`, `no_payer_orange`, `by_claim`, `attached`,
+	 * @param string|null $code Note code: a reason, or `personal`, `no_payer_txn`, `by_claim`, `attached`,
 	 *                          `paid_late`.
 	 * @param array       $args Arguments of reason_text().
 	 * @return string|null
@@ -1362,8 +1392,8 @@ final class MatchPolicy {
 			case 'no_payer':
 				$text = self::without_period( self::reason_text( 'no_payer' ) );
 				break;
-			case 'no_payer_orange':
-				$text = self::without_period( self::reason_text( 'no_payer', array( 'orange' => true ) ) );
+			case 'no_payer_txn':
+				$text = self::without_period( self::reason_text( 'no_payer', array( 'txn' => true ) ) );
 				break;
 			case 'by_claim':
 				$text = __( 'Matched by the transaction id the customer entered', 'qersh-for-woocommerce' );
@@ -1500,7 +1530,7 @@ final class MatchPolicy {
 		$form    = isset( $args['form'] ) ? (string) $args['form'] : '';
 		$variant = '';
 		if ( 'no_payer' === $code ) {
-			$variant = empty( $args['orange'] ) ? '' : 'orange';
+			$variant = empty( $args['txn'] ) ? '' : 'txn';
 		} elseif ( 'txn_contested' === $code ) {
 			$variant = 'competitor' === $form ? 'competitor' : 'two';
 		} elseif ( 'txn_window' === $code ) {
@@ -1574,7 +1604,8 @@ final class MatchPolicy {
 	}
 
 	/**
-	 * The name the admin screens give a wallet of the configuration (its label, or its type), or its id.
+	 * The name the admin screens give a wallet of the configuration (View::wallet_name(): its label, or its number),
+	 * or its id.
 	 *
 	 * @param string $wallet Wallet id.
 	 * @return string

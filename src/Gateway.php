@@ -14,8 +14,8 @@ defined( 'ABSPATH' ) || exit;
  * the wallet's notification to the store, which confirms the order. No money passes through this plugin.
  *
  * Settings (woocommerce_qersh_settings) hold display texts only: enabled, title, description, instructions
- * (docs/17 §4.2). Everything that changes behaviour is in qersh_wc_config. The title left empty follows the enabled
- * wallets: "E-wallet transfer", or "E-wallet or InstaPay transfer" with an InstaPay wallet.
+ * (docs/17 §4.2). Everything that changes behaviour is in qersh_wc_config. The title left empty is "E-wallet
+ * transfer", whatever the enabled wallets are: the method never depends on the wallet type.
  */
 class Gateway extends \WC_Payment_Gateway {
 
@@ -104,9 +104,9 @@ class Gateway extends \WC_Payment_Gateway {
 			'title'        => array(
 				'title'       => __( 'Title', 'qersh-for-woocommerce' ),
 				'type'        => 'safe_text',
-				'description' => __( 'What customers see at checkout. Leave it empty to follow your enabled wallets.', 'qersh-for-woocommerce' ),
+				'description' => __( 'What customers see at checkout. Leave it empty to use the default title.', 'qersh-for-woocommerce' ),
 				'default'     => '',
-				'placeholder' => self::default_title( $this->has_instapay() ),
+				'placeholder' => self::default_title(),
 				'desc_tip'    => true,
 			),
 			'description'  => array(
@@ -127,7 +127,7 @@ class Gateway extends \WC_Payment_Gateway {
 	}
 
 	/**
-	 * The title of the method: the merchant's, or the default for the enabled wallets.
+	 * The title of the method: the merchant's, or the default.
 	 *
 	 * @return string
 	 */
@@ -137,31 +137,18 @@ class Gateway extends \WC_Payment_Gateway {
 			return $title;
 		}
 		if ( ! did_action( 'init' ) ) {
-			return $this->has_instapay() ? 'E-wallet or InstaPay transfer' : 'E-wallet transfer';
+			return 'E-wallet transfer';
 		}
-		return self::default_title( $this->has_instapay() );
+		return self::default_title();
 	}
 
 	/**
-	 * The default title (docs/17 §3).
+	 * The default title (docs/17 §3): one for every wallet.
 	 *
-	 * @param bool $instapay Whether an InstaPay wallet is enabled.
 	 * @return string
 	 */
-	public static function default_title( bool $instapay ): string {
-		return $instapay
-			? __( 'E-wallet or InstaPay transfer', 'qersh-for-woocommerce' )
-			: __( 'E-wallet transfer', 'qersh-for-woocommerce' );
-	}
-
-	/**
-	 * Whether an enabled wallet is an InstaPay one.
-	 *
-	 * @return bool
-	 */
-	private function has_instapay(): bool {
-		$config = Plugin::instance()->config();
-		return PayerField::has_instapay( PayerField::enabled_wallets( isset( $config['wallets'] ) && is_array( $config['wallets'] ) ? $config['wallets'] : array() ) );
+	public static function default_title(): string {
+		return __( 'E-wallet transfer', 'qersh-for-woocommerce' );
 	}
 
 	/**
@@ -214,7 +201,8 @@ class Gateway extends \WC_Payment_Gateway {
 
 	/**
 	 * The fields under the method: description, the wallet choice and the payer field. On "Pay for order" of an
-	 * Orange Cash order, the line that sends a customer who already transferred to the order page (docs/17 §4.10).
+	 * order whose page takes a transaction id, the line that sends a customer who already transferred to the order
+	 * page (docs/17 §4.10).
 	 *
 	 * @return void
 	 */
@@ -240,8 +228,9 @@ class Gateway extends \WC_Payment_Gateway {
 	}
 
 	/**
-	 * Lines for "Pay for order" of one of our orders: the transaction-id line of an Orange Cash order, and why the
-	 * order cannot be cancelled once a transaction id was entered.
+	 * Lines for "Pay for order" of one of our orders, when its wallet takes transaction ids
+	 * (Checkout::txn_entry_open(), the same gate for every wallet): the transaction-id line, and why the order cannot
+	 * be cancelled once a transaction id was entered.
 	 *
 	 * @param Plugin    $plugin The plugin.
 	 * @param \WC_Order $order  Order.
@@ -297,7 +286,7 @@ class Gateway extends \WC_Payment_Gateway {
 
 		$result = PayerField::check( $payer, $wallet, $all );
 		if ( ! $result['ok'] ) {
-			$result['message'] = PayerField::message( $result['error'], PayerField::has_instapay( PayerField::enabled_wallets( $all ) ) );
+			$result['message'] = PayerField::message( $result['error'] );
 		}
 		return $result;
 	}

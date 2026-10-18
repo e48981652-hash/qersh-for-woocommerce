@@ -23,16 +23,6 @@ final class View {
 	const TIME_ZONE = 'Africa/Cairo';
 
 	/**
-	 * Wallet types in the order of the "Add wallet" list (docs/17 §5 step 2).
-	 */
-	const PROVIDER_ORDER = array( 'vodafone_cash', 'etisalat_cash', 'orange_cash', 'instapay_app', 'bank_nbe', 'bank_cib', 'bank_egbank' );
-
-	/**
-	 * Wallet types whose transfers wait for the merchant's decision (no payer number, or no balance to check).
-	 */
-	const DECISION_PROVIDERS = array( 'instapay_app', 'bank_nbe', 'bank_cib', 'bank_egbank' );
-
-	/**
 	 * A value isolated inside admin HTML (docs/17 §7, Format::ltr()): numbers, addresses, transaction ids and
 	 * fingerprints left to right, and a localized time by its first strong letter.
 	 *
@@ -162,33 +152,12 @@ final class View {
 	}
 
 	/**
-	 * The name of a wallet type.
-	 *
-	 * @param string $provider Provider id.
-	 * @return string Plain text.
-	 */
-	public static function provider_label( $provider ): string {
-		switch ( (string) $provider ) {
-			case 'vodafone_cash':
-				return __( 'Vodafone Cash', 'qersh-for-woocommerce' );
-			case 'etisalat_cash':
-				return __( 'e& money', 'qersh-for-woocommerce' );
-			case 'orange_cash':
-				return __( 'Orange Cash', 'qersh-for-woocommerce' );
-			case 'instapay_app':
-				return __( 'InstaPay', 'qersh-for-woocommerce' );
-			case 'bank_nbe':
-				return __( 'National Bank of Egypt', 'qersh-for-woocommerce' );
-			case 'bank_cib':
-				return __( 'CIB', 'qersh-for-woocommerce' );
-			case 'bank_egbank':
-				return __( 'Egyptian Gulf Bank (EGBANK)', 'qersh-for-woocommerce' );
-		}
-		return (string) $provider;
-	}
-
-	/**
-	 * The display name of a configured wallet: its label, or its type.
+	 * The display name of a configured wallet: its label, or "E-wallet 0100 123 4567" from its number when the
+	 * merchant left the label empty. Never the wallet type: the plugin does not know it (a `provider` an old entry
+	 * still carries is ignored). The number's groups are joined by U+00A0, which the bidi algorithm keeps in order
+	 * inside Arabic text (a single common separator between two numbers, rule W4), so the plain name needs no
+	 * isolate. '' for a wallet with neither (a bare snapshot). Feeds every screen, the alert email and the label of
+	 * the developer's link.
 	 *
 	 * @param array|null $wallet Wallet entry.
 	 * @return string Plain text.
@@ -197,11 +166,26 @@ final class View {
 		if ( ! is_array( $wallet ) ) {
 			return '';
 		}
-		$label = isset( $wallet['label'] ) && is_string( $wallet['label'] ) ? trim( $wallet['label'] ) : '';
-		if ( '' !== $label ) {
-			return $label;
+		if ( self::has_label( $wallet ) ) {
+			return trim( $wallet['label'] );
 		}
-		return self::provider_label( isset( $wallet['provider'] ) ? $wallet['provider'] : '' );
+		$address = isset( $wallet['receive_address'] ) && is_string( $wallet['receive_address'] ) ? trim( $wallet['receive_address'] ) : '';
+		if ( '' === $address ) {
+			return '';
+		}
+		/* translators: %s: wallet number, such as 0100 123 4567. */
+		return sprintf( __( 'E-wallet %s', 'qersh-for-woocommerce' ), Format::number( $address ) );
+	}
+
+	/**
+	 * Whether a wallet entry has a name of the merchant's own: a label that is not empty or white space. Without
+	 * one, wallet_name() is made from the number, so a screen that shows the name shows the number only once.
+	 *
+	 * @param array|null $wallet Wallet entry.
+	 * @return bool
+	 */
+	public static function has_label( $wallet ): bool {
+		return is_array( $wallet ) && isset( $wallet['label'] ) && is_string( $wallet['label'] ) && '' !== trim( $wallet['label'] );
 	}
 
 	/**

@@ -2,10 +2,10 @@
  * Qersh for WooCommerce: the wallet transfer method in the Blocks checkout (docs/17 §4.1, §6.1).
  *
  * Plain JavaScript with wp.element.createElement (no build step). Draws the wallet choice (when more than one
- * wallet is enabled), the confirmation line of each wallet, the "Wallet number / InstaPay address" switch (only
- * with an InstaPay wallet) and the payer field, then sends paymentMethodData { qersh_payer, qersh_wallet } in
- * onPaymentSetup. canMakePayment() follows Gateway::is_available(): EGP, a wallet, and the store's minimum and
- * maximum. The server checks the field again (Gateway::validate_fields()).
+ * wallet is enabled: the merchant's label and the number, never a wallet type), the confirmation line and the payer
+ * field (an e-wallet number only, as PayerField::check() takes it), then sends paymentMethodData { qersh_payer,
+ * qersh_wallet } in onPaymentSetup. canMakePayment() follows Gateway::is_available(): EGP, a wallet, and the store's
+ * minimum and maximum. The server checks the field again (Gateway::validate_fields()).
  */
 ( function ( wp, wc, N ) {
 	'use strict';
@@ -25,7 +25,6 @@
 	var data = wc.wcSettings.getSetting( 'qersh_data', {} ) || {};
 	var wallets = Array.isArray( data.wallets ) ? data.wallets : [];
 	var storeNumbers = Array.isArray( data.store_numbers ) ? data.store_numbers : [];
-	var instapayOn = !! data.instapay;
 	var title = decode( data.title || '' ) || __( 'E-wallet transfer', 'qersh-for-woocommerce' );
 
 	function findWallet( id ) {
@@ -37,15 +36,7 @@
 		return null;
 	}
 
-	function allDecision() {
-		for ( var i = 0; i < wallets.length; i++ ) {
-			if ( ! wallets[ i ].decision ) {
-				return false;
-			}
-		}
-		return true;
-	}
-
+	// PayerField::message().
 	function messageFor( code ) {
 		if ( code === 'wallet_choice' ) {
 			return __( 'Choose the wallet you will transfer to.', 'qersh-for-woocommerce' );
@@ -53,9 +44,7 @@
 		if ( code === 'payer_store' ) {
 			return __( "This is the store's wallet number. Enter the wallet number you will transfer from.", 'qersh-for-woocommerce' );
 		}
-		return instapayOn
-			? __( 'Enter an Egyptian wallet number of 11 digits starting with 01, or an InstaPay address like name@instapay.', 'qersh-for-woocommerce' )
-			: __( 'Enter an Egyptian wallet number of 11 digits starting with 01.', 'qersh-for-woocommerce' );
+		return __( 'Enter an Egyptian wallet number of 11 digits starting with 01.', 'qersh-for-woocommerce' );
 	}
 
 	function Label() {
@@ -75,11 +64,9 @@
 	// billing phone never replaces a number the customer typed (docs/17 §4.1, §6.1), as in payer-field.js.
 	var memo = {
 		wallet: wallets.length === 1 ? wallets[ 0 ].id : '',
-		kind: '',
 		value: '',
 		touched: false,
-		prefilled: '',
-		kindChosen: false
+		prefilled: ''
 	};
 
 	// useState whose value starts from the memo and is written back to it on every change.
@@ -102,11 +89,6 @@
 		var walletState = useMemoState( 'wallet', single ? wallets[ 0 ].id : ( findWallet( memo.wallet ) ? memo.wallet : '' ) );
 		var wallet = walletState[ 0 ];
 		var setWallet = walletState[ 1 ];
-		var chosen = findWallet( wallet );
-
-		var kindState = useMemoState( 'kind', instapayOn && memo.kind ? memo.kind : ( instapayOn && chosen && chosen.instapay ? 'instapay' : 'number' ) );
-		var kind = kindState[ 0 ];
-		var setKind = kindState[ 1 ];
 
 		var valueState = useMemoState( 'value', memo.value );
 		var value = valueState[ 0 ];
@@ -126,28 +108,29 @@
 
 		// The billing phone fills the field only while it is empty and untouched.
 		useEffect( function () {
-			if ( memo.touched || kind !== 'number' ) {
+			if ( memo.touched ) {
 				return;
 			}
 			if ( value !== '' && value !== memo.prefilled ) {
 				return;
 			}
-			var n = N.normalizePayer( phone );
-			if ( n && n.indexOf( '@' ) === -1 && ! N.isStoreNumber( n, storeNumbers ) ) {
+			var n = N.numberOf( phone );
+			if ( n && ! N.isStoreNumber( n, storeNumbers ) ) {
 				memo.prefilled = n;
 				setValue( n );
 			} else if ( memo.prefilled && value === memo.prefilled ) {
 				memo.prefilled = '';
 				setValue( '' );
 			}
-		}, [ phone, kind ] ); // eslint-disable-line react-hooks/exhaustive-deps
+		}, [ phone ] ); // eslint-disable-line react-hooks/exhaustive-deps
 
 		// The payer field alone (the wallet choice is walletMissing()).
 		function check( sending ) {
 			if ( value.trim() === '' && ! sending ) {
 				return { ok: true };
 			}
-			var res = N.checkPayer( value, instapayOn, storeNumbers );
+			// No address: a number only, as PayerField::check() takes it.
+			var res = N.checkPayer( value, storeNumbers );
 			if ( ! res.ok ) {
 				return { ok: false, message: messageFor( res.error ) };
 			}
@@ -192,19 +175,11 @@
 					meta: { paymentMethodData: { qersh_payer: res.payer, qersh_wallet: res.wallet } }
 				};
 			} );
-		}, [ registration.onPaymentSetup, value, wallet, kind ] ); // eslint-disable-line react-hooks/exhaustive-deps
+		}, [ registration.onPaymentSetup, value, wallet ] ); // eslint-disable-line react-hooks/exhaustive-deps
 
 		function chooseWallet( w ) {
 			setWallet( w.id );
 			setWalletError( '' );
-			if ( ! memo.kindChosen && instapayOn ) {
-				var next = w.instapay ? 'instapay' : 'number';
-				setKind( next );
-				if ( next === 'instapay' && ! memo.touched && value === memo.prefilled ) {
-					memo.prefilled = '';
-					setValue( '' );
-				}
-			}
 		}
 
 		var children = [];
@@ -248,13 +223,13 @@
 								chooseWallet( w );
 							}
 						} ),
+						// The merchant's label when there is one, and the number either way.
 						el(
 							'label',
 							{ htmlFor: id },
-							el( 'span', { className: 'qersh-wallet__name' }, w.label || w.name ),
-							' ',
-							el( 'bdi', { dir: 'ltr' }, w.display ),
-							w.label && w.name ? el( 'span', { className: 'qersh-wallet__type' }, ' (' + w.name + ')' ) : null
+							w.label ? el( 'span', { className: 'qersh-wallet__name' }, w.label ) : null,
+							w.label ? ' ' : null,
+							el( 'bdi', { dir: 'ltr' }, w.display )
 						),
 						el( 'p', { className: 'qersh-confirm', id: id + '_confirm' }, w.confirm )
 					);
@@ -263,79 +238,17 @@
 			) );
 		}
 
-		if ( instapayOn ) {
-			children.push( el(
-				'fieldset',
-				{ className: 'qersh-kind', key: 'kind' },
-				el( 'legend', { className: 'qersh-kind__legend' }, __( 'Wallet number / InstaPay address', 'qersh-for-woocommerce' ) ),
-				el(
-					'label',
-					{ htmlFor: 'qersh_payer_kind_blocks_number' },
-					el( 'input', {
-						type: 'radio',
-						name: 'qersh_payer_kind_blocks',
-						id: 'qersh_payer_kind_blocks_number',
-						value: 'number',
-						checked: kind === 'number',
-						onChange: function () {
-							memo.kindChosen = true;
-							setKind( 'number' );
-						}
-					} ),
-					' ',
-					__( 'Wallet number', 'qersh-for-woocommerce' )
-				),
-				el(
-					'label',
-					{ htmlFor: 'qersh_payer_kind_blocks_instapay' },
-					el( 'input', {
-						type: 'radio',
-						name: 'qersh_payer_kind_blocks',
-						id: 'qersh_payer_kind_blocks_instapay',
-						value: 'instapay',
-						checked: kind === 'instapay',
-						onChange: function () {
-							memo.kindChosen = true;
-							setKind( 'instapay' );
-							if ( ! memo.touched && value === memo.prefilled ) {
-								memo.prefilled = '';
-								setValue( '' );
-							}
-						}
-					} ),
-					' ',
-					__( 'InstaPay address', 'qersh-for-woocommerce' )
-				)
-			) );
-		}
-
-		// The help follows the switch: an address has its own line (no wallet confirms an address on its own).
-		var decision = chosen ? !! chosen.decision : allDecision();
-		var help;
-		if ( kind === 'instapay' ) {
-			help = __( 'Enter the InstaPay address you will transfer from, so the store can check your transfer more easily.', 'qersh-for-woocommerce' );
-		} else if ( decision ) {
-			help = __( 'Enter the number you will transfer from, so the store can check your transfer more easily.', 'qersh-for-woocommerce' );
-		} else {
-			help = __( 'We recognize your transfer by this number, so send it from this number only.', 'qersh-for-woocommerce' );
-		}
 		children.push( el(
 			'div',
 			{ className: 'qersh-payer__row' + ( error ? ' has-error' : '' ), key: 'field' },
-			el(
-				'label',
-				{ htmlFor: 'qersh_payer_blocks' },
-				kind === 'instapay'
-					? __( 'InstaPay address you will transfer from', 'qersh-for-woocommerce' )
-					: __( 'Wallet number you will transfer from', 'qersh-for-woocommerce' )
-			),
+			el( 'label', { htmlFor: 'qersh_payer_blocks' }, __( 'Wallet number you will transfer from', 'qersh-for-woocommerce' ) ),
 			el( 'input', {
 				type: 'text',
 				className: 'qersh-payer__input',
 				id: 'qersh_payer_blocks',
 				dir: 'ltr',
-				inputMode: kind === 'instapay' ? 'email' : 'numeric',
-				autoComplete: kind === 'instapay' ? 'off' : 'tel',
+				inputMode: 'numeric',
+				autoComplete: 'tel',
 				maxLength: 80,
 				value: value,
 				'aria-required': 'true',
@@ -355,7 +268,7 @@
 					setError( res.ok ? '' : res.message );
 				}
 			} ),
-			el( 'span', { className: 'qersh-help', id: 'qersh_payer_blocks_help' }, help ),
+			el( 'span', { className: 'qersh-help', id: 'qersh_payer_blocks_help' }, __( 'Transfer from this number, so the store can match your transfer to your order.', 'qersh-for-woocommerce' ) ),
 			el( 'span', { className: 'qersh-error', id: 'qersh_payer_blocks_error', role: 'alert', hidden: ! error }, error )
 		) );
 

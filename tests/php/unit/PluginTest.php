@@ -49,6 +49,35 @@ final class PluginTest extends TestCase {
 	}
 
 	/**
+	 * Each script and style is versioned by the plugin version and its file's time, so a cached copy from another
+	 * build of the same version is never mixed with this one; a missing file gets the plugin version alone. Every
+	 * enqueue of our own files goes through it.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_asset_version(): void {
+		define( 'QERSH_WC_DIR', QERSH_WC_TESTS_ROOT . '/' );
+		define( 'QERSH_WC_VERSION', '0.1.0' );
+		$files = array( 'assets/js/txn-normalize.js', 'assets/js/payer-field.js', 'assets/js/thankyou.js', 'assets/js/checkout-blocks.js', 'assets/js/admin.js', 'assets/css/front.css', 'assets/css/admin.css' );
+		foreach ( $files as $file ) {
+			$this->assertSame( '0.1.0.' . filemtime( QERSH_WC_TESTS_ROOT . '/' . $file ), Plugin::asset_version( $file ), $file );
+		}
+		$this->assertSame( Plugin::asset_version( 'assets/js/thankyou.js' ), Plugin::asset_version( '/assets/js/thankyou.js' ) );
+		$this->assertSame( '0.1.0', Plugin::asset_version( 'assets/js/missing.js' ) );
+		$this->assertSame( '0.1.0', Plugin::asset_version( 'assets/js' ), 'a folder is no file' );
+
+		$sources = '';
+		foreach ( array( 'src/Checkout.php', 'src/BlocksIntegration.php', 'src/Admin/Module.php' ) as $source ) {
+			$sources .= (string) file_get_contents( QERSH_WC_TESTS_ROOT . '/' . $source );
+		}
+		$this->assertSame( 0, preg_match( '/wp_(?:register|enqueue)_(?:script|style)\([^;]*QERSH_WC_VERSION/', $sources ), 'no asset of ours is versioned by QERSH_WC_VERSION alone' );
+		foreach ( $files as $file ) {
+			$this->assertStringContainsString( "Plugin::asset_version( '" . $file . "' )", $sources, $file );
+		}
+	}
+
+	/**
 	 * tables_ready() follows the schema version option, and turns false for the rest of the request once a query
 	 * found one of the tables missing.
 	 *

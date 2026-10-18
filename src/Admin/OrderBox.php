@@ -8,13 +8,12 @@
 namespace QershPay\WooCommerce\Admin;
 
 use QershPay\WooCommerce\Claims;
-use QershPay\WooCommerce\Core\TxnId;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
  * Payer number, wallet, deadline, the transfers applied, the forgery flag, the last delivery from the phone and, for
- * an Orange Cash order, the transaction id its customer entered and what became of it.
+ * an order whose customer entered a transaction id (any wallet), that id and what became of it.
  */
 final class OrderBox {
 
@@ -140,12 +139,16 @@ final class OrderBox {
 			$lines[] = esc_html__( 'The wait for the transfer has not started yet. Send the customer the payment page (Order actions → “Send order details to customer”) so they enter the number they will transfer from, or attach their transfer from “Personal transfers” if they transferred before the order was created.', 'qersh-for-woocommerce' );
 		}
 		if ( '' !== $payer ) {
-			/* translators: %s: wallet number or InstaPay address. */
+			/* translators: %s: wallet number. */
 			$lines[] = sprintf( esc_html__( 'Payer number: %s', 'qersh-for-woocommerce' ), View::ltr( $payer ) );
 		}
-		if ( null !== $wallet ) {
-			/* translators: 1: wallet name, 2: wallet number or address. */
+		if ( null !== $wallet && View::has_label( $wallet ) ) {
+			/* translators: 1: wallet name, 2: wallet number. */
 			$lines[] = sprintf( esc_html__( 'Wallet: %1$s (%2$s)', 'qersh-for-woocommerce' ), esc_html( View::wallet_name( $wallet ) ), View::ltr( (string) $wallet['receive_address'] ) );
+		} elseif ( null !== $wallet ) {
+			// No name of its own: its name would be the number again.
+			/* translators: %s: wallet number. */
+			$lines[] = sprintf( esc_html__( 'Wallet: %s', 'qersh-for-woocommerce' ), View::ltr( (string) $wallet['receive_address'] ) );
 		} elseif ( '' !== $wallet_id ) {
 			/* translators: %s: wallet id. */
 			$lines[] = sprintf( esc_html__( 'Wallet: %s (deleted)', 'qersh-for-woocommerce' ), View::ltr( $wallet_id ) );
@@ -180,7 +183,7 @@ final class OrderBox {
 			}
 		}
 
-		$claim = self::claim_line( $order, $row, null !== $wallet ? (string) $wallet['provider'] : '' );
+		$claim = self::claim_line( $order, $row );
 		if ( null !== $claim ) {
 			$lines[] = $claim;
 		}
@@ -211,14 +214,15 @@ final class OrderBox {
 	}
 
 	/**
-	 * "Transaction id from the customer: {T} ({time}) · {status}" for an Orange Cash order.
+	 * "Transaction id from the customer: {T} ({time}) · {status}" for any order whose customer entered one. The
+	 * transfers with that id are looked up store-wide, as rule 2 does: one on another wallet still waits for the
+	 * merchant (txn_wallet), so the line names where it waits.
 	 *
-	 * @param \WC_Order  $order    Order.
-	 * @param array|null $row      qersh_orders row.
-	 * @param string     $provider The order wallet's type.
+	 * @param \WC_Order  $order Order.
+	 * @param array|null $row   qersh_orders row.
 	 * @return string|null Escaped HTML.
 	 */
-	private static function claim_line( $order, $row, string $provider ): ?string {
+	private static function claim_line( $order, $row ): ?string {
 		$txn = is_array( $row ) && ! empty( $row['claim_txn'] ) ? (string) $row['claim_txn'] : (string) $order->get_meta( '_qersh_claim_txn' );
 		if ( '' === $txn ) {
 			return null;
@@ -227,8 +231,7 @@ final class OrderBox {
 		$order_id = (int) $order->get_id();
 		$status   = esc_html__( 'No transfer with this transaction id has arrived yet', 'qersh-for-woocommerce' );
 		try {
-			$provider = '' !== $provider ? $provider : TxnId::CLAIM_PROVIDERS[0];
-			foreach ( Module::plugin()->transfers()->find_by_txn( $provider, $txn ) as $transfer ) {
+			foreach ( Module::plugin()->transfers()->find_by_txn( $txn ) as $transfer ) {
 				if ( (int) $transfer['order_id'] === $order_id && in_array( $transfer['outcome'], array( 'matched', 'partial', 'overpaid', 'attached' ), true ) ) {
 					/* translators: %s: transfer id. */
 					$status = sprintf( esc_html__( 'Matched transfer %s', 'qersh-for-woocommerce' ), View::ltr( (string) $transfer['transfer_id'] ) );

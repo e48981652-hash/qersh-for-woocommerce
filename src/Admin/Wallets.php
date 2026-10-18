@@ -63,13 +63,7 @@ final class Wallets {
 			return;
 		}
 		if ( ! $constant && ( $add || ( '' !== $edit && null !== $plugin->wallet( $edit ) ) ) ) {
-			Module::template(
-				'wallet-form',
-				array(
-					'wallet'    => '' !== $edit ? $plugin->wallet( $edit ) : null,
-					'providers' => self::provider_options(),
-				)
-			);
+			Module::template( 'wallet-form', array( 'wallet' => '' !== $edit ? $plugin->wallet( $edit ) : null ) );
 			return;
 		}
 
@@ -84,6 +78,7 @@ final class Wallets {
 			array(
 				'constant' => $constant,
 				'issues'   => $constant ? $store->issues() : array(),
+				'dropped'  => $constant ? array() : $store->dropped(),
 				'cards'    => $cards,
 				'deleted'  => self::deleted_rows( $constant ),
 				'add_url'  => Module::page_url( 'wallets', array( 'add' => 1 ) ),
@@ -92,34 +87,19 @@ final class Wallets {
 	}
 
 	/**
-	 * Wallet types for the "Add wallet" list.
-	 *
-	 * @return array<string, string>
-	 */
-	public static function provider_options(): array {
-		$out = array();
-		foreach ( View::PROVIDER_ORDER as $provider ) {
-			$out[ $provider ] = View::provider_label( $provider );
-		}
-		return $out;
-	}
-
-	/**
-	 * Everything the card of one wallet shows (docs/17 §5 steps 2 and 5, §4.8, §4.9). Values are escaped HTML or
-	 * plain text as named; the template escapes the plain ones.
+	 * Everything the card of one wallet shows (docs/17 §5 steps 2 and 5, §4.8, §4.9): its name and number, never a
+	 * wallet type. Values are escaped HTML or plain text as named; the template escapes the plain ones.
 	 *
 	 * @param array $wallet Wallet entry.
 	 * @return array
 	 */
 	public static function card( array $wallet ): array {
-		$plugin   = Module::plugin();
-		$id       = (string) $wallet['id'];
-		$provider = isset( $wallet['provider'] ) ? (string) $wallet['provider'] : '';
-		$secrets  = $plugin->secrets();
-		$config   = $plugin->config();
-		$now      = time();
-		$row      = null;
-		$has_any  = false;
+		$plugin  = Module::plugin();
+		$id      = (string) $wallet['id'];
+		$secrets = $plugin->secrets();
+		$config  = $plugin->config();
+		$row     = null;
+		$has_any = false;
 		try {
 			$row = $plugin->tables_ready() ? $plugin->wallets()->get( $id ) : null;
 			if ( $plugin->tables_ready() ) {
@@ -133,7 +113,7 @@ final class Wallets {
 		$constant  = $secrets->from_constant( $id );
 		$store_url = Diagnostics::store_url( $id );
 		$label     = View::wallet_name( $wallet );
-		$keyless   = self::setup_link( $store_url, $label, $provider, null );
+		$keyless   = self::setup_link( $store_url, $label, null );
 		$lines     = array();
 
 		// The key.
@@ -171,18 +151,8 @@ final class Wallets {
 			$lines[] = sprintf( esc_html__( 'The phone says the Qersh subscription is in its grace period until %s; after that it does not send transfers until it is renewed.', 'qersh-for-woocommerce' ), View::ltr( View::time( (int) $row['grace_until'] ) ) );
 		}
 
-		// Advice by wallet type.
-		$advice = array();
-		if ( in_array( $provider, View::DECISION_PROVIDERS, true ) ) {
-			$advice[] = esc_html__( 'Transfers of this wallet arrive in “Needs a decision” with the suggested order, so you confirm them with one click after you see the money in the wallet or bank app.', 'qersh-for-woocommerce' );
-		}
-		if ( 'orange_cash' === $provider ) {
-			$advice[] = esc_html__( 'Orange Cash messages usually do not name the payer\'s number. Your customer enters the transaction id on their order page after transferring, and the order is confirmed on its own after “Sync balance” in the Qersh app. Without it, the transfer goes to “Needs a decision”.', 'qersh-for-woocommerce' );
-			$advice[] = esc_html__( 'Use this Orange Cash line for online store orders only: a transfer you receive for a sale in your shop or on WhatsApp is filed as a “personal transfer”, and an order created after it never takes it.', 'qersh-for-woocommerce' );
-			if ( empty( $config['store']['txn_entry'] ) ) {
-				$advice[] = esc_html__( 'Customers are not asked for the transaction id (Qersh → Settings), so Orange Cash transfers wait for your decision.', 'qersh-for-woocommerce' );
-			}
-		}
+		// One paragraph for every wallet: what happens depends on what each message shows, never on the wallet type.
+		$advice = array( self::advice( ! empty( $config['store']['txn_entry'] ) ) );
 
 		$warnings = array();
 		$home     = Diagnostics::url_parts( rest_url() );
@@ -196,46 +166,65 @@ final class Wallets {
 		$alerts = $plugin->diagnostics()->wallet_alerts( $id );
 
 		return array(
-			'id'             => $id,
-			'label'          => $label,
-			'provider'       => $provider,
-			'provider_label' => View::provider_label( $provider ),
-			'address'        => isset( $wallet['receive_address'] ) ? (string) $wallet['receive_address'] : '',
-			'enabled'        => ! empty( $wallet['enabled'] ),
-			'store_url'      => $store_url,
-			'keyless'        => $keyless,
-			'lines'          => $lines,
-			'advice'         => $advice,
-			'warnings'       => $warnings,
-			'alerts'         => $alerts,
+			'id'         => $id,
+			'label'      => $label,
+			// Without a name of its own the label is made from the number, which the card then shows only once.
+			'named'      => View::has_label( $wallet ),
+			'address'    => isset( $wallet['receive_address'] ) ? (string) $wallet['receive_address'] : '',
+			'enabled'    => ! empty( $wallet['enabled'] ),
+			'store_url'  => $store_url,
+			'keyless'    => $keyless,
+			'lines'      => $lines,
+			'advice'     => $advice,
+			'warnings'   => $warnings,
+			'alerts'     => $alerts,
 			// No button when the app would refuse the store URL: the warning above says why.
-			'key_link'       => ! $constant && ! empty( $config['store']['allow_key_link'] ) && null !== $keyless,
-			'paste'          => ! $constant,
-			'pending'        => ! $constant && is_array( $fp ) && ! empty( $fp['pending_fp'] ) ? array(
+			'key_link'   => ! $constant && ! empty( $config['store']['allow_key_link'] ) && null !== $keyless,
+			'paste'      => ! $constant,
+			'pending'    => ! $constant && is_array( $fp ) && ! empty( $fp['pending_fp'] ) ? array(
 				'fp' => (string) $fp['pending_fp'],
 				'at' => (int) $fp['pending_at'],
 			) : null,
-			'editable'       => ! $plugin->config_store()->is_constant(),
-			'edit_url'       => Module::page_url( 'wallets', array( 'edit' => $id ) ),
-			'delete_url'     => Module::page_url( 'wallets', array( 'delete' => $id ) ),
+			'editable'   => ! $plugin->config_store()->is_constant(),
+			'edit_url'   => Module::page_url( 'wallets', array( 'edit' => $id ) ),
+			'delete_url' => Module::page_url( 'wallets', array( 'delete' => $id ) ),
 		);
 	}
 
 	/**
-	 * A developer's link for a wallet (docs/17 §4.1 SetupLink row): url, label and provider, and the key only for the
-	 * generated link. Never `events`. Null when the app would refuse the URL.
+	 * The card's advice, the same for every wallet (docs/17 §4.6): a transfer whose message shows the sender's number
+	 * confirms its order on its own; the others wait for the merchant's click, or for the transaction id the
+	 * customer enters when store.txn_entry is on; a transfer no open order waits for is a personal transfer.
 	 *
-	 * @param string      $url      Store URL.
-	 * @param string      $label    Wallet name.
-	 * @param string      $provider Wallet type.
-	 * @param string|null $secret   Key, or null for the key-less link.
+	 * @param bool $txn_entry store.txn_entry.
+	 * @return string Escaped HTML.
+	 */
+	private static function advice( bool $txn_entry ): string {
+		$parts = array(
+			esc_html__( 'A transfer whose message shows the sender\'s number confirms its order on its own.', 'qersh-for-woocommerce' ),
+			$txn_entry
+				? esc_html__( 'The others (the sender\'s number masked or missing) wait for your click in “Needs a decision”, or for the transaction id the customer enters on their order page after transferring.', 'qersh-for-woocommerce' )
+				: esc_html__( 'The others (the sender\'s number masked or missing) wait for your click in “Needs a decision”: customers are not asked for the transaction id (Qersh → Settings).', 'qersh-for-woocommerce' ),
+			esc_html__( 'Use this wallet for online store orders only: a transfer that no open order waits for, such as one for a sale in your shop or on WhatsApp, is filed as a “personal transfer”, and an order created after it never takes it on its own.', 'qersh-for-woocommerce' ),
+		);
+		return implode( ' ', $parts );
+	}
+
+	/**
+	 * A developer's link for a wallet (docs/17 §4.1 SetupLink row): url and label, and the key only for the
+	 * generated link. Never `provider`: the plugin does not know the wallet type, and the Qersh app asks for it when
+	 * the link is opened (Core\SetupLink keeps its optional provider; nothing here passes one). Never `events`. Null
+	 * when the app would refuse the URL.
+	 *
+	 * @param string      $url    Store URL.
+	 * @param string      $label  Wallet name.
+	 * @param string|null $secret Key, or null for the key-less link.
 	 * @return string|null
 	 */
-	public static function setup_link( string $url, string $label, string $provider, ?string $secret ): ?string {
+	public static function setup_link( string $url, string $label, ?string $secret ): ?string {
 		$params = array(
-			'url'      => $url,
-			'label'    => $label,
-			'provider' => $provider,
+			'url'   => $url,
+			'label' => $label,
 		);
 		if ( null !== $secret ) {
 			$params['secret'] = $secret;
@@ -289,7 +278,8 @@ final class Wallets {
 				$button = __( 'Restore with a new key', 'qersh-for-woocommerce' );
 			}
 			$restorable = ! $constant || in_array( (string) $id, $in_constant, true );
-			if ( ! $constant && ( ! isset( $snapshot['provider'] ) || ! isset( $snapshot['receive_address'] ) ) ) {
+			// A snapshot needs its number to come back; a `provider` saved by an older version is ignored.
+			if ( ! $constant && ! isset( $snapshot['receive_address'] ) ) {
 				$restorable = false;
 			}
 			$out[] = array(
@@ -365,7 +355,8 @@ final class Wallets {
 	 */
 
 	/**
-	 * Adds or edits a wallet (admin-post qersh_wc_wallet_save).
+	 * Adds or edits a wallet (admin-post qersh_wc_wallet_save): its number and name only. A wallet has no type in the
+	 * plugin (the Qersh app asks for it on the phone), and a `provider` an edited entry still carries is dropped.
 	 */
 	public static function handle_save(): void {
 		Module::check_action( 'qersh_wc_wallet_save' );
@@ -376,9 +367,8 @@ final class Wallets {
 			Module::flash( 'error', esc_html__( 'These settings are set in wp-config.php (QERSH_WC_CONFIG) and cannot be changed here.', 'qersh-for-woocommerce' ) );
 			Module::redirect( 'wallets' );
 		}
-		$id       = isset( $_POST['wallet'] ) ? sanitize_key( wp_unslash( $_POST['wallet'] ) ) : '';
-		$provider = isset( $_POST['provider'] ) ? sanitize_key( wp_unslash( $_POST['provider'] ) ) : '';
-		$address  = isset( $_POST['receive_address'] ) ? sanitize_text_field( wp_unslash( $_POST['receive_address'] ) ) : '';
+		$id      = isset( $_POST['wallet'] ) ? sanitize_key( wp_unslash( $_POST['wallet'] ) ) : '';
+		$address = isset( $_POST['receive_address'] ) ? sanitize_text_field( wp_unslash( $_POST['receive_address'] ) ) : '';
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- ConfigStore::clean_label() runs sanitize_text_field() and cuts to LABEL_MAX, the rule ConfigStore::clean() applies to an import.
 		$label   = isset( $_POST['label'] ) && is_string( $_POST['label'] ) ? ConfigStore::clean_label( wp_unslash( $_POST['label'] ) ) : '';
 		$enabled = ! empty( $_POST['enabled'] );
@@ -393,25 +383,19 @@ final class Wallets {
 		}
 		$is_new = null === $index;
 		if ( $is_new ) {
-			if ( ! in_array( $provider, Config::PROVIDERS, true ) ) {
-				Module::flash( 'error', esc_html__( 'Choose the wallet type.', 'qersh-for-woocommerce' ) );
-				Module::redirect( 'wallets', array( 'add' => 1 ) );
-			}
 			$id = self::new_id( $wallets );
-		} else {
-			$provider = (string) $wallets[ $index ]['provider']; // The type of a wallet never changes: it is in the phone's link.
 		}
 		// Our own translated words first: Core\Config's messages are developer English with JSON paths.
-		$problem = self::address_problem( $provider, $address );
+		$problem = self::address_problem( $address );
 		if ( '' !== $problem ) {
 			Module::flash( 'error', esc_html( self::address_problem_text( $problem ) ) );
 			Module::redirect( 'wallets', $is_new ? array( 'add' => 1 ) : array( 'edit' => $id ) );
 		}
 		$normal = Payer::normalize( $address );
-		$entry  = array(
+		// An empty name stays empty: View::wallet_name() then shows "E-wallet" and the number.
+		$entry = array(
 			'id'              => $id,
-			'label'           => '' === $label ? View::provider_label( $provider ) : $label,
-			'provider'        => $provider,
+			'label'           => $label,
 			'receive_address' => null === $normal ? $address : $normal,
 			'enabled'         => $enabled,
 		);
@@ -730,7 +714,7 @@ final class Wallets {
 		$key = Config::new_key();
 		// The link is built before the key is stored: when the app would refuse the store URL nothing is kept, so
 		// no key is left that nobody holds (docs/17 §4.8 rule 2).
-		$link = self::setup_link( Diagnostics::store_url( $id ), View::wallet_name( $wallet ), (string) $wallet['provider'], $key );
+		$link = self::setup_link( Diagnostics::store_url( $id ), View::wallet_name( $wallet ), $key );
 		if ( null === $link ) {
 			unset( $key );
 			wp_send_json(
@@ -850,20 +834,17 @@ final class Wallets {
 	}
 
 	/**
-	 * What is wrong with the address customers transfer to, by Core\Config's rule for receive_address: '' when it
-	 * is fine, `instapay` for an InstaPay wallet without a name@instapay address, `number` for any other wallet
-	 * without an 11-digit number. Pure.
+	 * What is wrong with the number customers transfer to, by Core\Config's rule for receive_address (the same for
+	 * every wallet): '' when Payer::normalize() reads an e-wallet number `01XXXXXXXXX` from it (+20…, spaces and
+	 * Arabic-Indic digits included), `number` for anything else (a payment address or another handle, a masked or
+	 * short number, nothing). Pure.
 	 *
-	 * @param string $provider Wallet type.
-	 * @param string $address  What the merchant typed.
+	 * @param string $address What the merchant typed.
 	 * @return string
 	 */
-	public static function address_problem( string $provider, string $address ): string {
+	public static function address_problem( string $address ): string {
 		$normal = Payer::normalize( $address );
-		if ( 'instapay_app' === $provider ) {
-			return null !== $normal && false !== strpos( $normal, '@' ) ? '' : 'instapay';
-		}
-		return null !== $normal && false === strpos( $normal, '@' ) ? '' : 'number';
+		return null !== $normal && 1 === preg_match( '/^01[0-9]{9}$/D', $normal ) ? '' : 'number';
 	}
 
 	/**
@@ -873,9 +854,7 @@ final class Wallets {
 	 * @return string Plain text.
 	 */
 	public static function address_problem_text( string $problem ): string {
-		if ( 'instapay' === $problem ) {
-			return __( 'Enter the InstaPay address customers transfer to, such as name@instapay.', 'qersh-for-woocommerce' );
-		}
+		unset( $problem ); // One code, one message.
 		return __( 'Enter the wallet number customers transfer to: 11 digits starting with 01, such as 01001234567.', 'qersh-for-woocommerce' );
 	}
 

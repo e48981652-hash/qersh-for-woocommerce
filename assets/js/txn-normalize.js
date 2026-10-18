@@ -2,10 +2,12 @@
  * Qersh for WooCommerce: the normalisers the storefront scripts share, copies of the PHP ones.
  *
  * - normalizePayer() is Core\Payer::normalize() (normalizePayer of the Qersh core).
- * - canonicalTyped() is Core\TxnId::canonical_typed() (docs/17 §4.10 steps 1-7), and longRun() is
- *   Core\TxnId::long_run(). Both pairs read tests/vectors/txn-normalize.json (tests/js/txn-normalize.test.mjs runs
- *   this file on it).
- * - checkPayer() and isStoreNumber() are PayerField::check() and PayerField::is_store_number() for one field.
+ * - canonicalTyped() is Core\TxnId::canonical_typed() (docs/17 §4.10), the same for every e-wallet: the plugin never
+ *   knows a wallet's type, so an id is read into one canonical form and compared by exact equality. Both read
+ *   tests/vectors/txn-normalize.json (tests/js/txn-normalize.test.mjs runs this file on it). normalizeText() is its
+ *   steps 2 and 3.
+ * - numberOf(), checkPayer() and isStoreNumber() are PayerField::number_of(), PayerField::check() and
+ *   PayerField::is_store_number() for one field: the payer is an e-wallet number, never an address.
  * - hasRtl() is Format::has_rtl() on text: whether a value holds a right-to-left letter, so a localized time is
  *   isolated by its first strong letter and a number stays left to right (docs/17 §7).
  *
@@ -27,11 +29,9 @@
 }( typeof self !== 'undefined' ? self : this, function () {
 	'use strict';
 
-	// The shapes of Core\TxnId (PATTERNS, LENGTHS, CLASSES); the page passes the server's copy, these are the defaults.
-	var SHAPES = {
-		orange_cash: { pattern: '^(?:[0-9]{14}|[0-9]{10})$', lengths: [ 14, 10 ], cls: '[0-9]' }
-	};
-
+	// The limits of Core\TxnId: the shortest and longest canonical id, and the longest input (the input's maxlength).
+	var MIN_ID = 6;
+	var MAX_ID = 40;
 	var MAX_LENGTH = 400;
 
 	// The escape of one code point, so the tables below stay plain ASCII in this file.
@@ -66,10 +66,30 @@
 		[ 0xFB1F, 0xFB28 ], [ 0xFB2A, 0xFB4F ], [ 0xFB50, 0xFD3D ], [ 0xFD50, 0xFDFF ], [ 0xFE70, 0xFEFC ]
 	] ).source );
 
-	// Separators of the compact attempt, and the one character that may join two runs on a line (TxnId::SEPARATORS).
-	var COMPACT_DROP = /[ \-.#:\n]/g;
-	var SEPARATOR_CLASS = '[ \\-.#:]';
+	// The separators (TxnId::SEPARATORS): an id typed alone may be split by any of them, and one of them alone between
+	// two runs on a line of a message joins them. COMPACT_DROP also drops the line breaks.
+	var SEPARATORS = ' -.#:';
 	var SEPARATOR_ALL = /[ \-.#:]/g;
+	var COMPACT_DROP = /[ \-.#:\n]/g;
+	var TRIM = /^[ \-.#:\n]+|[ \-.#:\n]+$/g;
+
+	// What a message holds that is never an id, replaced by a line break in this order (TxnId::BREAKS): links, dates
+	// with a day of 1 to 31 and a month of 1 to 12 (either order), times with an hour of 0 to 23 and minutes and
+	// seconds of 0 to 59 (so digits that are no date or time are never cut from an id), amounts with decimals, and
+	// numbers followed by a currency (the Arabic word for pound in both spellings, its abbreviation, EGP, LE). Group 1
+	// keeps the character before the match; no look-behind (older Safari), so the patterns are the same in both
+	// languages.
+	var BREAKS = [
+		/()(?:[Hh][Tt][Tt][Pp][Ss]?:\/\/|[Ww][Ww][Ww]\.)[^ \n]*/g,
+		/(^|[^0-9])(?:[0-9]{4}-(?:0?[1-9]|1[0-2])-(?:0?[1-9]|[12][0-9]|3[01])|(?:(?:0?[1-9]|[12][0-9]|3[01])[\/\-](?:0?[1-9]|1[0-2])|(?:0?[1-9]|1[0-2])[\/\-](?:0?[1-9]|[12][0-9]|3[01]))[\/\-][0-9]{2,4})(?![0-9])/g,
+		/(^|[^0-9])(?:[01]?[0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?(?![0-9])/g,
+		/(^|[^0-9.])[0-9]+[.,][0-9]{1,2}(?![0-9])/g,
+		/(^|[^0-9])[0-9]+(?= ?(?:جني[هة]|ج\.م|[Ee][Gg][Pp]|[Ll]\.?[Ee])(?![A-Za-z]))/g
+	];
+
+	// A mobile number in a form an id is never read as, with an Egyptian mobile prefix 010, 011, 012 or 015
+	// (TxnId::PHONE).
+	var PHONE = /^(?:01[0125][0-9]{8}|(?:\+|00)?200?1[0125][0-9]{8})$/;
 
 	// Characters read as their Latin forms (TxnId::normalize_text()), by code point; the digits are added below.
 	var MAP = {};
@@ -153,25 +173,33 @@
 	}
 
 	/**
-	 * Whether a normalised payer is one of the store's wallets: the same last nine digits, or the same address.
+	 * The payer number of a value (PayerField::number_of()): its normalised form when it is an e-wallet number
+	 * (`01xxxxxxxxx`), else null. A handle, which normalizePayer() reads, is no payer here.
 	 *
-	 * @param {string}   payer        Normalised payer.
-	 * @param {string[]} storeNumbers The store's receive addresses.
+	 * @param {*} raw Value.
+	 * @return {string|null} Normalised number.
+	 */
+	function numberOf( raw ) {
+		var payer = normalizePayer( raw );
+		return payer !== null && /^01[0-9]{9}$/.test( payer ) ? payer : null;
+	}
+
+	/**
+	 * Whether a payer number is one of the store's wallet numbers: the same last nine digits
+	 * (PayerField::is_store_number()). Anything that is not a number, on either side, is never a store number.
+	 *
+	 * @param {string}   payer        Normalised payer number (numberOf()).
+	 * @param {string[]} storeNumbers The store's wallet numbers.
 	 * @return {boolean} True for a store wallet.
 	 */
 	function isStoreNumber( payer, storeNumbers ) {
-		var handle = payer.indexOf( '@' ) !== -1;
+		if ( typeof payer !== 'string' || ! /^01[0-9]{9}$/.test( payer ) ) {
+			return false;
+		}
 		var list = storeNumbers || [];
 		for ( var i = 0; i < list.length; i++ ) {
-			var own = normalizePayer( list[ i ] );
-			if ( own === null ) {
-				continue;
-			}
-			if ( handle ) {
-				if ( own === payer ) {
-					return true;
-				}
-			} else if ( own.indexOf( '@' ) === -1 && own.slice( -9 ) === payer.slice( -9 ) ) {
+			var own = numberOf( list[ i ] );
+			if ( own !== null && own.slice( -9 ) === payer.slice( -9 ) ) {
 				return true;
 			}
 		}
@@ -179,16 +207,16 @@
 	}
 
 	/**
-	 * The payer field check of PayerField::check() (without the wallet choice).
+	 * The payer field check of PayerField::check() (without the wallet choice): an e-wallet number in any spelling,
+	 * never one of the store's own. An address or a bare name is refused like any other text.
 	 *
 	 * @param {string}   raw          Field value.
-	 * @param {boolean}  instapay     Whether an InstaPay address is accepted.
-	 * @param {string[]} storeNumbers The store's receive addresses.
+	 * @param {string[]} storeNumbers The store's wallet numbers.
 	 * @return {{ok: boolean, payer: (string|undefined), error: (string|undefined)}} Result.
 	 */
-	function checkPayer( raw, instapay, storeNumbers ) {
-		var payer = normalizePayer( raw );
-		if ( payer === null || ( payer.indexOf( '@' ) !== -1 && ! instapay ) ) {
+	function checkPayer( raw, storeNumbers ) {
+		var payer = numberOf( raw );
+		if ( payer === null ) {
 			return { ok: false, error: 'payer_invalid' };
 		}
 		if ( isStoreNumber( payer, storeNumbers ) ) {
@@ -212,20 +240,46 @@
 		return { ok: false, error: code };
 	}
 
+	/**
+	 * Steps 2 and 3 of TxnId::canonical_typed() (TxnId::normalize_text()): Arabic-Indic and Persian digits to Latin,
+	 * bidi and invisible marks and tatweel removed, line breaks to "\n", other white space to a space, and the Arabic
+	 * and full-width separators to their Latin forms.
+	 *
+	 * @param {string} text Text.
+	 * @return {string} Normalised text.
+	 */
 	function normalizeText( text ) {
+		var s = String( text === null || text === undefined ? '' : text );
 		var out = '';
-		for ( var i = 0; i < text.length; i++ ) {
-			var ch = text.charAt( i );
+		for ( var i = 0; i < s.length; i++ ) {
+			var ch = s.charAt( i );
 			out += has( MAP, ch ) ? MAP[ ch ] : ch;
 		}
 		return out.replace( DROPPED, '' ).replace( LINE_BREAKS, '\n' ).replace( SPACES, ' ' );
 	}
 
+	// Step 4 (TxnId::hard_breaks()).
+	function hardBreaks( text ) {
+		for ( var i = 0; i < BREAKS.length; i++ ) {
+			text = text.replace( BREAKS[ i ], '$1\n' );
+		}
+		return text;
+	}
+
+	// TxnId::canonical(): [0-9A-Za-z] only, a digit, MIN_ID to MAX_ID characters, in upper case; else null.
+	function canonical( value ) {
+		if ( value.length < MIN_ID || value.length > MAX_ID || ! /^[0-9A-Za-z]+$/.test( value ) || ! /[0-9]/.test( value ) ) {
+			return null;
+		}
+		return value.toUpperCase();
+	}
+
+	// TxnId::own_numbers(): the payer key and store numbers that normalise to a mobile number, as a set.
 	function ownNumbers( payerKey, storeNumbers ) {
 		var own = {};
 		var list = [ payerKey ].concat( storeNumbers || [] );
 		for ( var i = 0; i < list.length; i++ ) {
-			var n = typeof list[ i ] === 'string' ? normalizePayer( list[ i ] ) : null;
+			var n = typeof list[ i ] === 'string' ? numberOf( list[ i ] ) : null;
 			if ( n !== null ) {
 				own[ n ] = true;
 			}
@@ -233,56 +287,93 @@
 		return own;
 	}
 
-	function isOwn( value, own ) {
+	// TxnId::is_number(): a mobile number, or the payer key or a store number in any spelling.
+	function isNumber( value, own ) {
+		if ( ! /^\+?[0-9]+$/.test( value ) ) {
+			return false;
+		}
+		if ( PHONE.test( value ) ) {
+			return true;
+		}
 		var n = normalizePayer( value );
 		return n !== null && has( own, n );
 	}
 
-	function isPhone( value, hasShape ) {
-		if ( ! /^\+?[0-9]+$/.test( value ) ) {
-			return false;
+	// Step 5 (TxnId::id_alone()): the id typed alone, a refusal, or null to read the text as a message.
+	function idAlone( text, own ) {
+		var line = text.replace( TRIM, '' );
+		if ( line.indexOf( '\n' ) !== -1 ) {
+			return null;
 		}
-		var n = normalizePayer( value );
-		if ( n === null || n.indexOf( '@' ) !== -1 ) {
-			return false;
+		var compact = line.replace( SEPARATOR_ALL, '' );
+		if ( ! /^\+?[0-9A-Za-z]+$/.test( compact ) ) {
+			return null;
 		}
-		return ! hasShape || /^(?:\+|00)/.test( value );
+		var runs = line.match( /[0-9A-Za-z]+/g ) || [];
+		for ( var i = 0; i < runs.length; i++ ) {
+			if ( ! /[0-9]/.test( runs[ i ] ) || ( runs.length > 1 && isNumber( runs[ i ], own ) ) ) {
+				return null;
+			}
+		}
+		if ( isNumber( compact, own ) ) {
+			return error( 'qersh_txn_wallet_number' );
+		}
+		var id = canonical( compact );
+		return id === null ? null : { ok: true, txn: id };
 	}
 
-	// Step 5 (TxnId::numbers()): a group of runs joined by one separator on a line gives its joined value when that
-	// has one of `lengths`, else each of its runs.
-	function numbers( shape, text, lengths ) {
-		var values = [];
-		var group = new RegExp( shape.cls + '+(?:' + SEPARATOR_CLASS + shape.cls + '+)*', 'g' );
-		var run = new RegExp( shape.cls + '+', 'g' );
+	// Step 6 (TxnId::numbers()): runs with a digit joined by one separator on a line form a group, which a word or a
+	// number ends (the number is a value of its own); a group gives its runs joined, or each run past MAX_ID.
+	function numbers( text, own ) {
+		var groups = [];
+		var group = [];
+		var end = -1;
+		var re = /[0-9A-Za-z]+/g;
 		var m;
-		while ( ( m = group.exec( text ) ) !== null ) {
-			var g = m[ 0 ];
-			var joined = g.replace( SEPARATOR_ALL, '' );
-			if ( joined !== g && lengths.indexOf( joined.length ) !== -1 ) {
-				values.push( joined );
+		while ( ( m = re.exec( text ) ) !== null ) {
+			var run = m[ 0 ];
+			if ( ! /[0-9]/.test( run ) || isNumber( run, own ) ) {
+				groups.push( group );
+				group = [];
+				if ( /[0-9]/.test( run ) ) {
+					groups.push( [ run ] );
+				}
 				continue;
 			}
-			var runs = g.match( run ) || [];
-			for ( var i = 0; i < runs.length; i++ ) {
-				values.push( runs[ i ] );
+			if ( group.length === 0 || m.index !== end + 1 || SEPARATORS.indexOf( text.charAt( end ) ) === -1 ) {
+				groups.push( group );
+				group = [];
 			}
+			group.push( run );
+			end = m.index + run.length;
+		}
+		groups.push( group );
+
+		var values = [];
+		for ( var i = 0; i < groups.length; i++ ) {
+			var joined = groups[ i ].join( '' );
+			if ( joined === '' ) {
+				continue;
+			}
+			if ( joined.length > MAX_ID ) {
+				values = values.concat( groups[ i ] );
+				continue;
+			}
+			values.push( joined );
 		}
 		return values;
 	}
 
 	/**
-	 * Reads the transaction id out of what a customer typed or pasted (TxnId::canonical_typed()).
+	 * Reads the transaction id out of what a customer typed or pasted (TxnId::canonical_typed()), whatever the
+	 * wallet: the id alone, split by spaces or `- . # :`, or the whole wallet message.
 	 *
-	 * @param {string}   provider     Provider of the order's wallet.
-	 * @param {*}        raw          What the customer wrote.
-	 * @param {?string}  payerKey     The order's payer key.
-	 * @param {string[]} storeNumbers The store's wallet numbers.
-	 * @param {Object=}  shapes       Shapes by provider (defaults to the built-in copy).
+	 * @param {*}         raw          What the customer wrote.
+	 * @param {?string=}  payerKey     The order's payer key ('' or null when it has none).
+	 * @param {string[]=} storeNumbers The store's wallet numbers.
 	 * @return {{ok: boolean, txn: (string|undefined), error: (string|undefined)}} Result.
 	 */
-	function canonicalTyped( provider, raw, payerKey, storeNumbers, shapes ) {
-		var table = shapes || SHAPES;
+	function canonicalTyped( raw, payerKey, storeNumbers ) {
 		if ( raw === null || raw === undefined ) {
 			return error( 'qersh_txn_empty' );
 		}
@@ -293,36 +384,28 @@
 			return error( 'qersh_txn_too_long' );
 		}
 		var text = normalizeText( raw );
-		var compact = text.replace( COMPACT_DROP, '' );
-		if ( compact === '' ) {
+		if ( text.replace( COMPACT_DROP, '' ) === '' ) {
 			return error( 'qersh_txn_empty' );
 		}
-		if ( ! has( table, provider ) ) {
-			return error( 'qersh_txn_format' );
-		}
-		var shape = table[ provider ];
+		text = hardBreaks( text );
 		var own = ownNumbers( payerKey, storeNumbers );
-		var matches = new RegExp( shape.pattern ).test( compact );
-		if ( isOwn( compact, own ) || isPhone( compact, matches ) ) {
-			return error( 'qersh_txn_wallet_number' );
+
+		var alone = idAlone( text, own );
+		if ( alone !== null ) {
+			return alone;
 		}
-		if ( matches ) {
-			return { ok: true, txn: compact };
-		}
+
 		var candidates = [];
 		var excluded = 0;
-		var values = numbers( shape, text, shape.lengths );
+		var values = numbers( text, own );
 		for ( var i = 0; i < values.length; i++ ) {
-			var v = values[ i ];
-			if ( shape.lengths.indexOf( v.length ) === -1 ) {
-				continue;
-			}
-			if ( isOwn( v, own ) || isPhone( v, true ) ) {
+			if ( isNumber( values[ i ], own ) ) {
 				excluded++;
 				continue;
 			}
-			if ( candidates.indexOf( v ) === -1 ) {
-				candidates.push( v );
+			var id = canonical( values[ i ] );
+			if ( id !== null && candidates.indexOf( id ) === -1 ) {
+				candidates.push( id );
 			}
 		}
 		if ( candidates.length === 1 ) {
@@ -334,41 +417,16 @@
 		return error( excluded > 0 ? 'qersh_txn_wallet_number' : 'qersh_txn_format' );
 	}
 
-	/**
-	 * The first number one or two characters longer than the provider's longest id (TxnId::long_run(), the second
-	 * drift trigger of docs/17 §4.9): read as canonicalTyped() reads candidates, with those two lengths, a mobile
-	 * number left out. thankyou.js sends it alone after a refusal, so the server counts it.
-	 *
-	 * @param {string}  provider Provider of the order's wallet.
-	 * @param {*}       raw      What the customer wrote.
-	 * @param {Object=} shapes   Shapes by provider (defaults to the built-in copy).
-	 * @return {?string} The digits, or null.
-	 */
-	function longRun( provider, raw, shapes ) {
-		var table = shapes || SHAPES;
-		if ( typeof raw !== 'string' || raw.length > MAX_LENGTH || ! has( table, provider ) ) {
-			return null;
-		}
-		var shape = table[ provider ];
-		var longest = Math.max.apply( null, shape.lengths );
-		var lengths = [ longest + 1, longest + 2 ];
-		var values = numbers( shape, normalizeText( raw ), lengths );
-		for ( var i = 0; i < values.length; i++ ) {
-			if ( lengths.indexOf( values[ i ].length ) !== -1 && ! isPhone( values[ i ], false ) ) {
-				return values[ i ];
-			}
-		}
-		return null;
-	}
-
 	return {
-		SHAPES: SHAPES,
+		MIN_ID: MIN_ID,
+		MAX_ID: MAX_ID,
 		MAX_LENGTH: MAX_LENGTH,
+		normalizeText: normalizeText,
 		normalizePayer: normalizePayer,
+		numberOf: numberOf,
 		isStoreNumber: isStoreNumber,
 		checkPayer: checkPayer,
 		canonicalTyped: canonicalTyped,
-		longRun: longRun,
 		hasRtl: hasRtl
 	};
 } ) );

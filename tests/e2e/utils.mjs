@@ -79,38 +79,55 @@ export function state() {
 	return JSON.parse(readFileSync(STATE_FILE, 'utf8'));
 }
 
-export function wallet(provider) {
-	const w = state().wallets.find((x) => x.provider === provider);
-	if (!w) throw new Error(`no ${provider} wallet in the e2e state`);
+/**
+ * A test wallet of the job by its label (tests/e2e/setup/wallets.php: `main`, the store number 01001234567, and
+ * `second`). A wallet has no type: the plugin never knows which operator is behind a number.
+ */
+export function wallet(label = 'main') {
+	const w = state().wallets.find((x) => x.label === label);
+	if (!w) throw new Error(`no wallet labelled "${label}" in the e2e state`);
 	return w;
 }
 
 export const storeNumbers = () => state().wallets.map((w) => w.receive_address);
 
+/** The order page's own reading of a transaction id (Core\TxnId::canonical_typed(), in assets/js/txn-normalize.js). */
+export const readTxn = (raw, payer) => N.canonicalTyped(raw, payer || '', storeNumbers());
+
+/** The payer field's own check (PayerField::check(), in assets/js/txn-normalize.js): an e-wallet number, never the store's. */
+export const checkPayer = (raw) => N.checkPayer(raw, storeNumbers());
+
 /** A fresh Egyptian payer number that is no store number. */
 export function randPayer() {
 	for (;;) {
 		const n = '011' + String(Number('0x' + randomBytes(4).toString('hex')) % 100000000).padStart(8, '0');
-		if (!storeNumbers().includes(n)) return n;
+		if (checkPayer(n).ok) return n;
 	}
 }
 
-/** A fresh 14-digit Orange Cash transaction id. */
-export const randTxn = () => '2500' + String(Number('0x' + randomBytes(5).toString('hex')) % 1e10).padStart(10, '0');
+/**
+ * A fresh, invented transaction id: `length` digits (12 by default), the first one 3 to 9, so it never reads as a
+ * mobile number (01…, 201…). The plugin compares ids by exact equality of one canonical form, whatever the wallet.
+ */
+export function randTxn(length = 12) {
+	const bytes = randomBytes(length);
+	return String(3 + (bytes[0] % 7)) + Array.from(bytes.subarray(1), (b) => b % 10).join('');
+}
 
 /**
  * Sends a signed delivery with tests/e2e/deliver.mjs (REST, or the fallback address when REST is off, unless `url`
- * names another address of the wallet). Returns the reply lines.
+ * names another address of the wallet). Returns the reply lines. The envelope's wallet.provider is the vector's own
+ * unless `args` holds `--provider <any string>`: the plugin only stores it.
  */
 export function deliver(w, args, url = REST_OFF ? w.fallback : w.url) {
-	const out = execFileSync('node', [path.join(HERE, 'deliver.mjs'), url, '--secret', w.key, '--wallet', w.id, '--provider', w.provider, ...args.map(String)], { encoding: 'utf8', timeout: 120_000 });
+	const out = execFileSync('node', [path.join(HERE, 'deliver.mjs'), url, '--secret', w.key, '--wallet', w.id, ...args.map(String)], { encoding: 'utf8', timeout: 120_000 });
 	return out.trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
 }
 
 /** deliver() without blocking, for transfers that must reach the store together. */
 export async function deliverAsync(w, args) {
 	const url = REST_OFF ? w.fallback : w.url;
-	const { stdout } = await promisify(execFile)('node', [path.join(HERE, 'deliver.mjs'), url, '--secret', w.key, '--wallet', w.id, '--provider', w.provider, ...args.map(String)], { encoding: 'utf8', timeout: 120_000 });
+	const { stdout } = await promisify(execFile)('node', [path.join(HERE, 'deliver.mjs'), url, '--secret', w.key, '--wallet', w.id, ...args.map(String)], { encoding: 'utf8', timeout: 120_000 });
 	return stdout.trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
 }
 
@@ -202,17 +219,16 @@ export function orderFromUrl(url) {
 	return { id, key: u.searchParams.get('key') };
 }
 
-/** An Orange Cash message wording with invented values (tests/vectors/txn-normalize.json, one with line breaks) and a fresh id. */
-export function orangeMessage(payer) {
-	const vectors = JSON.parse(readFileSync(path.join(ROOT, 'tests/vectors/txn-normalize.json'), 'utf8'));
-	const txn = randTxn();
-	for (const v of vectors) {
-		if (v.provider !== 'orange_cash' || !v.expect || !v.expect.ok || String(v.expect.txn).length !== 14 || !/\n/.test(v.raw) || !v.raw.includes(v.expect.txn)) continue;
-		const raw = v.raw.split(v.expect.txn).join(txn);
-		const res = N.canonicalTyped('orange_cash', raw, payer, storeNumbers());
-		if (res.ok && res.txn === txn) return { raw, txn, vector: v.name };
-	}
-	throw new Error('no usable Orange Cash message in tests/vectors/txn-normalize.json');
+/**
+ * A whole wallet message as a customer would paste it: an invented wording (no operator's), on several lines, with
+ * the amount, the payer's number, a balance, a date and a time around a fresh transaction id. The page must read the
+ * id alone out of it; returns { raw, txn }, or throws when the page's own reader (readTxn()) would not.
+ */
+export function pastedMessage(payer, { amount = '140.00', txn = randTxn() } = {}) {
+	const raw = [`تم استلام تحويل بمبلغ ${amount} جنيه من الرقم ${payer}`, `رقم العملية ${txn}`, 'رصيدك الحالي 288.40 جنيه', '18/10/2026 03:45 م'].join('\n');
+	const res = readTxn(raw, payer);
+	if (!res.ok || res.txn !== txn) throw new Error(`the order page would not read ${txn} out of the message: ${JSON.stringify(res)}`);
+	return { raw, txn };
 }
 
 /** Adds one product to the cart (a classic add-to-cart link, so it works with the REST API turned off too). */

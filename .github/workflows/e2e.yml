@@ -12,7 +12,8 @@
 #   tests/e2e/mu/qersh-test-mail.php (a mail log, and a 5-second mail that deliveries.spec.mjs switches on) and runs
 #   every spec, deliveries.spec.mjs included: the delivery scenarios of docs/17 §1 criterion 2 (the kit's send.mjs
 #   with --probe, --late 72, --held 15 and --forgery on a store reset before each; deliver.mjs with one delivery id
-#   six times at once, two transfers of one payer at once, an Orange Cash id typed after its delivery) and criterion 3
+#   six times at once, two transfers of one payer at once, a transaction id typed after the delivery of a transfer
+#   without a payer number, on either wallet) and criterion 3
 #   (the reply within 3 seconds while each email takes 5, then "Processing order" and "New order" after one Action
 #   Scheduler run).
 name: E2E

@@ -6,7 +6,7 @@ import { CHECKOUT, deliver, orderState, placeOrder, randPayer, REST_OFF, SLOW, s
 
 test(`the live status turns paid after the delivery (${CHECKOUT}${REST_OFF ? ', REST off' : ''})`, async ({ page }) => {
 	const payer = randPayer();
-	const w = wallet('vodafone_cash');
+	const w = wallet('main');
 	const order = await placeOrder(page, { product: state().products['14000'], w, payer });
 	const status = page.locator('[data-qersh-box] [data-qersh-status]');
 	await expect(status).toHaveClass(/qersh-status--waiting/);

@@ -195,9 +195,9 @@ jobs:
           grep -q qersh_unknown_wallet "$RUNNER_TEMP/unknown.json"
           SECRET=$(node -e "process.stdout.write(require('./fixtures/test-vectors.json').secret)")
           URL='http://127.0.0.1:9400/?rest_route=/qersh/v1/webhook/nightly0001a'
-          node tests/e2e/deliver.mjs "$URL" --secret "$SECRET" --wallet nightly0001a --provider vodafone_cash --event webhook.test | tee "$RUNNER_TEMP/test.jsonl"
+          node tests/e2e/deliver.mjs "$URL" --secret "$SECRET" --wallet nightly0001a --event webhook.test | tee "$RUNNER_TEMP/test.jsonl"
           grep -q '"status":200' "$RUNNER_TEMP/test.jsonl"
-          node tests/e2e/deliver.mjs "$URL" --secret "$SECRET" --wallet nightly0001a --provider vodafone_cash --payer 01155566677 --amount 77 | tee "$RUNNER_TEMP/personal.jsonl"
+          node tests/e2e/deliver.mjs "$URL" --secret "$SECRET" --wallet nightly0001a --payer 01155566677 --amount 77 | tee "$RUNNER_TEMP/personal.jsonl"
           grep -q '"status":"unmatched"' "$RUNNER_TEMP/personal.jsonl"
 
   fpm:

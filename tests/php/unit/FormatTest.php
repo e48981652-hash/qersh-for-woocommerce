@@ -129,10 +129,22 @@ final class FormatTest extends TestCase {
 		$this->assertSame( '0100123456', Format::number( '0100123456' ) );
 	}
 
-	/** Masked numbers keep the first four and last three digits. */
+	/** Every e-wallet number is grouped the same way, whatever its prefix: the display never depends on the wallet. */
+	public function test_number_is_the_same_for_every_wallet(): void {
+		foreach ( array( '01001234567', '01112223344', '01212345678', '01512345678' ) as $number ) {
+			$this->assertSame( substr( $number, 0, 4 ) . "\u{00A0}" . substr( $number, 4, 3 ) . "\u{00A0}" . substr( $number, 7 ), Format::number( $number ), $number );
+		}
+		foreach ( array( '250046173830512', '913372004518', 'A1B2C3D4E5', '01001234567 ' ) as $value ) {
+			$this->assertSame( $value, Format::number( $value ), 'not an 11-digit number: ' . $value );
+		}
+	}
+
+	/** Masked numbers keep the first four and last three digits; an address keeps two characters and its domain. */
 	public function test_masked(): void {
 		$this->assertSame( "0111\u{2022}\u{2022}\u{2022}445", Format::masked( '01112233445' ) );
+		$this->assertSame( "0151\u{2022}\u{2022}\u{2022}678", Format::masked( '01512345678' ) );
 		$this->assertSame( "ah\u{2022}\u{2022}\u{2022}@instapay", Format::masked( 'ahmed@instapay' ) );
+		$this->assertSame( "ah\u{2022}\u{2022}\u{2022}@example", Format::masked( 'ahmed@example' ) );
 		$this->assertSame( "\u{2022}\u{2022}\u{2022}345", Format::masked( '12345' ) );
 	}
 

@@ -18,7 +18,8 @@ defined( 'ABSPATH' ) || exit;
 
 /**
  * Rules 1–8, rule 4a with its six gates, the personal tag, the advice, and the small pure helpers of Orders,
- * Claims and Expiry.
+ * Claims and Expiry. No rule reads the type of the wallet: a transfer is told apart only by its payer key and its
+ * transaction id.
  */
 final class MatchPolicyTest extends TestCase {
 
@@ -97,23 +98,22 @@ final class MatchPolicyTest extends TestCase {
 	/**
 	 * A normalised transfer.
 	 *
-	 * @param array  $over     Data changes.
-	 * @param string $provider Provider.
+	 * @param array $over Data changes.
 	 * @return array
 	 */
-	private function transfer( array $over = array(), string $provider = 'vodafone_cash' ): array {
-		$t = MatchPolicy::read_transfer( $this->data( $over ), self::WALLET, $provider, self::NOW );
+	private function transfer( array $over = array() ): array {
+		$t = MatchPolicy::read_transfer( $this->data( $over ), self::WALLET, self::NOW );
 		$this->assertIsArray( $t );
 		return $t;
 	}
 
 	/**
-	 * An Orange transfer without a payer, with the transaction id.
+	 * A transfer without a payer key (the message names the payer only), with the transaction id.
 	 *
 	 * @param array $over Data changes.
 	 * @return array
 	 */
-	private function orange( array $over = array() ): array {
+	private function payerless( array $over = array() ): array {
 		return $this->transfer(
 			array_merge(
 				array(
@@ -122,9 +122,18 @@ final class MatchPolicyTest extends TestCase {
 					'sms_timestamp'   => Time::sec_to_iso( self::MONEY - 5 ),
 				),
 				$over
-			),
-			'orange_cash'
+			)
 		);
+	}
+
+	/**
+	 * A transfer whose sender number came masked, with the transaction id.
+	 *
+	 * @param array $over Data changes.
+	 * @return array
+	 */
+	private function masked( array $over = array() ): array {
+		return $this->payerless( array_merge( array( 'counterparty' => array( 'number' => '0111***3445' ) ), $over ) );
 	}
 
 	/**
@@ -157,7 +166,7 @@ final class MatchPolicyTest extends TestCase {
 	}
 
 	/**
-	 * A claimant row on the Orange wallet.
+	 * A claimant row on the wallet the money reached.
 	 *
 	 * @param int   $id   Order id.
 	 * @param array $over Changes.
@@ -171,11 +180,27 @@ final class MatchPolicyTest extends TestCase {
 					'payer_key' => '01011112222',
 					'claim_txn' => self::TXN,
 					'claim_at'  => self::MONEY + 60,
-					'provider'  => 'orange_cash',
 				),
 				$over
 			)
 		);
+	}
+
+	/**
+	 * Every array of a decision context with a `provider` key added to each row, as a store whose rows still name a
+	 * wallet type would have them.
+	 *
+	 * @param array  $ctx      Context.
+	 * @param string $provider The type the rows name.
+	 * @return array
+	 */
+	private function with_provider( array $ctx, string $provider ): array {
+		foreach ( array( 'duplicates', 'payer_rows', 'wallet_rows', 'claimants' ) as $key ) {
+			foreach ( $ctx[ $key ] as $i => $row ) {
+				$ctx[ $key ][ $i ]['provider'] = $provider;
+			}
+		}
+		return $ctx;
 	}
 
 	/**
@@ -200,19 +225,23 @@ final class MatchPolicyTest extends TestCase {
 
 	// ----- Reading the transfer -----------------------------------------------------------------------------------
 
-	/** The envelope data become the normalised transfer. */
+	/** The envelope data become the normalised transfer; the type of the wallet is no part of it. */
 	public function test_read_transfer(): void {
 		$t = $this->transfer();
 		$this->assertSame( 'trf_1', $t['transfer_id'] );
+		$this->assertSame( self::WALLET, $t['wallet'] );
 		$this->assertSame( self::PAYER, $t['payer_key'] );
 		$this->assertSame( 14000, $t['amount_minor'] );
 		$this->assertSame( self::MONEY, $t['money_at'] );
 		$this->assertTrue( $t['time_ok'] );
-		$this->assertNull( $t['txn'], 'Vodafone ids are never claim ids' );
-		$this->assertSame( '099409626954', $t['txn_stored'], 'stored as it came' );
+		$this->assertSame( '099409626954', $t['txn'], 'every transfer has the canonical form of its id' );
+		$this->assertSame( '099409626954', $t['txn_stored'], 'leading zeros kept: text, never a number' );
 		$this->assertFalse( $t['masked'] );
-		$this->assertNull( MatchPolicy::read_transfer( $this->data( array( 'transfer_id' => null ) ), self::WALLET, 'vodafone_cash', self::NOW ) );
-		$this->assertNull( MatchPolicy::read_transfer( $this->data( array( 'transfer_id' => str_repeat( 'x', 41 ) ) ), self::WALLET, 'vodafone_cash', self::NOW ) );
+		$this->assertArrayNotHasKey( 'provider', $t );
+		$this->assertSame( 'payer:' . self::PAYER, MatchPolicy::transfer_lock( $t ), 'a payer key wins over the id' );
+		$this->assertNull( MatchPolicy::read_transfer( $this->data( array( 'transfer_id' => null ) ), self::WALLET, self::NOW ) );
+		$this->assertNull( MatchPolicy::read_transfer( $this->data( array( 'transfer_id' => str_repeat( 'x', 41 ) ) ), self::WALLET, self::NOW ) );
+		$this->assertNull( MatchPolicy::read_transfer( 'not an array', self::WALLET, self::NOW ) );
 	}
 
 	/** A future or missing money time is now; a present but unreadable one is not ok. */
@@ -224,17 +253,164 @@ final class MatchPolicyTest extends TestCase {
 		$this->assertFalse( $this->transfer( array( 'received_at' => '2027-01-12T08:00:00' ) )['time_ok'] );
 	}
 
-	/** Orange: the canonical id is the claim id; a masked sender is noted; a drifted id never is a claim id. */
-	public function test_read_orange_transfer(): void {
-		$t = $this->orange();
+	/**
+	 * Without a payer key: the canonical id is the one a typed id is compared with, whatever its length; a masked
+	 * sender is noted; the canonical form is stored; an id that has no canonical form is stored as it came and decides
+	 * nothing.
+	 */
+	public function test_read_payerless_transfer(): void {
+		$t = $this->payerless();
 		$this->assertNull( $t['payer_key'] );
 		$this->assertSame( self::TXN, $t['txn'] );
-		$masked = $this->transfer( array( 'counterparty' => array( 'number' => '0111***3445' ) ) );
+		$this->assertSame( 'txn:' . self::TXN, MatchPolicy::transfer_lock( $t ) );
+		$masked = $this->masked();
 		$this->assertTrue( $masked['masked'] );
 		$this->assertNull( $masked['payer_key'] );
-		$drift = $this->orange( array( 'provider_txn_id' => '25005172942' ) );
-		$this->assertNull( $drift['txn'] );
-		$this->assertSame( '25005172942', $drift['txn_stored'] );
+		$this->assertSame( self::TXN, $masked['txn'] );
+
+		$short = $this->payerless( array( 'provider_txn_id' => '913372004518' ) );
+		$this->assertSame( '913372004518', $short['txn'], 'twelve digits are as good as fourteen: no shape is checked' );
+
+		$spelled = $this->payerless( array( 'provider_txn_id' => 'ab-913372004518' ) );
+		$this->assertSame( 'AB913372004518', $spelled['txn'], 'separators go, letters are upper case' );
+		$this->assertSame( 'AB913372004518', $spelled['txn_stored'], 'the canonical form is what the row keeps' );
+
+		foreach ( array( 'ABCDEFGH', '12345' ) as $raw ) {
+			$odd = $this->payerless( array( 'provider_txn_id' => $raw ) );
+			$this->assertNull( $odd['txn'], $raw );
+			$this->assertSame( $raw, $odd['txn_stored'], $raw . ': stored as it came' );
+			$this->assertSame( 'trf:trf_1', MatchPolicy::transfer_lock( $odd ), $raw );
+		}
+		$none = $this->payerless( array( 'provider_txn_id' => null ) );
+		$this->assertNull( $none['txn'] );
+		$this->assertNull( $none['txn_stored'] );
+		$this->assertSame( 'trf:trf_1', MatchPolicy::transfer_lock( $none ) );
+	}
+
+	/**
+	 * A handle is no payer (docs/17 D1: the store's payers are e-wallet numbers, and no order can carry a handle): a
+	 * transfer that names its sender by a handle only is payerless, for the Matcher too, and decides exactly as one
+	 * that names a name only. The handle stays the sender's name when the message has no name. A number still wins.
+	 */
+	public function test_a_handle_is_no_payer(): void {
+		$handle = $this->payerless( array( 'counterparty' => array( 'handle' => 'sample.payer' ) ) );
+		$this->assertNull( $handle['payer_key'] );
+		$this->assertSame( 'sample.payer@instapay', $handle['payer_name'], 'Payer::key_of() spells the handle' );
+		$this->assertFalse( $handle['masked'] );
+		$this->assertSame( 'txn:' . self::TXN, MatchPolicy::transfer_lock( $handle ), 'the lock a customer who types the id takes' );
+		$this->assertArrayNotHasKey( 'handle', $handle['matcher']['counterparty'], 'the Matcher sees no payer either' );
+
+		$in_number = $this->payerless(
+			array(
+				'counterparty' => array(
+					'number' => 'sample.payer',
+					'name'   => 'Mona',
+				),
+			)
+		);
+		$this->assertNull( $in_number['payer_key'], 'a handle sent in the number field is no payer either' );
+		$this->assertSame( array( 'name' => 'Mona' ), $in_number['matcher']['counterparty'], 'nor for the Matcher, which keeps the name' );
+
+		$named = $this->payerless(
+			array(
+				'counterparty' => array(
+					'handle' => 'sample.payer@instapay',
+					'name'   => 'Mona',
+				),
+			)
+		);
+		$this->assertNull( $named['payer_key'] );
+		$this->assertSame( 'Mona', $named['payer_name'], 'a name in the message stays the name' );
+
+		$masked = $this->payerless(
+			array(
+				'counterparty' => array(
+					'number' => '0111***3445',
+					'handle' => 'sample.payer',
+				),
+			)
+		);
+		$this->assertNull( $masked['payer_key'] );
+		$this->assertTrue( $masked['masked'] );
+
+		$number = $this->transfer(
+			array(
+				'counterparty' => array(
+					'number' => self::PAYER,
+					'handle' => 'sample.payer',
+				),
+			)
+		);
+		$this->assertSame( self::PAYER, $number['payer_key'], 'a full number is the payer' );
+		$this->assertSame( 'sample.payer', $number['matcher']['counterparty']['handle'], 'the data of a payer transfer is the Matcher\'s as it came' );
+
+		$x     = $this->claimant( 20 );
+		$cases = array(
+			'claim'        => $this->ctx(
+				array(
+					'claimants'   => array( $x ),
+					'wallet_rows' => array( $x ),
+				)
+			),
+			'wallet order' => $this->ctx( array( 'wallet_rows' => array( $this->row( 10 ) ) ) ),
+			'no order'     => $this->ctx(),
+			'payer order'  => $this->ctx( array( 'payer_rows' => array( $this->row( 10, array( 'payer_key' => 'sample.payer@instapay' ) ) ) ) ),
+		);
+		$late  = array( 'received_at' => Time::sec_to_iso( self::NOW - 4 * 3600 ) );
+		foreach ( $cases as $name => $ctx ) {
+			$this->assertSame( MatchPolicy::decide( $this->payerless(), $ctx ), MatchPolicy::decide( $handle, $ctx ), $name );
+			$this->assertSame( MatchPolicy::decide( $this->payerless(), $ctx ), MatchPolicy::decide( $in_number, $ctx ), $name . ', in the number field' );
+			$this->assertSame(
+				MatchPolicy::decide( $this->payerless( $late ), $ctx ),
+				MatchPolicy::decide( $this->payerless( $late + array( 'counterparty' => array( 'handle' => 'sample.payer' ) ) ), $ctx ),
+				$name . ', delivered late'
+			);
+		}
+		$this->assertSame( 'matched', MatchPolicy::decide( $handle, $cases['claim'] )['outcome'], 'a typed id decides it' );
+		$this->assertSame( 'no_payer', MatchPolicy::decide( $handle, $cases['wallet order'] )['reason'] );
+	}
+
+	/** The same transfer and the same store give the same decision whatever type of wallet the rows name. */
+	public function test_decision_ignores_the_wallet_type(): void {
+		$x     = $this->claimant( 20 );
+		$cases = array(
+			'payer'     => array( $this->transfer(), $this->ctx( array( 'payer_rows' => array( $this->row( 10 ) ) ) ) ),
+			'claim'     => array(
+				$this->payerless(),
+				$this->ctx(
+					array(
+						'claimants'   => array( $x ),
+						'wallet_rows' => array( $x ),
+					)
+				),
+			),
+			'masked'    => array( $this->masked(), $this->ctx( array( 'wallet_rows' => array( $this->row( 10 ) ) ) ) ),
+			'duplicate' => array(
+				$this->payerless(),
+				$this->ctx(
+					array(
+						'duplicates' => array(
+							array(
+								'transfer_id'     => 'trf_0',
+								'provider_txn_id' => self::TXN,
+								'outcome'         => 'matched',
+								'order_id'        => 7,
+							),
+						),
+					)
+				),
+			),
+		);
+		foreach ( $cases as $name => $case ) {
+			list( $t, $ctx ) = $case;
+			$expected        = MatchPolicy::decide( $t, $ctx );
+			foreach ( array( 'vodafone_cash', 'orange_cash', 'etisalat_cash', 'a_type_from_a_later_app', '' ) as $provider ) {
+				$typed             = $t;
+				$typed['provider'] = $provider;
+				$this->assertSame( $expected, MatchPolicy::decide( $typed, $this->with_provider( $ctx, $provider ) ), $name . ' / ' . $provider );
+				$this->assertSame( MatchPolicy::transfer_lock( $t ), MatchPolicy::transfer_lock( $typed ), $name . ' / ' . $provider );
+			}
+		}
 	}
 
 	// ----- Rules 1 and 2 -------------------------------------------------------------------------------------------
@@ -248,11 +424,14 @@ final class MatchPolicyTest extends TestCase {
 		$this->assertNull( $d['order_id'] );
 	}
 
-	/** Rule 2: the same id from another transfer with a verdict is a duplicate, with the order it paid. */
+	/**
+	 * Rule 2: the same id from another transfer with a verdict is a duplicate, with the order it paid, on any wallet
+	 * of the store.
+	 */
 	public function test_duplicate_transaction_id(): void {
 		$dup = array(
 			'transfer_id'     => 'trf_0',
-			'provider'        => 'vodafone_cash',
+			'wallet'          => self::OTHER_WALLET,
 			'provider_txn_id' => '099409626954',
 			'outcome'         => 'matched',
 			'order_id'        => 7,
@@ -274,16 +453,28 @@ final class MatchPolicyTest extends TestCase {
 
 		$self_row  = array_merge( $dup, array( 'transfer_id' => 'trf_1' ) );
 		$undecided = array_merge( $dup, array( 'outcome' => null ) );
+		$other_id  = array_merge( $dup, array( 'provider_txn_id' => '099409626955' ) );
 		$d         = MatchPolicy::decide(
 			$this->transfer(),
 			$this->ctx(
 				array(
-					'duplicates' => array( $self_row, $undecided ),
+					'duplicates' => array( $self_row, $undecided, $other_id ),
 					'payer_rows' => array( $this->row( 10 ) ),
 				)
 			)
 		);
-		$this->assertSame( 'matched', $d['outcome'], 'its own row and a row without a verdict are no duplicates' );
+		$this->assertSame( 'matched', $d['outcome'], 'its own row, a row without a verdict and another id are no duplicates' );
+
+		$d = MatchPolicy::decide(
+			$this->transfer( array( 'provider_txn_id' => null ) ),
+			$this->ctx(
+				array(
+					'duplicates' => array( $dup ),
+					'payer_rows' => array( $this->row( 10 ) ),
+				)
+			)
+		);
+		$this->assertSame( 'matched', $d['outcome'], 'no id: rule 2 has nothing to compare' );
 	}
 
 	/** An unreadable money time goes to review before anything else. */
@@ -515,7 +706,7 @@ final class MatchPolicyTest extends TestCase {
 
 		$x = $this->claimant( 20 );
 		$d = MatchPolicy::decide(
-			$this->orange( $forged ),
+			$this->payerless( $forged ),
 			$this->ctx(
 				array(
 					'claimants'   => array( $x ),
@@ -625,32 +816,52 @@ final class MatchPolicyTest extends TestCase {
 
 	// ----- Without a payer -----------------------------------------------------------------------------------------
 
-	/** Rule 4: an Orange transfer nobody typed, with a live order for the amount: review no_payer, Orange note. */
+	/**
+	 * Rule 4: a payerless transfer with an id nobody typed, and a live order for the amount: review no_payer, with
+	 * the `txn` variant (no customer entered this id yet); without an id, or with ids switched off, the plain one.
+	 */
 	public function test_no_payer_with_a_possible_order(): void {
-		$d = MatchPolicy::decide( $this->orange(), $this->ctx( array( 'wallet_rows' => array( $this->row( 10 ) ) ) ) );
+		$d = MatchPolicy::decide( $this->payerless(), $this->ctx( array( 'wallet_rows' => array( $this->row( 10 ) ) ) ) );
 		$this->assertSame( 'review', $d['outcome'] );
 		$this->assertSame( 'no_payer', $d['reason'] );
-		$this->assertTrue( $d['args']['orange'] );
-		$this->assertSame( 'no_payer_orange', $d['reply']['note'] );
+		$this->assertTrue( $d['args']['txn'] );
+		$this->assertSame( 'no_payer_txn', $d['reply']['note'] );
 		$this->assertSame( array( 10 ), $d['pinned'] );
-	}
 
-	/** A masked sender on Vodafone: review masked; nothing for the amount on the wallet: personal. */
-	public function test_masked_and_personal_without_a_payer(): void {
-		$t = $this->transfer( array( 'counterparty' => array( 'number' => '0111***3445' ) ) );
-		$d = MatchPolicy::decide( $t, $this->ctx( array( 'wallet_rows' => array( $this->row( 10 ) ) ) ) );
-		$this->assertSame( 'masked', $d['reason'] );
+		$d = MatchPolicy::decide( $this->payerless( array( 'provider_txn_id' => null ) ), $this->ctx( array( 'wallet_rows' => array( $this->row( 10 ) ) ) ) );
+		$this->assertSame( 'no_payer', $d['reason'] );
+		$this->assertFalse( $d['args']['txn'], 'no id to type' );
 		$this->assertSame( 'no_payer', $d['reply']['note'] );
 
-		$d = MatchPolicy::decide( $this->orange(), $this->ctx( array( 'wallet_rows' => array( $this->row( 10, array( 'price_minor' => 50000 ) ) ) ) ) );
+		$d = MatchPolicy::decide(
+			$this->payerless(),
+			$this->ctx(
+				array(
+					'config'      => $this->cfg( array( 'txn_entry' => false ) ),
+					'wallet_rows' => array( $this->row( 10 ) ),
+				)
+			)
+		);
+		$this->assertFalse( $d['args']['txn'], 'customers cannot type ids' );
+		$this->assertSame( 'no_payer', $d['reply']['note'] );
+	}
+
+	/** A masked sender: review masked; nothing for the amount on the wallet: personal. */
+	public function test_masked_and_personal_without_a_payer(): void {
+		$d = MatchPolicy::decide( $this->masked(), $this->ctx( array( 'wallet_rows' => array( $this->row( 10 ) ) ) ) );
+		$this->assertSame( 'masked', $d['reason'] );
+		$this->assertSame( array(), $d['args'] );
+		$this->assertSame( 'no_payer', $d['reply']['note'] );
+
+		$d = MatchPolicy::decide( $this->payerless(), $this->ctx( array( 'wallet_rows' => array( $this->row( 10, array( 'price_minor' => 50000 ) ) ) ) ) );
 		$this->assertSame( 'personal', $d['reason'], 'no live order for the amount' );
 
 		$later = $this->row( 10, array( 'created_at' => self::MONEY + 30 ) );
-		$d     = MatchPolicy::decide( $this->orange(), $this->ctx( array( 'wallet_rows' => array( $later ) ) ) );
+		$d     = MatchPolicy::decide( $this->payerless(), $this->ctx( array( 'wallet_rows' => array( $later ) ) ) );
 		$this->assertSame( 'personal', $d['reason'], 'an order opened after the money never takes it' );
 
 		$other = $this->row( 10, array( 'wallet' => self::OTHER_WALLET ) );
-		$d     = MatchPolicy::decide( $this->orange(), $this->ctx( array( 'wallet_rows' => array( $other ) ) ) );
+		$d     = MatchPolicy::decide( $this->payerless(), $this->ctx( array( 'wallet_rows' => array( $other ) ) ) );
 		$this->assertSame( 'personal', $d['reason'], 'only the wallet the money reached counts' );
 	}
 
@@ -660,7 +871,7 @@ final class MatchPolicyTest extends TestCase {
 	public function test_claim_matched(): void {
 		$x = $this->claimant( 20 );
 		$d = MatchPolicy::decide(
-			$this->orange(),
+			$this->payerless(),
 			$this->ctx(
 				array(
 					'claimants'   => array( $x ),
@@ -679,7 +890,7 @@ final class MatchPolicyTest extends TestCase {
 	public function test_claimant_counting(): void {
 		$a = $this->claimant( 20 );
 		$b = $this->claimant( 21, array( 'payer_key' => '01033334444' ) );
-		$d = MatchPolicy::decide( $this->orange(), $this->ctx( array( 'claimants' => array( $a, $b ) ) ) );
+		$d = MatchPolicy::decide( $this->payerless(), $this->ctx( array( 'claimants' => array( $a, $b ) ) ) );
 		$this->assertSame( 'txn_contested', $d['reason'] );
 		$this->assertSame( 'two', $d['args']['form'] );
 		$this->assertSame( array( 20, 21 ), $d['pinned'] );
@@ -691,12 +902,12 @@ final class MatchPolicyTest extends TestCase {
 				'kind'  => 'obstacle',
 			)
 		);
-		$d    = MatchPolicy::decide( $this->orange(), $this->ctx( array( 'claimants' => array( $dead ) ) ) );
+		$d    = MatchPolicy::decide( $this->payerless(), $this->ctx( array( 'claimants' => array( $dead ) ) ) );
 		$this->assertSame( 'closed_order', $d['reason'] );
 		$this->assertSame( 22, $d['args']['N'] );
 
 		$d = MatchPolicy::decide(
-			$this->orange(),
+			$this->payerless(),
 			$this->ctx(
 				array(
 					'claimants'   => array( $dead, $a ),
@@ -715,13 +926,13 @@ final class MatchPolicyTest extends TestCase {
 				'payer_key' => '01055556666',
 			)
 		);
-		$d        = MatchPolicy::decide( $this->orange(), $this->ctx( array( 'claimants' => array( $stranger, $a ) ) ) );
+		$d        = MatchPolicy::decide( $this->payerless(), $this->ctx( array( 'claimants' => array( $stranger, $a ) ) ) );
 		$this->assertSame( 'txn_contested', $d['reason'] );
 		$this->assertSame( 20, $d['pinned'][0], 'X first' );
 
-		$elsewhere = $this->claimant( 24, array( 'provider' => 'vodafone_cash' ) );
+		$elsewhere = $this->claimant( 24, array( 'wallet' => self::OTHER_WALLET ) );
 		$d         = MatchPolicy::decide(
-			$this->orange(),
+			$this->payerless(),
 			$this->ctx(
 				array(
 					'claimants'   => array( $elsewhere ),
@@ -729,20 +940,36 @@ final class MatchPolicyTest extends TestCase {
 				)
 			)
 		);
-		$this->assertSame( 'no_payer', $d['reason'], 'only claimants on an Orange wallet count' );
+		$this->assertSame( 'txn_wallet', $d['reason'], 'a claimant on another wallet counts, and fails the same-wallet gate' );
+		$this->assertSame( 24, $d['args']['N'] );
+		$this->assertSame( self::OTHER_WALLET, $d['args']['W'] );
+		$this->assertNull( $d['order_id'] );
+		$this->assertSame( array( 24 ), $d['pinned'] );
+
+		$d = MatchPolicy::decide(
+			$this->payerless(),
+			$this->ctx(
+				array(
+					'claimants'   => array( $a, $elsewhere ),
+					'wallet_rows' => array( $a ),
+				)
+			)
+		);
+		$this->assertSame( 'txn_contested', $d['reason'], 'two live owners, whatever wallet each chose' );
+		$this->assertSame( array( 20, 24 ), $d['pinned'] );
 	}
 
 	/** Gates 1 to 3: the wallet, rule 3 on X, X created before the money. */
 	public function test_claim_gates_one_to_three(): void {
-		$d = MatchPolicy::decide( $this->orange(), $this->ctx( array( 'claimants' => array( $this->claimant( 20, array( 'wallet' => self::OTHER_WALLET ) ) ) ) ) );
+		$d = MatchPolicy::decide( $this->payerless(), $this->ctx( array( 'claimants' => array( $this->claimant( 20, array( 'wallet' => self::OTHER_WALLET ) ) ) ) ) );
 		$this->assertSame( 'txn_wallet', $d['reason'] );
 		$this->assertSame( self::OTHER_WALLET, $d['args']['W'] );
 
-		$d = MatchPolicy::decide( $this->orange(), $this->ctx( array( 'claimants' => array( $this->claimant( 20, array( 'kind' => 'obstacle' ) ) ) ) ) );
+		$d = MatchPolicy::decide( $this->payerless(), $this->ctx( array( 'claimants' => array( $this->claimant( 20, array( 'kind' => 'obstacle' ) ) ) ) ) );
 		$this->assertSame( 'closed_order', $d['reason'] );
 
 		$d = MatchPolicy::decide(
-			$this->orange(),
+			$this->payerless(),
 			$this->ctx(
 				array(
 					'claimants' => array(
@@ -764,11 +991,11 @@ final class MatchPolicyTest extends TestCase {
 
 	/** Gate 4: typed 11 minutes before the operator's message: window; the phone 40 minutes late is no guesser. */
 	public function test_claim_gate_four(): void {
-		$d = MatchPolicy::decide( $this->orange(), $this->ctx( array( 'claimants' => array( $this->claimant( 20, array( 'claim_at' => self::MONEY - 5 - 660 ) ) ) ) ) );
+		$d = MatchPolicy::decide( $this->payerless(), $this->ctx( array( 'claimants' => array( $this->claimant( 20, array( 'claim_at' => self::MONEY - 5 - 660 ) ) ) ) ) );
 		$this->assertSame( 'txn_window', $d['reason'] );
 		$this->assertSame( 'early', $d['args']['form'] );
 
-		$t = $this->orange( array( 'sms_timestamp' => Time::sec_to_iso( self::MONEY - 2400 ) ) );
+		$t = $this->payerless( array( 'sms_timestamp' => Time::sec_to_iso( self::MONEY - 2400 ) ) );
 		$x = $this->claimant(
 			20,
 			array(
@@ -787,20 +1014,20 @@ final class MatchPolicyTest extends TestCase {
 	/** Gate 5: the exact remainder after rounding, and never more after the deadline. */
 	public function test_claim_gate_five(): void {
 		$x = $this->claimant( 20, array( 'price_minor' => 13950 ) );
-		$d = MatchPolicy::decide( $this->orange(), $this->ctx( array( 'claimants' => array( $x ) ) ) );
+		$d = MatchPolicy::decide( $this->payerless(), $this->ctx( array( 'claimants' => array( $x ) ) ) );
 		$this->assertSame( 'matched', $d['outcome'] );
 		$this->assertSame( 50, $d['rounded'] );
-		$d = MatchPolicy::decide( $this->orange( array( 'amount_minor' => 13950 ) ), $this->ctx( array( 'claimants' => array( $x ) ) ) );
+		$d = MatchPolicy::decide( $this->payerless( array( 'amount_minor' => 13950 ) ), $this->ctx( array( 'claimants' => array( $x ) ) ) );
 		$this->assertSame( 'matched', $d['outcome'] );
 
 		foreach ( array( 13900, 14100 ) as $amount ) {
-			$d = MatchPolicy::decide( $this->orange( array( 'amount_minor' => $amount ) ), $this->ctx( array( 'claimants' => array( $x ) ) ) );
+			$d = MatchPolicy::decide( $this->payerless( array( 'amount_minor' => $amount ) ), $this->ctx( array( 'claimants' => array( $x ) ) ) );
 			$this->assertSame( 'txn_amount', $d['reason'], (string) $amount );
 			$this->assertSame( 14000, $d['args']['Z'] );
 		}
 
 		$small = $this->claimant( 20, array( 'price_minor' => 10000 ) );
-		$d     = MatchPolicy::decide( $this->orange( array( 'amount_minor' => 150000 ) ), $this->ctx( array( 'claimants' => array( $small ) ) ) );
+		$d     = MatchPolicy::decide( $this->payerless( array( 'amount_minor' => 150000 ) ), $this->ctx( array( 'claimants' => array( $small ) ) ) );
 		$this->assertSame( 'txn_amount', $d['reason'] );
 		$this->assertNull( $d['order_id'] );
 
@@ -813,11 +1040,11 @@ final class MatchPolicyTest extends TestCase {
 				'expires_at'  => self::MONEY - 600,
 			)
 		);
-		$d    = MatchPolicy::decide( $this->orange( array( 'amount_minor' => 15000 ) ), $this->ctx( array( 'claimants' => array( $late ) ) ) );
+		$d    = MatchPolicy::decide( $this->payerless( array( 'amount_minor' => 15000 ) ), $this->ctx( array( 'claimants' => array( $late ) ) ) );
 		$this->assertSame( 'txn_amount', $d['reason'], '150 for an order of 100 after the deadline' );
 
 		$gone = $this->claimant( 20, array( 'expires_at' => self::MONEY - 7300 ) );
-		$d    = MatchPolicy::decide( $this->orange(), $this->ctx( array( 'claimants' => array( $gone ) ) ) );
+		$d    = MatchPolicy::decide( $this->payerless(), $this->ctx( array( 'claimants' => array( $gone ) ) ) );
 		$this->assertSame( 'txn_window', $d['reason'], 'outside the late window the Matcher finds no order' );
 	}
 
@@ -826,7 +1053,7 @@ final class MatchPolicyTest extends TestCase {
 		$x    = $this->claimant( 20 );
 		$open = $this->row( 30, array( 'payer_key' => '01077778888' ) );
 		$d    = MatchPolicy::decide(
-			$this->orange(),
+			$this->payerless(),
 			$this->ctx(
 				array(
 					'claimants'   => array( $x ),
@@ -846,7 +1073,7 @@ final class MatchPolicyTest extends TestCase {
 			)
 		);
 		$d     = MatchPolicy::decide(
-			$this->orange(),
+			$this->payerless(),
 			$this->ctx(
 				array(
 					'claimants'   => array( $x ),
@@ -864,7 +1091,7 @@ final class MatchPolicyTest extends TestCase {
 			)
 		);
 		$d      = MatchPolicy::decide(
-			$this->orange(),
+			$this->payerless(),
 			$this->ctx(
 				array(
 					'claimants'   => array( $x ),
@@ -889,7 +1116,7 @@ final class MatchPolicyTest extends TestCase {
 			)
 		);
 		$d            = MatchPolicy::decide(
-			$this->orange(),
+			$this->payerless(),
 			$this->ctx(
 				array(
 					'claimants'   => array( $x ),
@@ -903,7 +1130,7 @@ final class MatchPolicyTest extends TestCase {
 	/** The invariants of 4a: auto_confirm_ok false, unknown reasons and duplicates come first; txn_entry off. */
 	public function test_claim_invariants(): void {
 		$x = $this->claimant( 20 );
-		$t = $this->orange(
+		$t = $this->payerless(
 			array(
 				'auto_confirm_ok' => false,
 				'risk_reasons'    => array( 'no_baseline' ),
@@ -914,18 +1141,18 @@ final class MatchPolicyTest extends TestCase {
 		$this->assertSame( 'no_baseline', $d['reason'] );
 		$this->assertSame( array( 20 ), $d['pinned'] );
 
-		$d = MatchPolicy::decide( $this->orange( array( 'risk_reasons' => array( 'new_thing' ) ) ), $this->ctx( array( 'claimants' => array( $x ) ) ) );
+		$d = MatchPolicy::decide( $this->payerless( array( 'risk_reasons' => array( 'new_thing' ) ) ), $this->ctx( array( 'claimants' => array( $x ) ) ) );
 		$this->assertSame( 'unknown_risk', $d['reason'] );
 
 		$dup = array(
 			'transfer_id'     => 'trf_0',
-			'provider'        => 'orange_cash',
+			'wallet'          => self::OTHER_WALLET,
 			'provider_txn_id' => self::TXN,
 			'outcome'         => 'review',
 			'order_id'        => null,
 		);
 		$d   = MatchPolicy::decide(
-			$this->orange(),
+			$this->payerless(),
 			$this->ctx(
 				array(
 					'claimants'  => array( $x ),
@@ -933,10 +1160,10 @@ final class MatchPolicyTest extends TestCase {
 				)
 			)
 		);
-		$this->assertSame( 'duplicate_txn', $d['reason'] );
+		$this->assertSame( 'duplicate_txn', $d['reason'], 'an earlier transfer with this id, on any wallet' );
 
 		$d = MatchPolicy::decide(
-			$this->orange(),
+			$this->payerless(),
 			$this->ctx(
 				array(
 					'config'      => $this->cfg( array( 'txn_entry' => false ) ),
@@ -946,21 +1173,11 @@ final class MatchPolicyTest extends TestCase {
 			)
 		);
 		$this->assertSame( 'no_payer', $d['reason'], 'txn_entry off: rule 4 as it is' );
-		$this->assertFalse( $d['args']['orange'] );
+		$this->assertFalse( $d['args']['txn'] );
 
-		$bank = MatchPolicy::read_transfer(
-			$this->data(
-				array(
-					'counterparty'    => array( 'name' => 'Mona' ),
-					'provider_txn_id' => self::TXN,
-				)
-			),
-			self::WALLET,
-			'bank_nbe',
-			self::NOW
-		);
-		$d    = MatchPolicy::decide(
-			$bank,
+		$no_id = $this->payerless( array( 'provider_txn_id' => null ) );
+		$d     = MatchPolicy::decide(
+			$no_id,
 			$this->ctx(
 				array(
 					'claimants'   => array( $x ),
@@ -968,11 +1185,49 @@ final class MatchPolicyTest extends TestCase {
 				)
 			)
 		);
-		$this->assertSame( 'no_payer', $d['reason'], 'banks never enter 4a' );
+		$this->assertSame( 'no_payer', $d['reason'], 'a transfer without provider_txn_id never enters 4a' );
+		$this->assertFalse( $d['by_claim'] );
+		$this->assertNull( $d['order_id'] );
+		$this->assertSame( 'none', MatchPolicy::claim_decision( $no_id, $this->ctx() )['outcome'] );
 
-		$named = $this->transfer( array( 'provider_txn_id' => self::TXN ), 'orange_cash' );
+		$odd = $this->payerless( array( 'provider_txn_id' => 'ABCDEFGH' ) );
+		$d   = MatchPolicy::decide(
+			$odd,
+			$this->ctx(
+				array(
+					'claimants'   => array( $this->claimant( 20, array( 'claim_txn' => 'ABCDEFGH' ) ) ),
+					'wallet_rows' => array( $x ),
+				)
+			)
+		);
+		$this->assertSame( 'no_payer', $d['reason'], 'an id without a canonical form never enters 4a either' );
+
+		$named = $this->transfer( array( 'provider_txn_id' => self::TXN ) );
 		$d     = MatchPolicy::decide( $named, $this->ctx( array( 'claimants' => array( $x ) ) ) );
 		$this->assertSame( 'personal', $d['reason'], 'a transfer with a payer key ignores typed ids' );
+	}
+
+	/** A masked sender with a transaction id: a typed id decides it, through the same gates. */
+	public function test_masked_transfer_decided_by_a_typed_id(): void {
+		$x = $this->claimant( 20 );
+		$d = MatchPolicy::decide(
+			$this->masked(),
+			$this->ctx(
+				array(
+					'claimants'   => array( $x ),
+					'wallet_rows' => array( $x ),
+				)
+			)
+		);
+		$this->assertSame( 'matched', $d['outcome'] );
+		$this->assertTrue( $d['by_claim'] );
+		$this->assertSame( 20, $d['order_id'] );
+		$this->assertSame( 'by_claim', $d['reply']['note'] );
+
+		$d = MatchPolicy::decide( $this->masked(), $this->ctx( array( 'claimants' => array( $this->claimant( 20, array( 'wallet' => self::OTHER_WALLET ) ) ) ) ) );
+		$this->assertSame( 'txn_wallet', $d['reason'], 'the gates stay' );
+		$d = MatchPolicy::decide( $this->masked( array( 'amount_minor' => 13000 ) ), $this->ctx( array( 'claimants' => array( $x ) ) ) );
+		$this->assertSame( 'txn_amount', $d['reason'] );
 	}
 
 	/** The late path: a stored no_payer row, a claim typed hours later, X still in the window of the money. */
@@ -980,7 +1235,7 @@ final class MatchPolicyTest extends TestCase {
 		$row = array(
 			'transfer_id'     => 'trf_9',
 			'wallet'          => self::WALLET,
-			'provider'        => 'orange_cash',
+			'provider'        => 'vodafone_cash', // The opaque copy of wallet.provider: never read.
 			'amount_minor'    => 14000,
 			'currency'        => 'EGP',
 			'payer_key'       => null,
@@ -999,8 +1254,12 @@ final class MatchPolicyTest extends TestCase {
 		);
 		$t   = MatchPolicy::transfer_from_row( $row );
 		$this->assertSame( self::TXN, $t['txn'] );
-		$this->assertSame( 'txn:orange_cash:' . self::TXN, MatchPolicy::transfer_lock( $t ) );
-		$this->assertSame( 'txn:orange_cash:' . self::TXN, MatchPolicy::transfer_lock( $row ) );
+		$this->assertArrayNotHasKey( 'provider', $t );
+		$this->assertSame( 'sms', $t['channel'] );
+		$this->assertSame( 'txn:' . self::TXN, MatchPolicy::transfer_lock( $t ) );
+		$this->assertSame( 'txn:' . self::TXN, MatchPolicy::transfer_lock( $row ) );
+		$this->assertSame( MatchPolicy::txn_lock( self::TXN ), MatchPolicy::transfer_lock( $row ), 'the lock the customer\'s route takes' );
+		$this->assertSame( 'txn:' . self::TXN, MatchPolicy::txn_lock( self::TXN ) );
 		$x   = $this->claimant( 20, array( 'claim_at' => self::NOW + 10000 ) );
 		$ctx = $this->ctx(
 			array(
@@ -1021,11 +1280,58 @@ final class MatchPolicyTest extends TestCase {
 		$this->assertSame( 'txn_window', $d['reason'], 'the Matcher still reads auto_confirm_ok' );
 	}
 
+	/** The late path takes a masked row too, on any wallet type; the row's reasons tell a notification alone. */
+	public function test_late_path_from_a_masked_row(): void {
+		$row = array(
+			'transfer_id'     => 'trf_10',
+			'wallet'          => self::WALLET,
+			'provider'        => '',
+			'amount_minor'    => 14000,
+			'currency'        => 'EGP',
+			'payer_key'       => null,
+			'payer_name'      => null,
+			'provider_txn_id' => self::TXN,
+			'money_at'        => self::MONEY,
+			'sms_at'          => self::MONEY - 5,
+			'risk'            => 'low',
+			'risk_reasons'    => array(),
+			'auto_confirm_ok' => 1,
+			'balance_chain'   => 'consistent',
+			'outcome'         => 'review',
+			'reason'          => 'masked',
+			'order_id'        => null,
+			'flag'            => null,
+		);
+		$this->assertTrue( Claims::eligible( $row ) );
+		foreach ( array( 'vodafone_cash', 'orange_cash', 'something_else' ) as $provider ) {
+			$this->assertTrue( Claims::eligible( array_merge( $row, array( 'provider' => $provider ) ) ), $provider );
+		}
+		$this->assertFalse( Claims::eligible( array_merge( $row, array( 'reason' => 'personal' ) ) ) );
+		$this->assertFalse( Claims::eligible( array_merge( $row, array( 'order_id' => 7 ) ) ) );
+		$t = MatchPolicy::transfer_from_row( $row );
+		$this->assertTrue( $t['masked'] );
+		$this->assertSame( 'txn:' . self::TXN, MatchPolicy::transfer_lock( $t ) );
+		$d = MatchPolicy::claim_decision(
+			$t,
+			$this->ctx(
+				array(
+					'now'       => self::NOW + 600,
+					'claimants' => array( $this->claimant( 20, array( 'claim_at' => self::NOW + 600 ) ) ),
+				)
+			)
+		);
+		$this->assertSame( 'matched', $d['outcome'] );
+		$this->assertTrue( $d['by_claim'] );
+
+		$heard = MatchPolicy::transfer_from_row( array_merge( $row, array( 'risk_reasons' => array( 'notification_only' ) ) ) );
+		$this->assertSame( 'notification', $heard['channel'] );
+	}
+
 	// ----- Advice --------------------------------------------------------------------------------------------------
 
 	/** The ready button only for one owner passing every gate (auto_confirm_ok ignored); dead owners never preselected. */
 	public function test_advice(): void {
-		$t     = $this->orange(
+		$t     = $this->payerless(
 			array(
 				'auto_confirm_ok' => false,
 				'risk_reasons'    => array( 'no_baseline' ),
@@ -1055,7 +1361,7 @@ final class MatchPolicyTest extends TestCase {
 			)
 		);
 		$items = MatchPolicy::advice(
-			$this->orange(),
+			$this->payerless(),
 			$this->ctx(
 				array(
 					'claimants'   => array( $small, $dead ),
@@ -1140,10 +1446,24 @@ final class MatchPolicyTest extends TestCase {
 				)
 			),
 		);
-		$this->assertSame( array( 'txn:orange_cash:' . self::TXN, 'payer:01011112222' ), MatchPolicy::lock_names( $this->orange(), $hint, true ) );
-		$this->assertSame( array( 'txn:orange_cash:' . self::TXN ), MatchPolicy::lock_names( $this->orange(), $hint, false ) );
-		$bank = MatchPolicy::read_transfer( $this->data( array( 'counterparty' => null ) ), self::WALLET, 'bank_cib', self::NOW );
-		$this->assertSame( array( 'trf:trf_1' ), MatchPolicy::lock_names( $bank, array(), true ) );
+		$this->assertSame( array( 'txn:' . self::TXN, 'payer:01011112222' ), MatchPolicy::lock_names( $this->payerless(), $hint, true ) );
+		$this->assertSame( array( 'txn:' . self::TXN ), MatchPolicy::lock_names( $this->payerless(), $hint, false ) );
+		$this->assertSame( array( 'txn:' . self::TXN, 'payer:01011112222' ), MatchPolicy::lock_names( $this->masked(), $hint, true ), 'masked: the same locks' );
+
+		$elsewhere = array( $this->claimant( 22, array( 'wallet' => self::OTHER_WALLET ) ) );
+		$this->assertSame( array( 'txn:' . self::TXN, 'payer:01011112222' ), MatchPolicy::lock_names( $this->payerless(), $elsewhere, true ), 'a claimant on another wallet is still locked' );
+
+		$nothing = MatchPolicy::read_transfer(
+			$this->data(
+				array(
+					'counterparty'    => null,
+					'provider_txn_id' => null,
+				)
+			),
+			self::WALLET,
+			self::NOW
+		);
+		$this->assertSame( array( 'trf:trf_1' ), MatchPolicy::lock_names( $nothing, $hint, true ), 'no payer, no id: the transfer alone' );
 		$this->assertSame( MatchPolicy::claimants_print( array_reverse( $hint ) ), MatchPolicy::claimants_print( $hint ) );
 	}
 
@@ -1155,6 +1475,13 @@ final class MatchPolicyTest extends TestCase {
 		$this->assertSame( 'balance_unavailable', MatchPolicy::risk_reason( $t ) );
 		$t['channel'] = 'notification';
 		$this->assertSame( 'notification_only', MatchPolicy::risk_reason( $t ) );
+		$t['channel']      = 'sms';
+		$t['risk_reasons'] = array( 'balance_unavailable', 'notification_only' );
+		$this->assertSame( 'notification_only', MatchPolicy::risk_reason( $t ), 'the phone\'s own reason tells a notification alone' );
+		$t['provider'] = 'a_type_from_a_later_app';
+		$this->assertSame( 'notification_only', MatchPolicy::risk_reason( $t ), 'never the type of the wallet' );
+		$t['risk_reasons'] = array( 'balance_unavailable' );
+		$this->assertSame( 'balance_unavailable', MatchPolicy::risk_reason( $t ) );
 		$t['risk_reasons'] = array( 'sim_mismatch', 'amount_over_limit' );
 		$this->assertSame( 'amount_over_limit', MatchPolicy::risk_reason( $t ) );
 		$t['risk_reasons'] = array( 'unverified_template', 'balance_stale' );
@@ -1197,12 +1524,10 @@ final class MatchPolicyTest extends TestCase {
 		$this->assertSame( 240, Expiry::hold_minutes( 60, $opts ) );
 		$this->assertSame( 300, Expiry::hold_minutes( 300, $opts ) );
 
-		$this->assertSame( 'payer', Expiry::note_kind( 'vodafone_cash', false, true ) );
-		$this->assertSame( 'orange', Expiry::note_kind( 'orange_cash', false, true ) );
-		$this->assertSame( 'orange_txn', Expiry::note_kind( 'orange_cash', true, true ) );
-		$this->assertSame( 'decision', Expiry::note_kind( 'orange_cash', false, false ) );
-		$this->assertSame( 'decision', Expiry::note_kind( 'instapay_app', false, true ) );
-		$this->assertSame( 'decision', Expiry::note_kind( 'bank_nbe', false, true ) );
+		$this->assertSame( 'txn_saved', Expiry::note_kind( true, true ) );
+		$this->assertSame( 'txn_saved', Expiry::note_kind( true, false ), 'a saved id is kept whatever the setting says now' );
+		$this->assertSame( 'txn_entry', Expiry::note_kind( false, true ) );
+		$this->assertSame( 'plain', Expiry::note_kind( false, false ) );
 
 		$this->assertFalse( Expiry::locked_row( $this->row( 10 ) ) );
 		$this->assertTrue( Expiry::locked_row( $this->row( 10, array( 'paid_minor' => 100 ) ) ) );

@@ -1,6 +1,6 @@
 === Qersh for WooCommerce ===
 Contributors: qersh
-Tags: woocommerce, egypt, vodafone cash, instapay, wallet
+Tags: woocommerce, egypt, e-wallet, wallet transfer, mobile wallet
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -12,11 +12,11 @@ Confirm WooCommerce orders paid by e-wallet transfer, with the Qersh app on your
 
 == Description ==
 
-Qersh (Qersh Pay) is an Android app that reads the incoming-transfer notifications of e-wallets (Vodafone Cash, Orange Cash, e& money, InstaPay) on the merchant's phone and sends a signed webhook to the merchant's server, so orders are confirmed automatically with no payment gateway. Qersh is a wallet notification relay, not a payment service provider.
+Qersh (Qersh Pay) is an Android app that reads the incoming-transfer notifications of e-wallets (Vodafone Cash, Orange Cash, e& money and others) on the merchant's phone and sends a signed webhook to the merchant's server, so orders are confirmed automatically with no payment gateway. Qersh is a wallet notification relay, not a payment service provider.
 
 = How it works =
 
-1. Add your wallet in WooCommerce, Qersh, Wallets: the number or InstaPay address your customers transfer to.
+1. Add your wallet in WooCommerce, Qersh, Wallets: the e-wallet number your customers transfer to.
 2. Generate your developer's link with the connection key and open it on the wallet's phone in the Qersh app, then tap "Test connection".
 3. Activate Qersh and set the wallet balance once in the app ("Sync balance").
 4. At checkout your customer chooses "E-wallet transfer", enters the wallet number they will transfer from, and sees the amount, your wallet and the deadline.
@@ -24,7 +24,7 @@ Qersh (Qersh Pay) is an Android app that reads the incoming-transfer notificatio
 
 = What your customer does =
 
-One field, then a transfer. Vodafone Cash and e& money: no transaction id, no screenshot, and orders are confirmed on their own. Orange Cash: after transferring, the customer enters the transaction id from the transfer message on the order page (pasting the whole message works), and the order is usually confirmed on its own. InstaPay and bank transfers wait for your one-click decision.
+One field, then a transfer: no screenshot. When the transfer message shows the number they transferred from, the order is usually confirmed on its own. After transferring, the customer can also enter the transaction id from the transfer message on the order page (pasting the whole message works): it helps when your store cannot see their number.
 
 = Why Qersh =
 
@@ -43,7 +43,7 @@ The plugin's forum on wordpress.org, and support@qersh.cfd. The same two appear 
 
 = Wallets =
 
-Automatic: Vodafone Cash and e& money (keep Send sender details on Full name and number), and Orange Cash when the customer enters the transaction id (set the wallet balance once in the app; needs the app's template update for today's Orange Cash messages). One click, with the payer shown: the InstaPay app (a later app version will confirm InstaPay transfers itself) and bank SMS (bank messages state no balance, so Qersh cannot check them). A transfer that arrives with no open order is filed as a personal transfer, and an order created after the money arrived is never confirmed by it automatically.
+Any e-wallet the Qersh app reads: Vodafone Cash, Orange Cash, e& money and others. The plugin never looks at the wallet type; it decides each transfer from what your phone sends: the sender's number, the transaction id, the amount, the time and the app's own check. A transfer that shows the sender's number confirms its order on its own (keep the app's Send sender details on Full name and number). One without the number waits for your click, with the order suggested, or for the transaction id your customer enters. A transfer with no open order is filed as a personal transfer, and an order created after the money arrived never takes it automatically.
 
 = Privacy =
 
@@ -55,13 +55,13 @@ Third-party code: qrcode-generator 2.0.4 by Kazuhiko Arase, MIT licence, https:/
 
 == External services ==
 
-This plugin never contacts Qersh or any other outside service, and sends no analytics. It receives signed HTTPS requests sent directly by your own phone running the Qersh app, and stores what it needs to match them (amount, payer number or InstaPay address, payer name, operator transaction id, time, and the transaction id your customer enters on the order page) in your WordPress database. Nothing passes through Qersh servers. The only requests the plugin sends itself come from the "Check your store URL" button (Status tab, or a wallet card): when an administrator clicks it, the plugin sends test requests with no order or customer data (an empty body or a placeholder order key, with a deliberately invalid signature) to your store's own addresses, the current one and the one your phone last used (through your CDN or firewall, such as Cloudflare, if you use one), to show what blocks them. Qersh app: https://qersh.cfd/en/ — Terms: https://qersh.cfd/en/terms — Privacy: https://qersh.cfd/en/privacy
+This plugin never contacts Qersh or any other outside service, and sends no analytics. It receives signed HTTPS requests sent directly by your own phone running the Qersh app, and stores what it needs to match them (amount, payer number, payer name, operator transaction id, time, and the transaction id your customer enters on the order page) in your WordPress database. Nothing passes through Qersh servers. The only requests the plugin sends itself come from the "Check your store URL" button (Status tab, or a wallet card): when an administrator clicks it, the plugin sends test requests with no order or customer data (an empty body or a placeholder order key, with a deliberately invalid signature) to your store's own addresses, the current one and the one your phone last used (through your CDN or firewall, such as Cloudflare, if you use one), to show what blocks them. Qersh app: https://qersh.cfd/en/ — Terms: https://qersh.cfd/en/terms — Privacy: https://qersh.cfd/en/privacy
 
 == Frequently Asked Questions ==
 
 = Do customers type a transaction id? =
 
-Not for Vodafone Cash or e& money. For Orange Cash, whose messages do not name the payer's number, the order page asks for it after the transfer, never at checkout. It is optional: without it the transfer waits for your decision. A transaction id only tells the plugin which order a transfer belongs to. It never replaces Qersh's checks, and it confirms an order only when a signed transfer from your phone carries the same id and the exact amount, into the wallet the customer chose, for an order created before the money arrived, while no other unpaid order could take it.
+Not at checkout. After the transfer, the order page asks for it, on every wallet (setting "Ask the customer for the transaction id", on by default). It is optional: a transfer that shows the sender's number does not need it, and without it one that does not show the number waits for your decision. A transaction id only tells the plugin which order a transfer belongs to. It never replaces Qersh's checks, and it confirms an order only when a signed transfer from your phone arrived without the sender's number and carries exactly the same id and the exact amount, into the wallet the customer chose, for an order created before the money arrived, while no other unpaid order could take it.
 
 = Can a customer use someone else's transaction id? =
 
@@ -79,9 +79,9 @@ No. It never contacts Qersh and locks nothing. Your phone sends transfers only w
 
 In the app, keep the wallet's Send sender details (Developer settings) on Full name and number, and set the balance once in "Sync balance". A transfer above the wallet's "Auto-confirm limit" waits for you in "Needs a decision", with its reason. A transfer that arrived before its order was placed is filed under "Personal transfers"; attach it from there (you are warned first).
 
-= Orange Cash, InstaPay and bank accounts? =
+= Which wallets work? =
 
-Orange Cash messages rarely name the payer, so the customer enters the transaction id on the order page; this needs the app's template update for today's Orange Cash messages. InstaPay transfers are recognized by the payer's address but wait for your click, with the order suggested, until a later app version confirms them. Bank messages (NBE, CIB, EGBANK) state no balance, so they wait for your click too.
+Any e-wallet the Qersh app reads: Vodafone Cash, Orange Cash, e& money and others, all the same way, since the plugin never looks at the wallet type. A store wallet is its 11-digit number (01…), never an address or a bank account.
 
 = Orders I create in the admin (WhatsApp or phone sales)? =
 
@@ -113,13 +113,13 @@ No. Qersh is a wallet notification relay, not a payment gateway: the money goes 
 
 = Fees? =
 
-Qersh takes nothing from any transfer; the subscription is a fixed monthly fee. Your customer's wallet or InstaPay may charge its usual transfer fee.
+Qersh takes nothing from any transfer; the subscription is a fixed monthly fee. Your customer's wallet may charge its usual transfer fee.
 
 == Screenshots ==
 
 1. Checkout with the payer's wallet number field.
 2. Thank-you page: amount, store wallet, deadline and live status.
-3. Orange Cash order page: the transaction id box.
+3. Order page: the transaction id box.
 4. Wallets: store URL, developer's link and QR code.
 5. Transfers: "Needs a decision" with the suggested order.
 6. Order screen: the Qersh box.
@@ -127,7 +127,7 @@ Qersh takes nothing from any transfer; the subscription is a fixed monthly fee. 
 == Changelog ==
 
 = 0.1.0 =
-* First release: e-wallet transfers for the classic checkout, the Checkout block and "Pay for order", matched by payer and time; Orange Cash transaction id; "Needs a decision"; diagnostics; English and Arabic.
+* First release: e-wallet transfers for the classic checkout, the Checkout block and "Pay for order", matched by payer and time, on any e-wallet the Qersh app reads; the transaction id on the order page; "Needs a decision"; diagnostics; English and Arabic.
 
 == Upgrade Notice ==
 

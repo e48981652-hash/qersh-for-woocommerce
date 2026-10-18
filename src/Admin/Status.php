@@ -98,7 +98,7 @@ final class Status {
 		$link  = null;
 		if ( isset( $by_name['current'], $by_name['fallback'] ) && 'ok' !== $by_name['current']['verdict'] && 'ok' === $by_name['fallback']['verdict'] && null !== $wallet ) {
 			$extra[] = esc_html__( 'The fallback address works. Open your developer\'s link below on the wallet\'s phone so it sends there; it updates the same wallet and keeps the connection key. Then tap “Test connection”.', 'qersh-for-woocommerce' );
-			$link    = Wallets::setup_link( (string) $by_name['fallback']['url'], View::wallet_name( $wallet ), (string) $wallet['provider'], null );
+			$link    = Wallets::setup_link( (string) $by_name['fallback']['url'], View::wallet_name( $wallet ), null );
 		}
 		if ( isset( $by_name['txn'], $by_name['txn_fallback'] ) && 'ok' !== $by_name['txn']['verdict'] && 'ok' === $by_name['txn_fallback']['verdict'] ) {
 			$blocker = '' !== (string) $by_name['txn']['detail'] && 'blocked' === $by_name['txn']['verdict'] ? (string) $by_name['txn']['detail'] : __( 'your security plugin or firewall', 'qersh-for-woocommerce' );

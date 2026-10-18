@@ -2,11 +2,13 @@
 /**
  * CLI: php tests/local/setup-wallets.php
  *
- * Local test store only. Configures Qersh for WooCommerce with three test wallets (Vodafone Cash, Orange Cash,
- * InstaPay), generates a test connection key for each with the plugin's own Config::new_key(), stores it through
- * Secrets, enables the payment method, and writes the wallets file for the end-to-end runs (ids, addresses, URLs and
- * keys; see qersh_local_wallets_file(): QERSH_WALLETS, or qersh-wallets.local.json next to the site directory, never
- * inside this repository or the web root). Nothing here is a real key.
+ * Local test store only. Configures Qersh for WooCommerce with two test e-wallets told apart by their label, `main`
+ * and `second` (a number and a name: a wallet has no type, the plugin never asks which operator is behind a number),
+ * turns the transaction-id box on (store.txn_entry), generates a test connection key for each with the plugin's own
+ * Config::new_key(), stores it through Secrets, enables the payment method, and writes the wallets file for the
+ * end-to-end runs (ids, labels, numbers, URLs and keys; see qersh_local_wallets_file(): QERSH_WALLETS, or
+ * qersh-wallets.local.json next to the site directory, never inside this repository or the web root). Nothing here
+ * is a real key.
  *
  * @package QershPay\WooCommerce\Tests
  */
@@ -18,36 +20,29 @@ require __DIR__ . '/lib/bootstrap.php';
 use QershPay\WooCommerce\Core\Config;
 use QershPay\WooCommerce\Plugin;
 
-$qersh_plugin            = Plugin::instance();
-$qersh_config            = $qersh_plugin->config_store()->get();
-$qersh_out               = array(
+$qersh_plugin                       = Plugin::instance();
+$qersh_config                       = $qersh_plugin->config_store()->get();
+$qersh_out                          = array(
 	'site'    => home_url(),
 	'wallets' => array(),
 );
-$qersh_want              = array(
+$qersh_want                         = array(
 	array(
-		'label'           => 'Vodafone test',
-		'provider'        => 'vodafone_cash',
+		'label'           => 'main',
 		'receive_address' => '01000000101',
 	),
 	array(
-		'label'           => 'Orange test',
-		'provider'        => 'orange_cash',
+		'label'           => 'second',
 		'receive_address' => '01200000102',
 	),
-	array(
-		'label'           => 'InstaPay test',
-		'provider'        => 'instapay_app',
-		'receive_address' => 'qershtest@instapay',
-	),
 );
-$qersh_config['wallets'] = array();
+$qersh_config['wallets']            = array();
+$qersh_config['store']['txn_entry'] = true;
 foreach ( $qersh_want as $qersh_w ) {
 	$qersh_id                  = Config::new_wallet_id();
 	$qersh_config['wallets'][] = array(
 		'id'              => $qersh_id,
 		'label'           => $qersh_w['label'],
-		'provider'        => $qersh_w['provider'],
 		'receive_address' => $qersh_w['receive_address'],
 		'enabled'         => true,
 	);
@@ -55,7 +50,7 @@ foreach ( $qersh_want as $qersh_w ) {
 	$qersh_plugin->secrets()->set_current( $qersh_id, $qersh_key, time() );
 	$qersh_out['wallets'][] = array(
 		'id'              => $qersh_id,
-		'provider'        => $qersh_w['provider'],
+		'label'           => $qersh_w['label'],
 		'receive_address' => $qersh_w['receive_address'],
 		'key'             => $qersh_key,
 		'url'             => rest_url( 'qersh/v1/webhook/' . $qersh_id ),
@@ -86,5 +81,5 @@ if ( false === file_put_contents( $qersh_file, wp_json_encode( $qersh_out, JSON_
 }
 echo 'configured ' . count( $qersh_out['wallets'] ) . " wallets; wrote {$qersh_file}\n";
 foreach ( $qersh_out['wallets'] as $qersh_w ) {
-	echo '  ' . $qersh_w['provider'] . ' ' . $qersh_w['id'] . ' ' . $qersh_w['url'] . "\n";
+	echo '  ' . $qersh_w['label'] . ' ' . $qersh_w['receive_address'] . ' ' . $qersh_w['id'] . ' ' . $qersh_w['url'] . "\n";
 }

@@ -3,8 +3,10 @@
 // field (Blocks script translations, or the classic template), in the thank-you box and the transaction-id box, and in
 // the instructions email; every number sits in an isolated left-to-right element and its groups appear left to right
 // on screen; the deadline time reads right to left like the Arabic around it (the meridiem ص/م to the left of the
-// digits, the day and month to their right); "*9#" shows as "*9#"; and the copy button copies the bare number.
-// Positions are measured with Range.getClientRects and getBoundingClientRect.
+// digits, the day and month to their right); the rounding note says why in the plugin's Arabic, with no wallet's code
+// in it, and its amounts read left to right; and the copy button copies the bare number. The wallets are told apart by
+// their label only (tests/e2e/setup/wallets.php). Positions are measured with Range.getClientRects and
+// getBoundingClientRect.
 import { expect, test } from '@playwright/test';
 import { ADMIN_STATE, addToCart, arabic, CHECKOUT, chooseMethod, fillCustomer, LOCALE, mail, orderFromUrl, payerField, placeOrder, placeOrderButton, randPayer, state, wallet } from './utils.mjs';
 
@@ -73,7 +75,7 @@ const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
 
 test('numbers read left to right inside Arabic text, and copy copies the bare number', async ({ page }) => {
-	const w = wallet('vodafone_cash');
+	const w = wallet('main');
 	const payer = randPayer();
 	await placeOrder(page, { product: state().products['14000'], w, payer });
 
@@ -99,9 +101,10 @@ test('numbers read left to right inside Arabic text, and copy copies the bare nu
 	expect(w.receive_address).toBe('01001234567');
 });
 
-test('the deadline reads right to left; "*9#" and the amounts of the rounding note read left to right', async ({ page }) => {
-	const w = wallet('vodafone_cash');
-	// 139.50: the box rounds it up to 140 and says why, naming the *9# code (docs/17 §6.2, §7).
+test('the deadline reads right to left; the rounding note is in Arabic and its amounts read left to right', async ({ page }) => {
+	const w = wallet('main');
+	// 139.50: the box rounds it up to 140 and says why: wallet transfers made by code accept whole pounds only, the
+	// same text for every wallet (docs/17 §6.2, §7).
 	await placeOrder(page, { product: state().products['13950'], w, payer: randPayer() });
 	const box = page.locator('[data-qersh-box]');
 
@@ -122,13 +125,17 @@ test('the deadline reads right to left; "*9#" and the amounts of the rounding no
 	expect(Boolean(meridiem && clock), `the deadline "${text}" has a time and a meridiem`).toBe(true);
 	expect(meridiem.right, `in "${text}" the meridiem is left of the digits`).toBeLessThanOrEqual(clock.left + 1);
 
-	// The rounding note: the code shows as *9#, and the digits of each amount read left to right.
+	// The rounding note: the plugin's Arabic around the two amounts (no wallet's code: the text is the same for every
+	// wallet), and the digits of each amount read left to right.
 	const note = box.locator('.qersh-line--amount .qersh-note');
 	await expect(note).toBeVisible();
-	const code = await charLefts(note, '*9#');
-	expect(code, 'the note names the *9# code').not.toBeNull();
-	expect(code[1].left, '"9" is right of "*"').toBeGreaterThan(code[0].left);
-	expect(code[2].left, '"#" is right of "9"').toBeGreaterThan(code[1].left);
+	const said = ((await note.textContent()) || '').replace(/\s+/g, ' ');
+	expect(said, 'the note names no wallet code').not.toContain('*9#');
+	const why = arabic('Your order total is %1$s, rounded up to %2$s because wallet transfers made by code accept whole pounds only.');
+	for (const part of why.split(/%(?:\d+\$)?s/)) {
+		const words = part.replace(/\s+/g, ' ').trim();
+		if (words) expect(said, `the note says "${words}"`).toContain(words);
+	}
 	for (const amount of ['139.50', '140']) {
 		const digits = await charLefts(note, amount);
 		expect(digits, `the note shows ${amount}`).not.toBeNull();
@@ -139,7 +146,8 @@ test('the deadline reads right to left; "*9#" and the amounts of the rounding no
 });
 
 test("the payer field, the transaction-id box and the instructions email are in the plugin's Arabic", async ({ page }) => {
-	const w = wallet('orange_cash');
+	// Either wallet: the transaction-id box is the same for every wallet while the store takes transaction ids.
+	const w = wallet('second');
 	const payer = randPayer();
 	await addToCart(page, state().products['14000']);
 	await page.goto(state().pages.checkout);
@@ -158,6 +166,7 @@ test("the payer field, the transaction-id box and the instructions email are in 
 	await expect(txn.locator('#qersh-txn-title')).toHaveText(arabic('After you transfer'));
 	await expect(txn.locator('label[for="qersh_txn"]')).toHaveText(arabic('Transaction id'));
 	await expect(txn.locator('#qersh_txn_help')).toHaveText(arabic('Enter the transaction id from your transfer message, or paste the whole message.'));
+	await expect(txn.locator('#qersh_txn_hint')).toHaveText(arabic('It is in the message your wallet sent you about this transfer, usually after "transaction number".'));
 	await expect(txn.locator('[data-qersh-txn-send]')).toHaveText(arabic('Send transaction id'));
 
 	const sent = mail();

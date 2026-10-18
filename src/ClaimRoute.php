@@ -1,6 +1,6 @@
 <?php
 /**
- * POST qersh/v1/order-txn: the Orange Cash transaction id a customer enters on the order page (docs/17 §4.10).
+ * POST qersh/v1/order-txn: the transaction id a customer enters on the order page, on any e-wallet (docs/17 §4.10).
  *
  * @package QershPay\WooCommerce
  */
@@ -11,13 +11,13 @@ defined( 'ABSPATH' ) || exit;
 
 /**
  * Body `{ order_id, key, txn }`, at most 2 KB. The permission check is never __return_true: the order key, our
- * method, store.txn_entry on, and the order's chosen wallet an active Orange Cash wallet (one still in the
- * configuration, turned off or not: turning a wallet off only hides it from the checkout; a deleted wallet is gone
- * from the configuration, so its orders answer 404). Every refusal there is the
- * same 404 `qersh_not_found` body. Then Claims::submit() (package D2) runs the steps of docs/17 §4.10: the shape
- * before the database (400 by code), the same id again (200), the locks, the order's state (409), the atomic counter
- * (409 or 429), the note, and the late evaluation outside the customer's request. The answer is the same whatever is
- * behind the id, never cached, and the raw text is never stored or logged here.
+ * method, store.txn_entry on, and the order's chosen wallet still in the configuration (Checkout::txn_entry_open():
+ * turned off or not, since turning a wallet off only hides it from the checkout; a deleted wallet is gone from the
+ * configuration, so its orders answer 404). The type of the wallet is never read. Every refusal there is the
+ * same 404 `qersh_not_found` body. Then Claims::submit() (package D2) runs the steps of docs/17 §4.10: the canonical
+ * form before the database (400 by code), the same id again (200), the locks, the order's state (409), the atomic
+ * counter (409 or 429), the note, and the late evaluation outside the customer's request. The answer is the same
+ * whatever is behind the id, never cached, and the raw text is never stored or logged here.
  *
  * The method handle_body() is the whole route, used by the REST callback and by Webhook\Fallback
  * (`?wc-api=qersh&qo=txn`).

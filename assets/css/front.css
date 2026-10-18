@@ -22,16 +22,14 @@
 	opacity: 0.85;
 }
 
-.qersh-wallets,
-.qersh-kind {
+.qersh-wallets {
 	margin: 0;
 	padding: 0;
 	border: 0;
 	min-inline-size: 0;
 }
 
-.qersh-wallets__legend,
-.qersh-kind__legend {
+.qersh-wallets__legend {
 	padding: 0;
 	margin-block-end: 0.5em;
 	font-weight: 600;
@@ -61,14 +59,6 @@
 
 .qersh-wallet__name {
 	font-weight: 600;
-}
-
-.qersh-kind label {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.35em;
-	margin-inline-end: 1.25em;
-	cursor: pointer;
 }
 
 .qersh-payer__row {
@@ -152,7 +142,7 @@
 }
 
 /*
- * An InstaPay address (up to 73 characters) has no break point of its own: let it wrap inside the box on a phone.
+ * A value with no break point of its own (an address an older order may hold) wraps inside the box on a phone.
  * A wallet number keeps its groups together through the no-break spaces Format::number() puts between them.
  * `anywhere`, not `break-word`: only it lowers the min-content width the `auto 1fr` grid of .qersh-wallet needs.
  */

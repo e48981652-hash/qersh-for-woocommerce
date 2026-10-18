@@ -28,11 +28,11 @@ abstract class TestCase extends \WP_UnitTestCase {
 	/** Savepoint name used for the plugin's transactions. */
 	const SAVEPOINT = 'qersh_wc_test';
 
-	/** The receive number of the Orange Cash test wallet (the store number of tests/vectors/txn-normalize.json). */
-	const ORANGE_NUMBER = '01212345678';
+	/** The receive number of the test wallets: the store number of tests/vectors/txn-normalize.json. */
+	const STORE_NUMBER = '01212345678';
 
-	/** The payer of the Orange Cash vectors (their payer_key). */
-	const ORANGE_PAYER = '01001234567';
+	/** The order payer of the transaction-id vectors (their payer_key). */
+	const VECTOR_PAYER = '01001234567';
 
 	/**
 	 * The plugin.
@@ -187,9 +187,11 @@ abstract class TestCase extends \WP_UnitTestCase {
 	 */
 
 	/**
-	 * Configures the plugin with wallets (each gets a fresh id and test key) and enables the method.
+	 * Configures the plugin with wallets (each gets a fresh id and test key) and enables the method. A wallet is a
+	 * label and an e-wallet number, nothing else: the plugin never knows which kind of e-wallet it is (the type only
+	 * travels in the envelopes, as `wallet.provider`, for information).
 	 *
-	 * @param array $wallets Each `[ 'provider' => …, 'receive_address' => …, 'label' => … ]`.
+	 * @param array $wallets Each `[ 'receive_address' => …, 'label' => … ]` (the label is optional).
 	 * @param array $store   Store settings to change.
 	 * @return array[] The configured entries, in order.
 	 */
@@ -198,9 +200,8 @@ abstract class TestCase extends \WP_UnitTestCase {
 		foreach ( $wallets as $wallet ) {
 			$entries[] = array(
 				'id'              => Config::new_wallet_id(),
-				'label'           => isset( $wallet['label'] ) ? $wallet['label'] : 'Test ' . $wallet['provider'],
-				'provider'        => $wallet['provider'],
-				'receive_address' => $wallet['receive_address'],
+				'label'           => isset( $wallet['label'] ) ? $wallet['label'] : 'Test wallet',
+				'receive_address' => isset( $wallet['receive_address'] ) ? $wallet['receive_address'] : self::STORE_NUMBER,
 				'enabled'         => true,
 			);
 		}
@@ -235,16 +236,20 @@ abstract class TestCase extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * One Vodafone Cash wallet.
+	 * One more wallet, added to the configuration: a label and the number customers transfer to. By default it is
+	 * numbered like the store of the transaction-id vectors, so a pasted message of tests/vectors/txn-normalize.json
+	 * reads the same on it.
 	 *
-	 * @return array
+	 * @param string $label  Label.
+	 * @param string $number Receive number.
+	 * @return array The configured entry.
 	 */
-	protected function vodafone_wallet() {
+	protected function wallet( $label = 'Main wallet', $number = self::STORE_NUMBER ) {
 		$entries = $this->configure(
 			array(
 				array(
-					'provider'        => 'vodafone_cash',
-					'receive_address' => '01000000101',
+					'label'           => $label,
+					'receive_address' => $number,
 				),
 			)
 		);
@@ -252,20 +257,18 @@ abstract class TestCase extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * One Orange Cash wallet, numbered like the store of the transaction-id vectors.
+	 * A fresh operator transaction id of digits only (each real transfer has its own; a fixed one would make a second
+	 * delivery a duplicate, rule 2). It starts with 9, so it is never read as a mobile number.
 	 *
-	 * @return array
+	 * @param int $length Length, at least 6 (TxnId::MIN_ID).
+	 * @return string
 	 */
-	protected function orange_wallet() {
-		$entries = $this->configure(
-			array(
-				array(
-					'provider'        => 'orange_cash',
-					'receive_address' => self::ORANGE_NUMBER,
-				),
-			)
-		);
-		return $entries[0];
+	protected static function txn_id( $length = 12 ) {
+		$rest = '';
+		for ( $i = 1; $i < $length; $i++ ) {
+			$rest .= (string) random_int( 0, 9 );
+		}
+		return '9' . $rest;
 	}
 
 	/**
@@ -443,8 +446,10 @@ abstract class TestCase extends \WP_UnitTestCase {
 	/**
 	 * An envelope shaped like tests/e2e/deliver.mjs builds it.
 	 *
-	 * Options: delivery_id, transfer_id, amount_minor, payer (a number or handle; null for none), txn (null for
-	 * none), risk, reasons, auto_ok, channel.
+	 * Options: delivery_id, transfer_id, amount_minor, payer (the sender's number, full or masked with `*`; null for
+	 * none), handle (the sender named by a handle only, with no number), txn (null for none), risk, reasons,
+	 * auto_ok, channel, provider (the envelope's wallet.provider, and the template's provider in the checks, as the
+	 * phone fills them in; the vector's when left out: information only, the plugin decides nothing by it).
 	 *
 	 * @param string $event  Event.
 	 * @param array  $wallet Wallet entry.
@@ -460,7 +465,12 @@ abstract class TestCase extends \WP_UnitTestCase {
 		$env['created_at']          = self::iso( $now );
 		$env['created_at_epoch_ms'] = $now * 1000;
 		$env['wallet']['id']        = $wallet['id'];
-		$env['wallet']['provider']  = $wallet['provider'];
+		if ( array_key_exists( 'provider', $opts ) ) {
+			$env['wallet']['provider'] = $opts['provider'];
+			if ( isset( $env['data']['checks']['template'] ) && is_array( $env['data']['checks']['template'] ) ) {
+				$env['data']['checks']['template']['provider'] = $opts['provider'];
+			}
+		}
 
 		if ( 'transfer.received' === $event ) {
 			$env['data'] = $this->shape_transfer( $env['data'], $now, $opts );
@@ -499,24 +509,16 @@ abstract class TestCase extends \WP_UnitTestCase {
 			$data['amount_minor'] = (int) $opts['amount_minor'];
 			$data['amount']       = number_format( $opts['amount_minor'] / 100, 2, '.', '' );
 		}
-		if ( array_key_exists( 'payer', $opts ) ) {
-			$name = isset( $data['counterparty']['name'] ) ? $data['counterparty']['name'] : null;
-			if ( null === $opts['payer'] ) {
-				$data['counterparty'] = array(
-					'name'   => $name,
-					'number' => null,
-					'handle' => null,
-				);
-			} elseif ( false !== strpos( $opts['payer'], '@' ) ) {
-				$data['counterparty']['number'] = null;
-				$data['counterparty']['handle'] = $opts['payer'];
-			} else {
-				$data['counterparty']['number'] = $opts['payer'];
-				$data['counterparty']['handle'] = null;
-			}
+		if ( array_key_exists( 'payer', $opts ) || array_key_exists( 'handle', $opts ) ) {
+			$data['counterparty'] = array(
+				'number' => isset( $opts['payer'] ) ? $opts['payer'] : null,
+				'name'   => isset( $data['counterparty']['name'] ) ? $data['counterparty']['name'] : null,
+				'handle' => isset( $opts['handle'] ) ? $opts['handle'] : null,
+				'bank'   => null,
+			);
 		}
 		// Every real transfer has its own operator id; a fixed one would make each run a duplicate (rule 2).
-		$data['provider_txn_id'] = array_key_exists( 'txn', $opts ) ? $opts['txn'] : str_pad( (string) random_int( 0, 999999999999 ), 12, '0', STR_PAD_LEFT );
+		$data['provider_txn_id'] = array_key_exists( 'txn', $opts ) ? $opts['txn'] : self::txn_id();
 		foreach ( array(
 			'risk'    => 'risk',
 			'reasons' => 'risk_reasons',

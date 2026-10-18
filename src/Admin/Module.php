@@ -331,9 +331,9 @@ final class Module {
 		if ( ! $ours && ! $order && ! self::is_wc_screen() ) {
 			return;
 		}
-		wp_enqueue_style( 'qersh-wc-admin', QERSH_WC_URL . 'assets/css/admin.css', array(), QERSH_WC_VERSION );
+		wp_enqueue_style( 'qersh-wc-admin', QERSH_WC_URL . 'assets/css/admin.css', array(), Plugin::asset_version( 'assets/css/admin.css' ) );
 		wp_register_script( 'qersh-wc-qrcode', QERSH_WC_URL . 'assets/vendor/qrcode-generator/qrcode.js', array(), '2.0.4', true );
-		wp_register_script( 'qersh-wc-admin', QERSH_WC_URL . 'assets/js/admin.js', array( 'wp-i18n', 'clipboard', 'qersh-wc-qrcode' ), QERSH_WC_VERSION, true );
+		wp_register_script( 'qersh-wc-admin', QERSH_WC_URL . 'assets/js/admin.js', array( 'wp-i18n', 'clipboard', 'qersh-wc-qrcode' ), Plugin::asset_version( 'assets/js/admin.js' ), true );
 		wp_set_script_translations( 'qersh-wc-admin', 'qersh-for-woocommerce' );
 		$data = array(
 			'ajaxUrl'      => admin_url( 'admin-ajax.php' ),

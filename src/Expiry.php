@@ -8,7 +8,6 @@
 
 namespace QershPay\WooCommerce;
 
-use QershPay\WooCommerce\Core\TxnId;
 use QershPay\WooCommerce\Store\LockTimeout;
 
 defined( 'ABSPATH' ) || exit;
@@ -23,18 +22,14 @@ defined( 'ABSPATH' ) || exit;
  *   admin's "Cancelled order" email when the store wants it (filter_admin_cancel_email());
  * - otherwise `UPDATE … SET state = 'expired' WHERE state = 'open'` and, only when it hit the row, the order is
  *   cancelled if it is still pending with our method and not in the trash (else the row is corrected alone):
- *   `_qersh_expired_at`, an internal note, and a customer note by the kind of wallet;
+ *   `_qersh_expired_at`, an internal note, and a customer note (note_kind(): a saved transaction id, the order page
+ *   that still takes one, or the plain sentence; never by the type of the wallet);
  * - a partial order (money received) is never cancelled: its transfers get `partial_overdue`, the row `review`,
  *   the customer a note and the admin an alert;
  * - an order flagged as forged is never cancelled;
  * - an `expired` row whose order is still pending finishes a cancellation that was cut short.
  */
 final class Expiry {
-
-	/**
-	 * After our expiry cancelled an Orange order, its customer may still type the id this long.
-	 */
-	const REVIVE_SEC = 259200;
 
 	/**
 	 * The sweep stops starting new expiries after this many seconds.
@@ -366,21 +361,23 @@ final class Expiry {
 	}
 
 	/**
-	 * Which customer note a cancelled order gets (docs/17 §4.7). Pure.
+	 * Which customer note a cancelled order gets (docs/17 §4.7), the same for every wallet. Pure.
 	 *
-	 * @param string $provider  Provider of the order's wallet.
-	 * @param bool   $has_txn   The customer typed a transaction id.
-	 * @param bool   $txn_entry store.txn_entry.
-	 * @return string `payer`, `orange`, `orange_txn` or `decision`.
+	 * - `txn_saved`: the customer typed a transaction id, which the store keeps (whatever store.txn_entry says now).
+	 * - `txn_entry`: the order page still takes one for 72 hours (Claims::REVIVE_SEC), which helps when the
+	 *   store cannot see the sender's number.
+	 * - `plain`: the order comes back once a transfer sent before the deadline reaches the store and is confirmed.
+	 *
+	 * @param bool $has_txn   The customer typed a transaction id.
+	 * @param bool $txn_entry The order page takes transaction ids (store.txn_entry, and the order's wallet still in
+	 *                        the configuration).
+	 * @return string `txn_saved`, `txn_entry` or `plain`.
 	 */
-	public static function note_kind( string $provider, bool $has_txn, bool $txn_entry ): string {
-		if ( in_array( $provider, MatchPolicy::PAYER_PROVIDERS, true ) ) {
-			return 'payer';
+	public static function note_kind( bool $has_txn, bool $txn_entry ): string {
+		if ( $has_txn ) {
+			return 'txn_saved';
 		}
-		if ( in_array( $provider, TxnId::CLAIM_PROVIDERS, true ) && ( $txn_entry || $has_txn ) ) {
-			return $has_txn ? 'orange_txn' : 'orange';
-		}
-		return 'decision';
+		return $txn_entry ? 'txn_entry' : 'plain';
 	}
 
 	/**
@@ -524,8 +521,8 @@ final class Expiry {
 	}
 
 	/**
-	 * The transfer that waits for the merchant with the order's typed id: same canonical id on Orange, and
-	 * holds_for_claim().
+	 * The transfer that waits for the merchant with the order's typed id: the same canonical id, on the wallet the
+	 * order chose (a transfer that reached another wallet never holds it), and holds_for_claim().
 	 *
 	 * @param array $row Row.
 	 * @return array|null
@@ -535,17 +532,23 @@ final class Expiry {
 		if ( '' === $txn ) {
 			return null;
 		}
-		$providers = $this->plugin->orders()->wallet_providers();
-		$provider  = isset( $providers[ $row['wallet'] ] ) ? $providers[ $row['wallet'] ] : '';
-		if ( ! in_array( $provider, TxnId::CLAIM_PROVIDERS, true ) ) {
-			return null;
-		}
-		foreach ( $this->plugin->transfers()->find_by_txn( $provider, $txn ) as $tr ) {
-			if ( self::holds_for_claim( $tr ) ) {
+		foreach ( $this->plugin->transfers()->find_by_txn( $txn ) as $tr ) {
+			if ( self::holds_for_claim( $tr ) && self::same_wallet( $tr, $row ) ) {
 				return $tr;
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * Whether a transfer reached the wallet an order chose. Pure.
+	 *
+	 * @param array $tr  Typed qersh_transfers row.
+	 * @param array $row Typed qersh_orders row.
+	 * @return bool
+	 */
+	public static function same_wallet( array $tr, array $row ): bool {
+		return isset( $tr['wallet'], $row['wallet'] ) && '' !== (string) $row['wallet'] && (string) $tr['wallet'] === (string) $row['wallet'];
 	}
 
 	/**
@@ -647,7 +650,7 @@ final class Expiry {
 	}
 
 	/**
-	 * The customer's note of a cancelled order (docs/17 §4.7).
+	 * The customer's note of a cancelled order (docs/17 §4.7), by note_kind(): one text for every wallet.
 	 *
 	 * @param \WC_Order $order Order.
 	 * @param array     $row   Row.
@@ -655,25 +658,21 @@ final class Expiry {
 	 * @return string
 	 */
 	private function customer_note( \WC_Order $order, array $row, array $opts ): string {
-		$providers = $this->plugin->orders()->wallet_providers();
-		$provider  = isset( $providers[ $row['wallet'] ] ) ? $providers[ $row['wallet'] ] : '';
-		$txn       = isset( $row['claim_txn'] ) ? (string) $row['claim_txn'] : '';
-		$number    = Orders::ltr( (string) $order->get_order_number() );
-		switch ( self::note_kind( $provider, '' !== $txn, ! empty( $opts['txn_entry'] ) ) ) {
-			case 'payer':
-				/* translators: %s: order number. */
-				return sprintf( __( 'The transfer window for order #%s has ended and the order was cancelled. Do not transfer for it now. If you transferred before the deadline, your order will be confirmed when the transfer arrives; otherwise contact the store with your order number.', 'qersh-for-woocommerce' ), $number );
-			case 'orange':
+		$txn    = isset( $row['claim_txn'] ) ? (string) $row['claim_txn'] : '';
+		$number = Orders::ltr( (string) $order->get_order_number() );
+		$entry  = ! empty( $opts['txn_entry'] ) && Checkout::txn_entry_open( $this->plugin, $this->plugin->wallet( Checkout::order_wallet_id( $order, $row ) ) );
+		switch ( self::note_kind( '' !== $txn, $entry ) ) {
+			case 'txn_entry':
 				$url  = Checkout::txn_page_url( $order );
 				$link = Format::isolate( '<a href="' . esc_url( $url ) . '">' . esc_html( $url ) . '</a>', Format::NOTE );
 				/* translators: 1: order number, 2: link to the order page. */
-				return sprintf( __( 'The transfer window for order #%1$s has ended and the order was cancelled. Do not transfer for it now. If you transferred before the deadline, enter the transaction id from your transfer message on your order page within 72 hours: %2$s. Your order comes back when your transfer matches it, as long as the products are available; otherwise contact the store with your order number.', 'qersh-for-woocommerce' ), $number, $link );
-			case 'orange_txn':
+				return sprintf( __( 'The transfer window for order #%1$s has ended and the order was cancelled. Do not transfer for it now. If you transferred before the deadline, your order comes back when your transfer matches it, as long as the products are available. If the store cannot see the number you transferred from, you can enter the transaction id from your transfer message on your order page within 72 hours: %2$s. If your order does not come back, contact the store with your order number.', 'qersh-for-woocommerce' ), $number, $link );
+			case 'txn_saved':
 				/* translators: 1: order number, 2: transaction id. */
 				return sprintf( __( 'The transfer window for order #%1$s has ended and the order was cancelled. We kept the transaction id %2$s, so do not transfer again. If you transferred before the deadline, your order comes back when your transfer arrives and the store checks it, as long as the products are available; otherwise contact the store with your order number.', 'qersh-for-woocommerce' ), $number, Orders::ltr( $txn ) );
 			default:
 				/* translators: %s: order number. */
-				return sprintf( __( 'The transfer window for order #%s has ended and the order was cancelled. Do not transfer for it now. If you transferred before the deadline, the store brings your order back after it checks your transfer, as long as the products are available; otherwise contact the store with your order number.', 'qersh-for-woocommerce' ), $number );
+				return sprintf( __( 'The transfer window for order #%s has ended and the order was cancelled. Do not transfer for it now. If you transferred before the deadline, your order comes back once your transfer reaches the store and is confirmed, as long as the products are available; otherwise contact the store with your order number.', 'qersh-for-woocommerce' ), $number );
 		}
 	}
 }

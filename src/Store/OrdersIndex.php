@@ -195,8 +195,8 @@ final class OrdersIndex {
 	}
 
 	/**
-	 * Every order whose customer typed this canonical transaction id, in any state (live and dead owners, docs/17
-	 * §4.6 rule 4a). Earliest claim first.
+	 * Every order whose customer typed this canonical transaction id, in any state and on any wallet (live and dead
+	 * owners, docs/17 §4.6 rule 4a, whose gate 1 compares the wallet). Earliest claim first.
 	 *
 	 * @param string $txn Canonical transaction id.
 	 * @return array[]

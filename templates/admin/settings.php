@@ -30,7 +30,7 @@ $qersh_wc_store = $args['store'];
 <?php endif; ?>
 
 <?php if ( $args['piaster_hint'] ) : ?>
-	<div class="notice notice-warning inline"><p><?php esc_html_e( 'Your prices have piasters, but a transfer made with *9# carries whole pounds only. Turn on “Round up to the next pound” so such transfers match.', 'qersh-for-woocommerce' ); ?></p></div>
+	<div class="notice notice-warning inline"><p><?php esc_html_e( 'Your prices have piasters, but a wallet transfer made by code carries whole pounds only. Turn on “Round up to the next pound” so such transfers match.', 'qersh-for-woocommerce' ); ?></p></div>
 <?php endif; ?>
 
 <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
@@ -71,7 +71,7 @@ $qersh_wc_store = $args['store'];
 		</tr>
 		<tr>
 			<th scope="row"><?php esc_html_e( 'Whole pounds', 'qersh-for-woocommerce' ); ?></th>
-			<td><label><input type="checkbox" name="round_up_to_pound" value="1"<?php checked( ! empty( $qersh_wc_store['round_up_to_pound'] ) ); ?><?php disabled( $args['constant'] ); ?>> <?php esc_html_e( 'Round up to the next pound: accept a transfer of the amount left rounded up to a whole pound (*9# transfers carry no piasters)', 'qersh-for-woocommerce' ); ?></label></td>
+			<td><label><input type="checkbox" name="round_up_to_pound" value="1"<?php checked( ! empty( $qersh_wc_store['round_up_to_pound'] ) ); ?><?php disabled( $args['constant'] ); ?>> <?php esc_html_e( 'Round up to the next pound: accept a transfer of the amount left rounded up to a whole pound (wallet transfers made by code carry no piasters)', 'qersh-for-woocommerce' ); ?></label></td>
 		</tr>
 		<tr>
 			<th scope="row"><?php esc_html_e( 'Link with the connection key', 'qersh-for-woocommerce' ); ?></th>
@@ -80,8 +80,8 @@ $qersh_wc_store = $args['store'];
 		<tr>
 			<th scope="row"><?php esc_html_e( 'Transaction id', 'qersh-for-woocommerce' ); ?></th>
 			<td>
-				<label><input type="checkbox" name="txn_entry" value="1"<?php checked( ! empty( $qersh_wc_store['txn_entry'] ) ); ?><?php disabled( $args['constant'] ); ?>> <?php esc_html_e( 'Ask the customer for the transaction id (Orange Cash)', 'qersh-for-woocommerce' ); ?></label>
-				<p class="description"><?php esc_html_e( 'After transferring, the customer enters the transaction id from the transfer message on their order page. When this is off, Orange Cash transfers wait for your decision, and the ids customers already entered stay visible in the order\'s Qersh box.', 'qersh-for-woocommerce' ); ?></p>
+				<label><input type="checkbox" name="txn_entry" value="1"<?php checked( ! empty( $qersh_wc_store['txn_entry'] ) ); ?><?php disabled( $args['constant'] ); ?>> <?php esc_html_e( 'Ask the customer for the transaction id', 'qersh-for-woocommerce' ); ?></label>
+				<p class="description"><?php esc_html_e( 'After transferring, the customer can enter the transaction id from the transfer message on their order page, on every wallet. It confirms the order only for a transfer whose message does not show the sender\'s number, and only when the id is exactly the one in the message. When this is off, such transfers wait for your decision, and the ids customers already entered stay visible in the order\'s Qersh box.', 'qersh-for-woocommerce' ); ?></p>
 			</td>
 		</tr>
 		<tr>
@@ -143,7 +143,7 @@ $qersh_wc_store = $args['store'];
 <h2><?php esc_html_e( 'Before the first order', 'qersh-for-woocommerce' ); ?></h2>
 <ul class="qersh-wc-list">
 	<li><?php esc_html_e( '“Test connection” arrives even before Qersh is activated, but the phone sends no transfer before activation: it keeps them for up to 30 days and sends them after.', 'qersh-for-woocommerce' ); ?></li>
-	<li><?php esc_html_e( 'For a wallet whose messages state the balance (all but InstaPay and banks): on the wallet page open the ⋮ menu → “Sync balance” and enter your real balance from the wallet app or its balance code. Without it, Qersh waits up to 15 minutes before it reports the first transfers of the wallet to your store, and asks you to check the balance; answer in “Confirm your balance” within that time and the order is confirmed on its own, otherwise the transfer goes to “Needs a decision”.', 'qersh-for-woocommerce' ); ?></li>
+	<li><?php esc_html_e( 'For a wallet whose messages state the balance: on the wallet page open the ⋮ menu → “Sync balance” and enter your real balance from the wallet app or its balance code. Without it, Qersh waits up to 15 minutes before it reports the first transfers of the wallet to your store, and asks you to check the balance; answer in “Confirm your balance” within that time and the order is confirmed on its own, otherwise the transfer goes to “Needs a decision”.', 'qersh-for-woocommerce' ); ?></li>
 	<li><?php esc_html_e( 'A transfer larger than the “Auto-confirm limit (EGP)” in the wallet settings on the phone (5,000 by default) always goes to “Needs a decision”: raise it there if your orders are larger.', 'qersh-for-woocommerce' ); ?></li>
 	<li><?php esc_html_e( 'Turn the method on in WooCommerce → Settings → Payments → “Wallet transfer (Qersh)”.', 'qersh-for-woocommerce' ); ?></li>
 	<li><?php esc_html_e( 'Place a small test order and send a real transfer: the order turns “Processing” within seconds (or after your answer in “Confirm your balance”), and the phone shows the order number next to the transfer.', 'qersh-for-woocommerce' ); ?></li>
@@ -152,7 +152,7 @@ $qersh_wc_store = $args['store'];
 <h2><?php esc_html_e( 'Every day', 'qersh-for-woocommerce' ); ?></h2>
 <ul class="qersh-wc-list">
 	<li><?php esc_html_e( 'The Transfers tab lists Needs a decision, Unmatched, Personal transfers, Matched and All, and the menu shows how many need a decision. Transfers matched by the transaction id the customer entered carry the badge “By transaction id”.', 'qersh-for-woocommerce' ); ?></li>
-	<li><?php esc_html_e( 'Each order paid by wallet transfer has a Qersh box: the payer number, the wallet, the deadline, the transfers applied, the forgery flag, the last delivery from the phone, and for Orange Cash the transaction id the customer entered.', 'qersh-for-woocommerce' ); ?></li>
+	<li><?php esc_html_e( 'Each order paid by wallet transfer has a Qersh box: the payer number, the wallet, the deadline, the transfers applied, the forgery flag, the last delivery from the phone, and the transaction id the customer entered, if any.', 'qersh-for-woocommerce' ); ?></li>
 	<li><?php esc_html_e( '“Generate a new key” and “Send this wallet\'s link to your developer” on the phone each make a new key, and the phone signs with the new and the old key for 24 hours: paste the latest message within that time, or generate your developer\'s link with the connection key. If the store still matches the old key, the wallet card tells you.', 'qersh-for-woocommerce' ); ?></li>
 	<li><?php esc_html_e( 'If you change the store\'s domain, www or permalinks, open your new developer\'s link on the phone once; the alert says when.', 'qersh-for-woocommerce' ); ?></li>
 </ul>

@@ -34,7 +34,7 @@ class PrivacyTest extends TestCase {
 	 * @return array `[ 'order' => \WC_Order, 'transfer_id' => string, 'paid_by' => string, 'wallet' => array ]`
 	 */
 	private function customer_with_a_loose_transfer( $payer ) {
-		$wallet = $this->vodafone_wallet();
+		$wallet = $this->wallet();
 		$sent   = $this->deliver(
 			'transfer.received',
 			$wallet,
@@ -72,7 +72,7 @@ class PrivacyTest extends TestCase {
 	 */
 	private function claimant_naming_another_payer( $as_billing_phone ) {
 		$victim = '01155566600';
-		$wallet = $this->vodafone_wallet();
+		$wallet = $this->wallet();
 		$sent   = $this->deliver(
 			'transfer.received',
 			$wallet,

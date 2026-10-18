@@ -1,7 +1,8 @@
 <?php
 /**
  * Tests of the pure rules of Diagnostics (docs/17 §4.9): what a delivery writes, the phone's state, the silent
- * phone, the pending key, the store URL change, the self-test classifier and the transaction id drift.
+ * phone, the pending key, the store URL change, the self-test classifier and the transaction-id box. None of them
+ * reads a wallet type.
  *
  * @package QershPay\WooCommerce\Tests
  */
@@ -11,6 +12,7 @@ declare( strict_types=1 );
 namespace QershPay\WooCommerce\Tests\Unit;
 
 use QershPay\WooCommerce\Diagnostics;
+use QershPay\WooCommerce\Plugin;
 use Yoast\PHPUnitPolyfills\TestCases\TestCase;
 
 defined( 'ABSPATH' ) || exit;
@@ -21,6 +23,11 @@ defined( 'ABSPATH' ) || exit;
 final class DiagnosticsTest extends TestCase {
 
 	const NOW = 1792000000;
+
+	/**
+	 * Wallet types the envelope may carry: the rules must answer the same for each.
+	 */
+	const WALLET_TYPES = array( 'vodafone_cash', 'orange_cash', 'etisalat_cash', 'a_type_never_heard_of', '' );
 
 	/**
 	 * An envelope.
@@ -35,6 +42,13 @@ final class DiagnosticsTest extends TestCase {
 			array(
 				'schema'       => 'qersh.v1',
 				'event'        => $event,
+				'wallet'       => array(
+					'id'            => 'wal_01JA2Y4X5M7Q9R0S1T2U3V4W5Z',
+					'provider'      => 'vodafone_cash',
+					'label'         => 'Main',
+					'number_masked' => '0100****567',
+					'slot'          => 0,
+				),
 				'device'       => array(
 					'id'          => 'dev_01JA2Y4X5M7Q9R0S1T2U3V4W5Z',
 					'app_version' => '0.4.6',
@@ -52,9 +66,21 @@ final class DiagnosticsTest extends TestCase {
 		);
 	}
 
+	/**
+	 * The same envelope with another wallet type.
+	 *
+	 * @param array  $envelope Envelope.
+	 * @param string $provider `wallet.provider`.
+	 * @return array
+	 */
+	private function with_type( array $envelope, string $provider ): array {
+		$envelope['wallet']['provider'] = $provider;
+		return $envelope;
+	}
+
 	/** Every delivery: time, event, host and form, the device state, and the end of a silent episode. */
 	public function test_delivery_fields_common(): void {
-		$f = Diagnostics::delivery_fields( $this->envelope( 'transfer.updated' ), 'vodafone_cash', 'rest_route', 'shop.example:8443', self::NOW );
+		$f = Diagnostics::delivery_fields( $this->envelope( 'transfer.updated' ), 'rest_route', 'shop.example:8443', self::NOW );
 		$this->assertSame( self::NOW, $f['last_delivery_at'] );
 		$this->assertSame( 'transfer.updated', $f['last_event'] );
 		$this->assertSame( 'shop.example:8443', $f['seen_host'] );
@@ -76,7 +102,7 @@ final class DiagnosticsTest extends TestCase {
 
 	/** An unknown form is not stored; an empty host is not either. */
 	public function test_delivery_fields_bad_form(): void {
-		$f = Diagnostics::delivery_fields( $this->envelope( 'webhook.test' ), 'vodafone_cash', 'other', '', self::NOW );
+		$f = Diagnostics::delivery_fields( $this->envelope( 'webhook.test' ), 'other', '', self::NOW );
 		$this->assertArrayNotHasKey( 'seen_form', $f );
 		$this->assertArrayNotHasKey( 'seen_host', $f );
 	}
@@ -84,12 +110,12 @@ final class DiagnosticsTest extends TestCase {
 	/** A heartbeat writes last_heartbeat_at; grace_until comes from the subscription. */
 	public function test_delivery_fields_heartbeat_and_grace(): void {
 		$env = $this->envelope( 'device.heartbeat', array( 'seq' => 1 ), array( 'subscription' => array( 'grace_until' => '2026-10-20T10:00:00Z' ) ) );
-		$f   = Diagnostics::delivery_fields( $env, 'vodafone_cash', 'wp-json', 'shop.example', self::NOW );
+		$f   = Diagnostics::delivery_fields( $env, 'wp-json', 'shop.example', self::NOW );
 		$this->assertSame( self::NOW, $f['last_heartbeat_at'] );
 		$this->assertSame( 1792490400, $f['grace_until'] );
 	}
 
-	/** transfer.received: masked sender and auto_seen. */
+	/** transfer.received: masked sender and auto_seen, from the counterparty alone. */
 	public function test_delivery_fields_transfer(): void {
 		$masked = Diagnostics::delivery_fields(
 			$this->envelope(
@@ -99,7 +125,6 @@ final class DiagnosticsTest extends TestCase {
 					'auto_confirm_ok' => true,
 				)
 			),
-			'vodafone_cash',
 			'wp-json',
 			'shop.example',
 			self::NOW
@@ -107,12 +132,88 @@ final class DiagnosticsTest extends TestCase {
 		$this->assertSame( 1, $masked['sender_masked'] );
 		$this->assertSame( 1, $masked['auto_seen'] );
 
-		$full = Diagnostics::delivery_fields( $this->envelope( 'transfer.received', array( 'counterparty' => array( 'number' => '01112233445' ) ) ), 'vodafone_cash', 'wp-json', 'shop.example', self::NOW );
+		$full = Diagnostics::delivery_fields( $this->envelope( 'transfer.received', array( 'counterparty' => array( 'number' => '01112233445' ) ) ), 'wp-json', 'shop.example', self::NOW );
 		$this->assertSame( 0, $full['sender_masked'] );
 		$this->assertArrayNotHasKey( 'auto_seen', $full );
 
-		$orange = Diagnostics::delivery_fields( $this->envelope( 'transfer.received', array( 'counterparty' => array( 'name' => 'Ali' ) ) ), 'orange_cash', 'wp-json', 'shop.example', self::NOW );
-		$this->assertArrayNotHasKey( 'sender_masked', $orange );
+		$name = Diagnostics::delivery_fields( $this->envelope( 'transfer.received', array( 'counterparty' => array( 'name' => 'Sample Payer' ) ) ), 'wp-json', 'shop.example', self::NOW );
+		$this->assertArrayNotHasKey( 'sender_masked', $name, 'a name only leaves the flag as it is' );
+
+		$nothing = Diagnostics::delivery_fields( $this->envelope( 'transfer.received', array( 'counterparty' => array() ) ), 'wp-json', 'shop.example', self::NOW );
+		$this->assertSame( 1, $nothing['sender_masked'], 'no sender details at all' );
+
+		$updated = Diagnostics::delivery_fields( $this->envelope( 'transfer.updated', array( 'counterparty' => array( 'number' => '0111***3445' ) ) ), 'wp-json', 'shop.example', self::NOW );
+		$this->assertArrayNotHasKey( 'sender_masked', $updated, 'only transfer.received counts' );
+	}
+
+	/**
+	 * The wallet type of the envelope changes nothing a delivery writes: the same delivery gives the same columns
+	 * with every type, a type never heard of, or none.
+	 */
+	public function test_delivery_fields_ignore_the_wallet_type(): void {
+		$deliveries = array(
+			$this->envelope( 'transfer.received', array( 'counterparty' => array( 'number' => '0111***3445' ) ) ),
+			$this->envelope( 'transfer.received', array( 'counterparty' => array( 'name' => 'Sample Payer' ) ) ),
+			$this->envelope( 'transfer.received', array( 'counterparty' => array() ) ),
+			$this->envelope(
+				'transfer.received',
+				array(
+					'counterparty'    => array( 'number' => '01001234567' ),
+					'provider_txn_id' => '250046173830512',
+					'auto_confirm_ok' => true,
+				)
+			),
+			$this->envelope( 'device.heartbeat' ),
+			$this->envelope( 'webhook.test' ),
+		);
+		foreach ( $deliveries as $i => $envelope ) {
+			$expected = Diagnostics::delivery_fields( $envelope, 'wp-json', 'shop.example', self::NOW );
+			foreach ( self::WALLET_TYPES as $type ) {
+				$this->assertSame( $expected, Diagnostics::delivery_fields( $this->with_type( $envelope, $type ), 'wp-json', 'shop.example', self::NOW ), $i . ': ' . $type );
+			}
+			$without = $envelope;
+			unset( $without['wallet']['provider'] );
+			$this->assertSame( $expected, Diagnostics::delivery_fields( $without, 'wp-json', 'shop.example', self::NOW ), $i . ': no type' );
+		}
+	}
+
+	/**
+	 * A wallet bound to no SIM (`wallet.slot` null: the merchant chose "Not bound to a SIM", or the phone lists no
+	 * SIM) is still read from its text messages: the stored state is the same as for a bound wallet, and a revoked
+	 * permission to read messages raises device_sms, whatever the notification access.
+	 */
+	public function test_unbound_wallet_needs_messages(): void {
+		$state                     = array(
+			'sms_permission'      => false,
+			'notification_access' => false,
+		);
+		$bound                     = $this->envelope( 'device.heartbeat' );
+		$bound['device']['state']  = $state;
+		$unbound                   = $bound;
+		$unbound['wallet']['slot'] = null;
+		$no_slot                   = $bound;
+		unset( $no_slot['wallet']['slot'] );
+
+		$expected = Diagnostics::delivery_fields( $bound, 'wp-json', 'shop.example', self::NOW )['last_device_state'];
+		$this->assertSame(
+			array(
+				'sms'   => false,
+				'notif' => false,
+				'v'     => '0.4.6',
+			),
+			$expected
+		);
+		$this->assertSame( $expected, Diagnostics::delivery_fields( $unbound, 'wp-json', 'shop.example', self::NOW )['last_device_state'], 'slot null' );
+		$this->assertSame( $expected, Diagnostics::delivery_fields( $no_slot, 'wp-json', 'shop.example', self::NOW )['last_device_state'], 'no slot key' );
+		$this->assertSame( array( 'device_sms' ), Diagnostics::device_alerts( $expected ) );
+
+		$granted                                      = $unbound;
+		$granted['device']['state']['sms_permission'] = true;
+		$this->assertSame( array(), Diagnostics::device_alerts( Diagnostics::delivery_fields( $granted, 'wp-json', 'shop.example', self::NOW )['last_device_state'] ), 'messages granted, notification access off: no alert' );
+
+		$no_device = $unbound;
+		unset( $no_device['device'] );
+		$this->assertArrayNotHasKey( 'last_device_state', Diagnostics::delivery_fields( $no_device, 'wp-json', 'shop.example', self::NOW ), 'nothing to store without a device' );
 	}
 
 	/** The newer-key marker comes from the Verifier's v1_index. */
@@ -136,36 +237,82 @@ final class DiagnosticsTest extends TestCase {
 		$this->assertNull( Diagnostics::device_state( null ) );
 	}
 
-	/** Masked sender rule. */
+	/** Masked sender rule: read from the counterparty alone. */
 	public function test_sender_masked_value(): void {
-		$this->assertSame( 1, Diagnostics::sender_masked_value( 'orange_cash', array( 'number' => '0111***445' ) ) );
-		$this->assertSame( 1, Diagnostics::sender_masked_value( 'etisalat_cash', array() ) );
+		$this->assertSame( 1, Diagnostics::sender_masked_value( array( 'number' => '0111***445' ) ) );
+		$this->assertSame( 1, Diagnostics::sender_masked_value( array( 'number' => '*' ) ) );
+		$this->assertSame( 1, Diagnostics::sender_masked_value( array() ), 'no sender details at all' );
+		$this->assertSame( 1, Diagnostics::sender_masked_value( null ) );
 		$this->assertSame(
 			1,
 			Diagnostics::sender_masked_value(
-				'vodafone_cash',
 				array(
 					'number' => null,
-					'name'   => '',
+					'name'   => ' ',
 					'handle' => null,
 				)
 			)
 		);
-		$this->assertNull( Diagnostics::sender_masked_value( 'vodafone_cash', array( 'name' => 'Ali' ) ) );
-		$this->assertNull( Diagnostics::sender_masked_value( 'bank_nbe', array() ) );
-		$this->assertSame( 0, Diagnostics::sender_masked_value( 'vodafone_cash', array( 'number' => '+20 111 223 3445' ) ) );
-		$this->assertSame( 0, Diagnostics::sender_masked_value( 'instapay_app', array( 'handle' => 'ali@instapay' ) ) );
+		$this->assertNull( Diagnostics::sender_masked_value( array( 'name' => 'Sample Payer' ) ), 'a name says nothing about the number' );
+		$this->assertNull( Diagnostics::sender_masked_value( array( 'handle' => 'sample.payer' ) ), 'a handle is no mobile number' );
+		$this->assertNull( Diagnostics::sender_masked_value( array( 'number' => '0100123' ) ), 'a number that does not read' );
+		$this->assertSame( 0, Diagnostics::sender_masked_value( array( 'number' => '+20 111 223 3445' ) ) );
+		$this->assertSame(
+			0,
+			Diagnostics::sender_masked_value(
+				array(
+					'number' => '٠١٠٠١٢٣٤٥٦٧',
+					'name'   => 'Sample Payer',
+				)
+			),
+			'Arabic-Indic digits'
+		);
 	}
 
-	/** Phone state alerts, only for keys the envelope carried; battery optimisation alone is no alert. */
+	/**
+	 * Phone state alerts, only for keys the envelope carried; battery optimisation alone is no alert. Every wallet
+	 * needs the permission to read messages, and none the notification access.
+	 */
 	public function test_device_alerts(): void {
-		$this->assertSame( array( 'device_sms' ), Diagnostics::device_alerts( 'vodafone_cash', array( 'sms' => false ) ) );
-		$this->assertSame( array(), Diagnostics::device_alerts( 'instapay_app', array( 'sms' => false ) ) );
-		$this->assertSame( array( 'device_notif' ), Diagnostics::device_alerts( 'instapay_app', array( 'notif' => false ) ) );
-		$this->assertSame( array(), Diagnostics::device_alerts( 'orange_cash', array( 'notif' => false ) ) );
-		$this->assertSame( array( 'device_bg' ), Diagnostics::device_alerts( 'bank_cib', array( 'bg' => true ) ) );
-		$this->assertSame( array(), Diagnostics::device_alerts( 'vodafone_cash', array( 'batt' => true ) ) );
-		$this->assertSame( array(), Diagnostics::device_alerts( 'vodafone_cash', null ) );
+		$this->assertSame( array( 'device_sms' ), Diagnostics::device_alerts( array( 'sms' => false ) ) );
+		$this->assertSame( array(), Diagnostics::device_alerts( array( 'notif' => false ) ), 'a wallet read from messages needs no notification access' );
+		$this->assertSame(
+			array( 'device_sms', 'device_bg' ),
+			Diagnostics::device_alerts(
+				array(
+					'sms'   => false,
+					'notif' => false,
+					'bg'    => true,
+				)
+			)
+		);
+		$this->assertSame(
+			array( 'device_sms' ),
+			Diagnostics::device_alerts(
+				array(
+					'sms'   => false,
+					'notif' => true,
+					'ns'    => 1,
+				)
+			),
+			'messages revoked while the notification access is granted; an `ns` of an earlier test build changes nothing'
+		);
+		$this->assertSame(
+			array(),
+			Diagnostics::device_alerts(
+				array(
+					'sms'   => true,
+					'notif' => false,
+					'ns'    => 1,
+				)
+			),
+			'messages granted, notification access off: no alert'
+		);
+		$this->assertSame( array( 'device_bg' ), Diagnostics::device_alerts( array( 'bg' => true ) ) );
+		$this->assertSame( array(), Diagnostics::device_alerts( array( 'batt' => true ) ) );
+		$this->assertSame( array(), Diagnostics::device_alerts( array( 'sms' => true ) ) );
+		$this->assertSame( array(), Diagnostics::device_alerts( null ) );
+		$this->assertSame( array(), Diagnostics::device_alerts( 'sms' ) );
 	}
 
 	/** The silent phone: heartbeat wallets only, 35 minutes with an order waiting, two hours = down. */
@@ -325,31 +472,23 @@ final class DiagnosticsTest extends TestCase {
 		$this->assertTrue( Diagnostics::tzdata_ok() );
 	}
 
-	/** The drift record, in the shapes the webhook and the order page write. */
-	public function test_drift_tail(): void {
-		$this->assertNull( Diagnostics::drift_tail( null ) );
-		$this->assertNull( Diagnostics::drift_tail( array() ) );
-		$this->assertSame( '234', Diagnostics::drift_tail( array( 'orange_cash' => array( 'tail' => '0994001234' ) ) ) );
-		$this->assertSame( '777', Diagnostics::drift_tail( array( 'last3' => '777' ) ) );
-		$this->assertSame( '***', Diagnostics::drift_tail( array( 'at' => 5 ) ) );
-	}
-
-	/** An Orange transaction id that the pattern refuses is a drift; a good one, or another wallet type, is not. */
-	public function test_drift_of(): void {
-		$bad = $this->envelope( 'transfer.received', array( 'provider_txn_id' => '12345678901' ) );
-		$this->assertSame( '901', Diagnostics::drift_of( $bad, 'orange_cash' ) );
-		$this->assertNull( Diagnostics::drift_of( $bad, 'vodafone_cash' ) );
-		$this->assertNull( Diagnostics::drift_of( $this->envelope( 'transfer.received', array( 'provider_txn_id' => '12345678901234' ) ), 'orange_cash' ) );
-		$this->assertNull( Diagnostics::drift_of( $this->envelope( 'transfer.received', array( 'provider_txn_id' => '1234567890' ) ), 'orange_cash' ) );
-		$this->assertNull( Diagnostics::drift_of( $this->envelope( 'transfer.received', array( 'provider_txn_id' => null ) ), 'orange_cash' ) );
-		$this->assertNull( Diagnostics::drift_of( $this->envelope( 'webhook.test', array( 'provider_txn_id' => '12345678901' ) ), 'orange_cash' ) );
+	/**
+	 * The transaction-id format drift of 0.1.0 is gone (docs/17 §4.9): no option, no alert and no rule hides the
+	 * transaction-id box any more; checking an operator's id shape is the Qersh app's job.
+	 */
+	public function test_no_transaction_id_drift(): void {
+		foreach ( array( 'DRIFT_OPTION', 'TXN_LONG_OPTION', 'TXN_LONG_ORDERS', 'TXN_LONG_WINDOW', 'TXN_LONG_KEEP', 'NOTIFICATION_PROVIDERS', 'NUMBER_PROVIDERS' ) as $constant ) {
+			$this->assertFalse( defined( Diagnostics::class . '::' . $constant ), $constant );
+		}
+		foreach ( array( 'drift_of', 'drift_tail', 'record_txn_refusal', 'long_run_ok', 'txn_long_tally', 'has_provider' ) as $method ) {
+			$this->assertFalse( method_exists( Diagnostics::class, $method ), $method );
+		}
 	}
 
 	/** A wallet's alert codes together. */
 	public function test_wallet_alert_codes(): void {
 		$codes = Diagnostics::wallet_alert_codes(
 			array(
-				'provider'       => 'vodafone_cash',
 				'row'            => array(
 					'last_device_state' => array(
 						'sms' => false,
@@ -378,11 +517,99 @@ final class DiagnosticsTest extends TestCase {
 			array(),
 			Diagnostics::wallet_alert_codes(
 				array(
-					'provider' => 'vodafone_cash',
-					'now'      => self::NOW,
+					'now' => self::NOW,
 				)
 			)
 		);
+
+		$unbound = Diagnostics::wallet_alert_codes(
+			array(
+				'provider' => 'vodafone_cash', // A context key of 0.1.0: ignored.
+				'row'      => array(
+					'last_device_state' => array(
+						'sms'   => false,
+						'notif' => false,
+						'ns'    => 1,
+					),
+				),
+				'now'      => self::NOW,
+			)
+		);
+		$this->assertSame( array( 'device_sms' ), array_column( $unbound, 'code' ) );
+	}
+
+	/**
+	 * The transaction-id box rule (docs/17 §4.10): the store setting and a wallet entry in the configuration,
+	 * enabled or not, whatever the wallet; a legacy `provider` of the entry changes nothing.
+	 */
+	public function test_txn_entry_allowed(): void {
+		$config = array(
+			'store'   => array( 'txn_entry' => true ),
+			'wallets' => array(
+				array(
+					'id'              => 'k7q2m9x4p1rz',
+					'label'           => 'Main',
+					'receive_address' => '01001234567',
+					'enabled'         => true,
+				),
+				array(
+					'id'              => 'a1b2c3d4e5f6',
+					'label'           => '',
+					'receive_address' => '01112223344',
+					'enabled'         => false,
+				),
+				array(
+					'id'              => 'z9y8x7w6v5u4',
+					'provider'        => 'vodafone_cash',
+					'receive_address' => '01223334455',
+					'enabled'         => true,
+				),
+			),
+		);
+		$this->assertTrue( Diagnostics::txn_entry_allowed( $config, 'k7q2m9x4p1rz' ) );
+		$this->assertTrue( Diagnostics::txn_entry_allowed( $config, 'a1b2c3d4e5f6' ), 'a wallet turned off keeps the box of its orders' );
+		$this->assertTrue( Diagnostics::txn_entry_allowed( $config, 'z9y8x7w6v5u4' ), 'whatever type an old entry names' );
+		$this->assertFalse( Diagnostics::txn_entry_allowed( $config, 'q1w2e3r4t5y6' ), 'a deleted wallet has no entry' );
+		$this->assertFalse( Diagnostics::txn_entry_allowed( $config, '' ) );
+		$this->assertFalse( Diagnostics::txn_entry_allowed( $config, 'orange_cash' ), 'a wallet type is no wallet id' );
+
+		$off                       = $config;
+		$off['store']['txn_entry'] = false;
+		$this->assertFalse( Diagnostics::txn_entry_allowed( $off, 'k7q2m9x4p1rz' ), 'the setting is off' );
+		unset( $off['store'] );
+		$this->assertFalse( Diagnostics::txn_entry_allowed( $off, 'k7q2m9x4p1rz' ) );
+		$this->assertFalse( Diagnostics::txn_entry_allowed( array( 'store' => array( 'txn_entry' => true ) ), 'k7q2m9x4p1rz' ) );
+	}
+
+	/**
+	 * txn_entry_open() reads the effective configuration of the plugin, and is false without the plugin.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_txn_entry_open(): void {
+		$this->assertFalse( ( new Diagnostics() )->txn_entry_open( 'k7q2m9x4p1rz' ) );
+
+		$plugin = Plugin::instance();
+		$cached = new \ReflectionProperty( Plugin::class, 'config' );
+		$cached->setAccessible( true );
+		$cached->setValue(
+			$plugin,
+			array(
+				'store'   => array( 'txn_entry' => true ),
+				'wallets' => array(
+					array(
+						'id'              => 'k7q2m9x4p1rz',
+						'label'           => 'Main',
+						'receive_address' => '01001234567',
+						'enabled'         => true,
+					),
+				),
+			)
+		);
+		$diagnostics = new Diagnostics( $plugin );
+		$this->assertTrue( $diagnostics->txn_entry_open( 'k7q2m9x4p1rz' ) );
+		$this->assertFalse( $diagnostics->txn_entry_open( 'a1b2c3d4e5f6' ) );
 	}
 
 	/** Hosts for comparison. */

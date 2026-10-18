@@ -157,7 +157,9 @@ final class Wallets {
 	 * "Restore wallet": the row is active again and the saved entry comes back. Within 72 hours the sealed key is
 	 * usable again (same id, link and key, nothing to do on the phone); after that the key is erased, so the wallet
 	 * answers 401 no_key until it gets a new one (docs/17 §4.4 step 3). Then add the entry back to the
-	 * configuration with ConfigStore::save() (with QERSH_WC_CONFIG the constant's entry is used as it is).
+	 * configuration with ConfigStore::save() (with QERSH_WC_CONFIG the constant's entry is used as it is). The entry
+	 * comes back as it was saved: one deleted by an earlier version may still carry a wallet `provider`, which the
+	 * configuration drops on save (Config::WALLET_FIELDS).
 	 *
 	 * @param string $wallet Wallet id.
 	 * @return array|null The saved wallets[] entry (at least `[ 'id' => … ]`), or null when the wallet is not

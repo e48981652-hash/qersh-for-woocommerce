@@ -19,6 +19,12 @@ defined( 'ABSPATH' ) || exit;
  * Never stored here: connection keys (Secrets), and runtime state (Store\Wallets). The effective configuration
  * leaves out every wallet whose row is `deleted`, so Plugin::wallet() never returns a deleted wallet.
  *
+ * A wallet has no type. The `provider` of a wallet saved before that (the stored option, an exported file, the
+ * constant, a deleted wallet's snapshot) is accepted everywhere and dropped, never refused: Core\Config keeps only
+ * Core\Config::WALLET_FIELDS, and snapshot() does the same for "Restore wallet". A stored wallet whose address is no
+ * e-wallet number (an InstaPay address saved by a test build) is left out of the effective configuration
+ * (split_legacy(), dropped() names it); the next save removes it from the option and marks it deleted.
+ *
  * With QERSH_WC_CONFIG the settings are read-only. A constant that fails validation is refused as a whole (no
  * wallet is served, issues() says why); a deleted wallet in it is left out on its own until "Restore wallet". At the
  * first read of a request that is not a webhook delivery, a wallet that has an active row but is missing from the
@@ -61,6 +67,13 @@ final class ConfigStore {
 	private $issues = array();
 
 	/**
+	 * Wallets of the stored option left out at the last get() by split_legacy().
+	 *
+	 * @var array[]
+	 */
+	private $dropped = array();
+
+	/**
 	 * True once this request compared the constant's wallets with the wallet rows.
 	 *
 	 * @var bool
@@ -92,15 +105,29 @@ final class ConfigStore {
 	 * @return array
 	 */
 	public function get(): array {
-		$rows = $this->wallet_rows();
+		$rows          = $this->wallet_rows();
+		$this->dropped = array();
 		if ( $this->is_constant() ) {
 			$config = $this->read_constant( $rows );
 		} else {
-			$stored            = get_option( self::OPTION, array() );
-			$config            = Config::with_defaults( self::clean( is_array( $stored ) ? $stored : array() ) );
-			$config['wallets'] = self::split_deleted( self::wallets_of( $config ), $rows )[0];
+			$stored                          = get_option( self::OPTION, array() );
+			$config                          = Config::with_defaults( self::clean( is_array( $stored ) ? $stored : array() ) );
+			list( $wallets, $this->dropped ) = self::split_legacy( self::wallets_of( $config ) );
+			$config['wallets']               = self::split_deleted( $wallets, $rows )[0];
 		}
 		return $config;
+	}
+
+	/**
+	 * The wallets of the stored option that get() leaves out because their address is no e-wallet number
+	 * (split_legacy()), for the notice of the Wallets screen. Empty with QERSH_WC_CONFIG, which is refused as a
+	 * whole instead (issues()).
+	 *
+	 * @return array[] Each `[ 'id' => string, 'label' => string, 'address' => string ]`.
+	 */
+	public function dropped(): array {
+		$this->get();
+		return $this->dropped;
 	}
 
 	/**
@@ -271,7 +298,7 @@ final class ConfigStore {
 
 	/**
 	 * Brings the wallet rows in step with the configuration: a wallet that left it is marked deleted (with its old
-	 * entry as the snapshot, when known), a new wallet gets its row. Never throws.
+	 * entry as the snapshot, when known, through snapshot()), a new wallet gets its row. Never throws.
 	 *
 	 * @param array      $rows    Wallet rows by id.
 	 * @param array      $wallets Wallets of the new configuration.
@@ -302,7 +329,7 @@ final class ConfigStore {
 			}
 			foreach ( $before as $old ) {
 				if ( ! in_array( (string) $old['id'], $ids, true ) ) {
-					$store->mark_deleted( (string) $old['id'], $now, $old );
+					$store->mark_deleted( (string) $old['id'], $now, self::snapshot( $old ) );
 				}
 			}
 		} catch ( \Throwable $e ) {
@@ -324,6 +351,34 @@ final class ConfigStore {
 		} catch ( \Throwable $e ) {
 			return null;
 		}
+	}
+
+	/**
+	 * Splits the wallets of the stored option into those to keep and those whose receive_address is no e-wallet
+	 * number (Core\Config::wallet_number()): only a test build from before wallets became e-wallets only (docs/17
+	 * §4.2) saved one, with an InstaPay address. Such a wallet is never offered or served. Every save starts from
+	 * get(), so the next one leaves it out of the option, and sync_rows() marks it deleted with its stored entry as
+	 * the snapshot; restoring it is then refused by Core\Config::validate(). Pure.
+	 *
+	 * @param array $wallets Wallet entries after Core\Config::with_defaults().
+	 * @return array{0: array, 1: array[]} The wallets kept, and `[ 'id', 'label', 'address' ]` (strings) of each one left out.
+	 */
+	public static function split_legacy( array $wallets ): array {
+		$kept    = array();
+		$dropped = array();
+		foreach ( array_values( $wallets ) as $wallet ) {
+			$address = is_array( $wallet ) && array_key_exists( 'receive_address', $wallet ) ? $wallet['receive_address'] : null;
+			if ( ! is_array( $wallet ) || null !== Config::wallet_number( $address ) ) {
+				$kept[] = $wallet;
+				continue;
+			}
+			$dropped[] = array(
+				'id'      => isset( $wallet['id'] ) && is_string( $wallet['id'] ) ? $wallet['id'] : '',
+				'label'   => isset( $wallet['label'] ) && is_string( $wallet['label'] ) ? $wallet['label'] : '',
+				'address' => is_string( $address ) ? $address : '',
+			);
+		}
+		return array( $kept, $dropped );
 	}
 
 	/**
@@ -355,7 +410,8 @@ final class ConfigStore {
 	 * Keeps the three top-level keys, drops receiver.keys and sanitizes each wallet label with clean_label(), as the
 	 * wallet form does, so an imported file, the constant and the form store labels by the same rule. A label that is
 	 * not a string stays as it is, for Core\Config::validate() to report. The other values are checked by
-	 * Core\Config::validate() (and receive_address normalised by Core\Config::with_defaults()).
+	 * Core\Config::validate() (receive_address normalised, and a legacy `provider` dropped, by
+	 * Core\Config::with_defaults()).
 	 *
 	 * @param array $config Configuration.
 	 * @return array
@@ -385,6 +441,18 @@ final class ConfigStore {
 	public static function clean_label( string $label ): string {
 		$label = sanitize_text_field( $label );
 		return rtrim( function_exists( 'mb_substr' ) ? (string) mb_substr( $label, 0, self::LABEL_MAX, 'UTF-8' ) : substr( $label, 0, self::LABEL_MAX ) );
+	}
+
+	/**
+	 * The entry kept as the snapshot of a wallet that leaves the configuration (Store\Wallets::mark_deleted()), for
+	 * "Restore wallet": its fields of Core\Config::WALLET_FIELDS only, so the legacy `provider` of an option saved
+	 * before wallets lost their type does not travel into it. The values stay as stored. Pure.
+	 *
+	 * @param array $wallet The wallet entry as it was stored.
+	 * @return array
+	 */
+	public static function snapshot( array $wallet ): array {
+		return array_intersect_key( $wallet, array_flip( Config::WALLET_FIELDS ) );
 	}
 
 	/**

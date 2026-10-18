@@ -1,6 +1,6 @@
 <?php
 /**
- * The provider transaction id a customer types or pastes on the order page (docs/17 §4.10), and its canonical form.
+ * The transaction id a customer types or pastes on the order page (docs/17 §4.10), and its canonical form.
  *
  * @package QershPay\WooCommerce
  */
@@ -12,33 +12,24 @@ namespace QershPay\WooCommerce\Core;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Pure functions: canonical_typed() reads the id out of what a customer wrote (the id alone, or the whole wallet
- * SMS pasted), long_run() finds in a refused text the number one or two digits longer than the shape that the drift
- * alert counts (docs/17 §4.9), canonical_stored() checks what the phone delivered. The shapes equal
- * fixtures/txn-patterns.json (scripts/check-fixtures.mjs compares the text). The JavaScript normaliser of the order
- * page is a copy of canonical_typed() and long_run(); both read tests/vectors/txn-normalize.json.
+ * Pure functions, the same for every e-wallet: the plugin never knows a wallet's type, so it never knows the shape
+ * of its ids either (the Qersh app checks them against its template pack and leaves `provider_txn_id` null when one
+ * fails). An id is compared by exact equality of one canonical form: canonical_typed() reads it out of what a
+ * customer wrote (the id alone, or the whole wallet message pasted), canonical_stored() reads what the phone
+ * delivered. The JavaScript normaliser of the order page (assets/js/txn-normalize.js canonicalTyped()) is a copy
+ * of canonical_typed(); both read tests/vectors/txn-normalize.json.
  */
 final class TxnId {
 
 	/**
-	 * Providers whose customers may type a transaction id (0.1.0: Orange Cash only).
+	 * The shortest canonical id.
 	 */
-	const CLAIM_PROVIDERS = array( 'orange_cash' );
+	const MIN_ID = 6;
 
 	/**
-	 * The shape of a transaction id, per provider. Orange Cash: 14 digits today, 10 in the older wording.
+	 * The longest canonical id.
 	 */
-	const PATTERNS = array( 'orange_cash' => '^(?:[0-9]{14}|[0-9]{10})$' );
-
-	/**
-	 * The lengths a run of the shape's characters must have to count as a candidate id.
-	 */
-	const LENGTHS = array( 'orange_cash' => array( 14, 10 ) );
-
-	/**
-	 * The character class of the shape, per provider (the `class` of fixtures/txn-patterns.json).
-	 */
-	const CLASSES = array( 'orange_cash' => '[0-9]' );
+	const MAX_ID = 40;
 
 	/**
 	 * The longest input accepted, in UTF-16 code units (the input's maxlength).
@@ -59,42 +50,73 @@ final class TxnId {
 
 	/**
 	 * The rest of ArabicNormalizer.kt's white space: line and paragraph breaks (LF, VT, FF, CR, U+001C to U+001F,
-	 * U+2028, U+2029). They become "\n", so that step 5 never joins digits across lines.
+	 * U+2028, U+2029). They become "\n", so that a message's numbers are never joined across lines.
 	 */
 	const LINE_BREAKS = '/[\x{000A}-\x{000D}\x{001C}-\x{001F}\x{2028}\x{2029}]/u';
 
 	/**
-	 * Separators removed by the compact attempt (step 4), after the mappings below. The same characters, one at a
-	 * time, join digit runs on one line in step 5.
+	 * Separators, after the mappings of normalize_text(): an id typed alone may be split by any of them, and one of
+	 * them, alone between two runs on a line of a message, joins the runs into one number.
 	 */
 	const SEPARATORS = array( ' ', '-', '.', '#', ':' );
 
 	/**
-	 * Read the id out of what a customer typed or pasted (docs/17 §4.10 steps 1-7):
-	 * 1. more than 400 characters: qersh_txn_too_long;
+	 * What a message holds that is never an id, replaced by a line break before its numbers are read, in this order:
+	 * links (their short codes mix letters and digits), dates (dd-mm-yy, dd/mm/yyyy, mm/dd/yyyy, yyyy-mm-dd), times
+	 * (hh:mm and hh:mm:ss; a following AM, PM, ص or م is a word, which never counts), amounts with decimals (150.00,
+	 * 150,5) and numbers followed by a currency (100 جنيه, 100 جنية, 100 ج.م, 150 EGP, 150 LE). A date has a day of 1
+	 * to 31 and a month of 1 to 12, a time an hour of 0 to 23 and minutes and seconds of 0 to 59: digits that are no
+	 * date or time («91-33-72 004518», an id typed with mixed separators) are never cut from the id. Each pattern
+	 * keeps the character before the match (group 1), so that it is never the middle of a longer number: the date
+	 * and time patterns never start after a digit, the amount pattern never after a digit or a dot (an id split by
+	 * dots stays whole). ASCII and the Arabic letters of the currency words only, without look-behind (older Safari
+	 * has none), so that the JavaScript twin has the same patterns.
+	 */
+	const BREAKS = array(
+		'/()(?:[Hh][Tt][Tt][Pp][Ss]?:\/\/|[Ww][Ww][Ww]\.)[^ \n]*/u',
+		'/(^|[^0-9])(?:[0-9]{4}-(?:0?[1-9]|1[0-2])-(?:0?[1-9]|[12][0-9]|3[01])|(?:(?:0?[1-9]|[12][0-9]|3[01])[\/-](?:0?[1-9]|1[0-2])|(?:0?[1-9]|1[0-2])[\/-](?:0?[1-9]|[12][0-9]|3[01]))[\/-][0-9]{2,4})(?![0-9])/u',
+		'/(^|[^0-9])(?:[01]?[0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?(?![0-9])/u',
+		'/(^|[^0-9.])[0-9]+[.,][0-9]{1,2}(?![0-9])/u',
+		'/(^|[^0-9])[0-9]+(?= ?(?:\x{062C}\x{0646}\x{064A}[\x{0647}\x{0629}]|\x{062C}\.\x{0645}|[Ee][Gg][Pp]|[Ll]\.?[Ee])(?![A-Za-z]))/u',
+	);
+
+	/**
+	 * A mobile number in a form an id is never read as: 01xxxxxxxxx, or 1xxxxxxxxx or 01xxxxxxxxx after +20, 0020 or
+	 * 20 (Payer::normalize() reads all of them), with the prefix of an Egyptian mobile line (010, 011, 012 or 015):
+	 * other digits of that length («01334567890») can be an id. A bare 1xxxxxxxxx can be a 10-digit id: it counts as
+	 * a number only when it is the order's payer key or a store number (is_number()), as does any spelling of them.
+	 */
+	const PHONE = '/^(?:01[0125][0-9]{8}|(?:\+|00)?200?1[0125][0-9]{8})$/D';
+
+	/**
+	 * Read the id out of what a customer typed or pasted (docs/17 §4.10):
+	 * 1. null, or nothing but white space, marks and separators (after steps 2 and 3): qersh_txn_empty; another
+	 *    value that is not a string: qersh_txn_format; more than 400 characters: qersh_txn_too_long;
 	 * 2. Arabic-Indic and Persian digits become Latin;
 	 * 3. bidi, invisible marks and tatweel are removed (ArabicNormalizer.kt), white space becomes a space (a line
 	 *    break becomes "\n"), and the Arabic and full-width separators become their Latin forms;
-	 * 4. the compact value (without white space, `-`, `.`, `#`, `:`) is the id when it has the shape;
-	 * 5. otherwise the numbers of the text are read. A number is a group of runs of the shape's characters, each
-	 *    run separated from the next by exactly one of ` `, `-`, `.`, `#`, `:` on the same line. When the group has
-	 *    a separator and its runs joined have one of LENGTHS, the joined value is the one candidate of the group
-	 *    (an id split 10 + 4, «رقم المعاملة 2500517294 4183», is never read as its first 10 digits, docs/17 §4.10);
-	 *    otherwise each run of the group is a candidate. A candidate that Payer::normalize() reads as the order's
-	 *    payer key or a store wallet number, or that is a mobile number written as 0020 1xxxxxxxxx, is left out
-	 *    before counting; a candidate counts only when its length is one of LENGTHS (equal ones count once);
-	 * 6. no run: qersh_txn_format (qersh_txn_wallet_number when only wallet numbers were left out); more than one:
-	 *    qersh_txn_several. A compact value that normalises to the payer key or a store number, or that is a
-	 *    mobile number in a form a transaction id never has, is qersh_txn_wallet_number;
-	 * 7. leading zeros are kept: the id is text.
+	 * 4. the links, dates, times and amounts of BREAKS become line breaks, before step 5, so that an amount, a date
+	 *    or a time typed alone (or a date after the id) is never read as an id;
+	 * 5. the id alone: when what is left is one line of runs of [0-9A-Za-z], each with a digit, split by any number
+	 *    of separators (and an optional leading `+`), its compact value (the runs joined) is the id when it has the
+	 *    canonical form (canonical()). A compact value that is a mobile number, the payer key or a store number is
+	 *    qersh_txn_wallet_number. Two or more runs one of which is such a number by itself are read as a message;
+	 * 6. a message: a number is a group of runs of [0-9A-Za-z] that hold a digit, each separated from the next by
+	 *    exactly one separator on the same line; a run without a digit (a word) ends the group. The group's
+	 *    candidate is its runs joined, so an id split «2500517294 4183» is read whole, never as its first 10 digits;
+	 *    a group whose joined value is longer than MAX_ID gives each run as a candidate. A mobile number, the payer
+	 *    key or a store number (a run of a group by itself, or a group joined) is left out; a candidate counts only
+	 *    when it has the canonical form, and equal candidates count once;
+	 * 7. exactly one candidate: the id; more: qersh_txn_several; none: qersh_txn_format, or
+	 *    qersh_txn_wallet_number when numbers were left out.
+	 * The id is text in upper case: leading zeros are kept.
 	 *
-	 * @param string      $provider      Provider id of the order's wallet.
-	 * @param mixed       $raw           What the customer sent.
-	 * @param string|null $payer_key     The order's payer key.
-	 * @param array       $store_numbers The store's wallet numbers (receive addresses).
+	 * @param mixed  $raw           What the customer sent.
+	 * @param string $payer_key     The order's payer key ('' when it has none).
+	 * @param array  $store_numbers The store's wallet numbers (receive addresses).
 	 * @return array `[ 'ok' => true, 'txn' => string ]` or `[ 'ok' => false, 'error' => string ]`.
 	 */
-	public static function canonical_typed( string $provider, $raw, ?string $payer_key, array $store_numbers ): array {
+	public static function canonical_typed( $raw, string $payer_key = '', array $store_numbers = array() ): array {
 		if ( null === $raw ) {
 			return self::error( 'qersh_txn_empty' );
 		}
@@ -109,47 +131,32 @@ final class TxnId {
 			return self::error( 'qersh_txn_too_long' );
 		}
 
-		$text    = self::normalize_text( $text );
-		$compact = str_replace( array_merge( self::SEPARATORS, array( "\n" ) ), '', $text );
-		if ( '' === $compact ) {
+		$text = self::normalize_text( $text );
+		if ( '' === str_replace( array_merge( self::SEPARATORS, array( "\n" ) ), '', $text ) ) {
 			return self::error( 'qersh_txn_empty' );
 		}
-		// LENGTHS and CLASSES share the keys of PATTERNS (TxnIdTest checks all three against the fixture).
-		if ( ! array_key_exists( $provider, self::PATTERNS ) ) {
-			return self::error( 'qersh_txn_format' );
-		}
+		$text = self::hard_breaks( $text );
+		$own  = self::own_numbers( $payer_key, $store_numbers );
 
-		$own   = self::own_numbers( $payer_key, $store_numbers );
-		$shape = self::matches( $provider, $compact );
-		if ( self::is_own( $compact, $own ) || self::is_phone( $compact, $shape ) ) {
-			return self::error( 'qersh_txn_wallet_number' );
-		}
-		if ( $shape ) {
-			return array(
-				'ok'  => true,
-				'txn' => $compact,
-			);
+		$alone = self::id_alone( $text, $own );
+		if ( null !== $alone ) {
+			return $alone;
 		}
 
 		$candidates = array();
 		$excluded   = 0;
-		foreach ( self::numbers( $provider, $text, self::LENGTHS[ $provider ] ) as $value ) {
-			if ( ! in_array( strlen( $value ), self::LENGTHS[ $provider ], true ) ) {
-				continue;
-			}
-			if ( self::is_own( $value, $own ) || self::is_phone( $value, true ) ) {
+		foreach ( self::numbers( $text, $own ) as $value ) {
+			if ( self::is_number( $value, $own ) ) {
 				++$excluded;
 				continue;
 			}
-			if ( ! in_array( $value, $candidates, true ) ) {
-				$candidates[] = $value;
+			$id = self::canonical( $value );
+			if ( null !== $id && ! in_array( $id, $candidates, true ) ) {
+				$candidates[] = $id;
 			}
 		}
 		if ( 1 === count( $candidates ) ) {
-			return array(
-				'ok'  => true,
-				'txn' => $candidates[0],
-			);
+			return self::found( $candidates[0] );
 		}
 		if ( count( $candidates ) > 1 ) {
 			return self::error( 'qersh_txn_several' );
@@ -158,19 +165,20 @@ final class TxnId {
 	}
 
 	/**
-	 * The canonical form of an id delivered by the phone (`provider_txn_id`): trimmed, or null when it does not
-	 * have the provider's shape (it is then stored as it came and never equals an id a customer typed).
+	 * The canonical form of an id delivered by the phone (`provider_txn_id`), whatever the wallet: normalised as
+	 * canonical_typed() normalises (steps 2 and 3), white space and separators removed, in upper case. Null when it
+	 * is empty, not a string, without a digit, or shorter than MIN_ID or longer than MAX_ID after that: it then
+	 * never equals an id a customer typed.
 	 *
-	 * @param string $provider Provider id.
-	 * @param mixed  $value    Delivered value.
+	 * @param mixed $value Delivered value.
 	 * @return string|null
 	 */
-	public static function canonical_stored( string $provider, $value ): ?string {
-		if ( ! is_string( $value ) || ! array_key_exists( $provider, self::PATTERNS ) ) {
+	public static function canonical_stored( $value ): ?string {
+		if ( ! is_string( $value ) || '' === $value || strlen( $value ) > 4 * self::MAX_LENGTH ) {
 			return null;
 		}
-		$v = Config::js_trim( $value );
-		return self::matches( $provider, $v ) ? $v : null;
+		$text = self::normalize_text( Config::to_valid_utf8( $value ) );
+		return self::canonical( str_replace( array_merge( self::SEPARATORS, array( "\n" ) ), '', $text ) );
 	}
 
 	/**
@@ -213,91 +221,128 @@ final class TxnId {
 	}
 
 	/**
-	 * The second drift trigger of docs/17 §4.9 (Diagnostics::record_txn_refusal()): the first number of what a
-	 * customer typed or pasted that is one or two characters longer than the provider's longest id (15 or 16 digits
-	 * for Orange Cash ids of 14), which is what customers type once the operator lengthens its ids. It is read as
-	 * canonical_typed() reads candidates (steps 1 to 3, then step 5 with those two lengths: a group of runs joined by
-	 * one separator on a line gives its joined value when that has one of them, else each run), and a number
-	 * Payer::normalize() reads as a mobile number (0020 01xxxxxxxxx) is left out. Claims calls it on a
-	 * qersh_txn_format or qersh_txn_wallet_number refusal only (Claims::counts_long_run()). Null when there is none,
-	 * for a provider without a shape, and for what canonical_typed() refuses before reading (not a string, too
-	 * long). The JavaScript twin is longRun().
+	 * Step 4: the links, dates, times and amounts of BREAKS replaced by "\n".
 	 *
-	 * @param string $provider Provider id of the order's wallet.
-	 * @param mixed  $raw      What the customer sent.
-	 * @return string|null Latin digits (the shape's characters).
+	 * @param string $text Text from normalize_text().
+	 * @return string
 	 */
-	public static function long_run( string $provider, $raw ): ?string {
-		if ( ! is_string( $raw ) || ! array_key_exists( $provider, self::PATTERNS ) || strlen( $raw ) > 4 * self::MAX_LENGTH ) {
-			return null;
+	private static function hard_breaks( string $text ): string {
+		foreach ( self::BREAKS as $pattern ) {
+			$broken = preg_replace( $pattern, "\$1\n", $text );
+			$text   = null === $broken ? $text : $broken;
 		}
-		$text = Config::to_valid_utf8( $raw );
-		if ( Config::utf16_length( $text ) > self::MAX_LENGTH ) {
-			return null;
-		}
-		$longest = max( self::LENGTHS[ $provider ] );
-		$lengths = array( $longest + 1, $longest + 2 );
-		foreach ( self::numbers( $provider, self::normalize_text( $text ), $lengths ) as $value ) {
-			if ( in_array( strlen( $value ), $lengths, true ) && ! self::is_phone( $value, false ) ) {
-				return $value;
-			}
-		}
-		return null;
+		return $text;
 	}
 
 	/**
-	 * Step 5: the candidate values of the text, in order. Each group of runs of the shape's characters joined by
-	 * one separator on the same line gives its joined value when that has one of the lengths (LENGTHS, or those of
-	 * long_run()), else each of its runs.
+	 * Step 5: the id typed alone, its refusal as a wallet number, or null when the text is to be read as a message
+	 * (it holds a word, a line break, another character, or a number next to other runs), or when its compact value
+	 * is not an id (step 6 then refuses it, or reads a run of it).
 	 *
-	 * @param string $provider Provider id (with an entry in CLASSES and LENGTHS).
-	 * @param string $text     Text from normalize_text().
-	 * @param int[]  $lengths  The lengths a joined group must have to be read whole.
+	 * @param string $text Text from hard_breaks().
+	 * @param array  $own  Set from own_numbers().
+	 * @return array|null
+	 */
+	private static function id_alone( string $text, array $own ): ?array {
+		$line = trim( $text, implode( '', self::SEPARATORS ) . "\n" );
+		if ( false !== strpos( $line, "\n" ) ) {
+			return null;
+		}
+		$compact = str_replace( self::SEPARATORS, '', $line );
+		if ( 1 !== preg_match( '/^\+?[0-9A-Za-z]+$/D', $compact ) ) {
+			return null;
+		}
+		preg_match_all( '/[0-9A-Za-z]+/', $line, $runs );
+		foreach ( $runs[0] as $run ) {
+			$run = (string) $run;
+			if ( 1 !== preg_match( '/[0-9]/', $run ) || ( count( $runs[0] ) > 1 && self::is_number( $run, $own ) ) ) {
+				return null;
+			}
+		}
+		if ( self::is_number( $compact, $own ) ) {
+			return self::error( 'qersh_txn_wallet_number' );
+		}
+		$id = self::canonical( $compact );
+		return null === $id ? null : self::found( $id );
+	}
+
+	/**
+	 * Step 6: the values of a message, in order. Runs of [0-9A-Za-z] with a digit, each separated from the previous
+	 * one by exactly one separator, form a group; a word or a number (is_number()) ends it, and the number is a
+	 * value of its own. A group gives its runs joined, or each run when they join to more than MAX_ID characters.
+	 *
+	 * @param string $text Text from hard_breaks().
+	 * @param array  $own  Set from own_numbers().
 	 * @return string[]
 	 */
-	private static function numbers( string $provider, string $text, array $lengths ): array {
-		$class     = self::CLASSES[ $provider ];
-		$separator = '[' . preg_quote( implode( '', self::SEPARATORS ), '/' ) . ']';
-		$values    = array();
-		preg_match_all( '/' . $class . '+(?:' . $separator . $class . '+)*/u', $text, $groups );
-		foreach ( $groups[0] as $group ) {
-			$group  = (string) $group;
-			$joined = str_replace( self::SEPARATORS, '', $group );
-			if ( $joined !== $group && in_array( strlen( $joined ), $lengths, true ) ) {
-				$values[] = $joined;
+	private static function numbers( string $text, array $own ): array {
+		preg_match_all( '/[0-9A-Za-z]+/', $text, $matches, PREG_OFFSET_CAPTURE );
+		$groups = array();
+		$group  = array();
+		$end    = -1;
+		foreach ( $matches[0] as $match ) {
+			$run    = (string) $match[0];
+			$offset = (int) $match[1];
+			if ( 1 !== preg_match( '/[0-9]/', $run ) || self::is_number( $run, $own ) ) {
+				$groups[] = $group;
+				$group    = array();
+				if ( 1 === preg_match( '/[0-9]/', $run ) ) {
+					$groups[] = array( $run );
+				}
 				continue;
 			}
-			preg_match_all( '/' . $class . '+/u', $group, $runs );
-			foreach ( $runs[0] as $run ) {
-				$values[] = (string) $run;
+			// Byte offsets: one byte between two runs is one character, and the separators are ASCII.
+			if ( array() === $group || $offset !== $end + 1 || ! in_array( $text[ $end ], self::SEPARATORS, true ) ) {
+				$groups[] = $group;
+				$group    = array();
 			}
+			$group[] = $run;
+			$end     = $offset + strlen( $run );
+		}
+		$groups[] = $group;
+
+		$values = array();
+		foreach ( $groups as $runs ) {
+			$joined = implode( '', $runs );
+			if ( '' === $joined ) {
+				continue;
+			}
+			if ( strlen( $joined ) > self::MAX_ID ) {
+				$values = array_merge( $values, $runs );
+				continue;
+			}
+			$values[] = $joined;
 		}
 		return $values;
 	}
 
 	/**
-	 * Whether a value has the provider's shape.
+	 * The canonical form: [0-9A-Za-z] only, at least one digit, MIN_ID to MAX_ID characters, in upper case.
 	 *
-	 * @param string $provider Provider id.
-	 * @param string $value    Value.
-	 * @return bool
+	 * @param string $value Value.
+	 * @return string|null Null when the value does not have it.
 	 */
-	private static function matches( string $provider, string $value ): bool {
-		return 1 === preg_match( '/' . self::PATTERNS[ $provider ] . '/D', $value );
+	private static function canonical( string $value ): ?string {
+		$length = strlen( $value );
+		if ( $length < self::MIN_ID || $length > self::MAX_ID || 1 !== preg_match( '/^[0-9A-Za-z]+$/D', $value ) || 1 !== preg_match( '/[0-9]/', $value ) ) {
+			return null;
+		}
+		return strtoupper( $value );
 	}
 
 	/**
-	 * The normalised payer key and store numbers, as a set.
+	 * The payer key and store numbers that normalise to a mobile number (Payer::normalize()), as a set. A handle is
+	 * no wallet number of an e-wallet store, and is ignored.
 	 *
-	 * @param string|null $payer_key     Payer key.
-	 * @param array       $store_numbers Store numbers.
+	 * @param string $payer_key     Payer key.
+	 * @param array  $store_numbers Store numbers.
 	 * @return array<string, bool>
 	 */
-	private static function own_numbers( ?string $payer_key, array $store_numbers ): array {
+	private static function own_numbers( string $payer_key, array $store_numbers ): array {
 		$own = array();
 		foreach ( array_merge( array( $payer_key ), array_values( $store_numbers ) ) as $number ) {
 			$normalized = is_string( $number ) ? Payer::normalize( $number ) : null;
-			if ( null !== $normalized ) {
+			if ( null !== $normalized && 1 === preg_match( '/^01[0-9]{9}$/D', $normalized ) ) {
 				$own[ $normalized ] = true;
 			}
 		}
@@ -305,35 +350,22 @@ final class TxnId {
 	}
 
 	/**
-	 * Whether a value normalises to the payer key or a store number.
+	 * Whether digits (with an optional leading `+`) are a number an id is never read as: a mobile number in one of
+	 * the forms of PHONE, or any spelling Payer::normalize() reads as the payer key or a store number.
 	 *
 	 * @param string $value Value.
 	 * @param array  $own   Set from own_numbers().
 	 * @return bool
 	 */
-	private static function is_own( string $value, array $own ): bool {
-		$normalized = Payer::normalize( $value );
-		return null !== $normalized && isset( $own[ $normalized ] );
-	}
-
-	/**
-	 * Whether digits are a mobile number in a form a transaction id never has: written with the international
-	 * prefix 0020 (the sender in Orange's «من 0020…» wording), or, when the value lacks the id's shape, any number
-	 * Payer::normalize() reads as a mobile number (01xxxxxxxxx, +20 1xxxxxxxxx).
-	 *
-	 * @param string $value      Value.
-	 * @param bool   $has_shape  Whether the value has the provider's shape.
-	 * @return bool
-	 */
-	private static function is_phone( string $value, bool $has_shape ): bool {
+	private static function is_number( string $value, array $own ): bool {
 		if ( 1 !== preg_match( '/^\+?[0-9]+$/D', $value ) ) {
 			return false;
 		}
-		$normalized = Payer::normalize( $value );
-		if ( null === $normalized || false !== strpos( $normalized, '@' ) ) {
-			return false;
+		if ( 1 === preg_match( self::PHONE, $value ) ) {
+			return true;
 		}
-		return ! $has_shape || 1 === preg_match( '/^(?:\+|00)/', $value );
+		$normalized = Payer::normalize( $value );
+		return null !== $normalized && isset( $own[ $normalized ] );
 	}
 
 	/**
@@ -347,6 +379,19 @@ final class TxnId {
 			return chr( 0xC0 | ( $code >> 6 ) ) . chr( 0x80 | ( $code & 0x3F ) );
 		}
 		return chr( 0xE0 | ( $code >> 12 ) ) . chr( 0x80 | ( ( $code >> 6 ) & 0x3F ) ) . chr( 0x80 | ( $code & 0x3F ) );
+	}
+
+	/**
+	 * An id read.
+	 *
+	 * @param string $txn Canonical id.
+	 * @return array
+	 */
+	private static function found( string $txn ): array {
+		return array(
+			'ok'  => true,
+			'txn' => $txn,
+		);
 	}
 
 	/**

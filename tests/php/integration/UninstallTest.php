@@ -59,7 +59,7 @@ class UninstallTest extends TestCase {
 	 * Without the setting: the actions go, everything else stays.
 	 */
 	public function test_uninstall_keeps_the_data_by_default(): void {
-		$wallet   = $this->vodafone_wallet();
+		$wallet   = $this->wallet();
 		$order_id = $this->waiting_order( $wallet );
 
 		$this->uninstall();
@@ -119,14 +119,15 @@ class UninstallTest extends TestCase {
 	}
 
 	/**
-	 * With the setting: tables, options and keys go too. Orders and their meta stay (they are the store's records).
+	 * With the setting: tables, options and keys go too, the two options of schema 1 that a store whose upgrade never
+	 * ran may still hold among them. Orders and their meta stay (they are the store's records).
 	 */
 	public function test_uninstall_removes_the_data_when_asked(): void {
 		$after    = self::last_action_id();
 		$entries  = $this->configure(
 			array(
 				array(
-					'provider'        => 'vodafone_cash',
+					'label'           => 'Main wallet',
 					'receive_address' => '01000000101',
 				),
 			),
@@ -134,6 +135,10 @@ class UninstallTest extends TestCase {
 		);
 		$wallet   = $entries[0];
 		$order_id = $this->waiting_order( $wallet );
+		$legacy   = array( 'qersh_wc_txn_drift', 'qersh_wc_txn_long' );
+		foreach ( $legacy as $option ) {
+			update_option( $option, array( 'at' => time() ), false );
+		}
 
 		// DROP TABLE must reach the real tables (the test library turns it into DROP TEMPORARY TABLE), and it ends the
 		// test transaction; the tables are created again below, and committed, so later tests have them. What the test
@@ -145,7 +150,7 @@ class UninstallTest extends TestCase {
 
 			$this->assertFalse( as_next_scheduled_action( 'qersh_wc_expire', array( 'order_id' => $order_id ), 'qersh' ) );
 			$this->assertNotContains( true, $this->tables(), 'tables dropped' );
-			foreach ( array( 'qersh_wc_config', 'qersh_wc_db_version', 'woocommerce_qersh_settings', 'qersh_wc_secret_' . $wallet['id'] ) as $option ) {
+			foreach ( array_merge( array( 'qersh_wc_config', 'qersh_wc_db_version', 'woocommerce_qersh_settings', 'qersh_wc_secret_' . $wallet['id'] ), $legacy ) as $option ) {
 				$this->assertFalse( get_option( $option, false ), $option . ' deleted' );
 			}
 			$this->plugin->forget_config();
@@ -157,6 +162,9 @@ class UninstallTest extends TestCase {
 			remove_filter( 'query', array( $this, 'savepoints' ), 0 );
 			Schema::install();
 			$this->remove_committed( $order_id, $after );
+			foreach ( $legacy as $option ) {
+				delete_option( $option ); // Gone already unless the uninstall failed; never committed for the next tests.
+			}
 			$wpdb->query( 'COMMIT' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- a test reads or sets up the plugin's tables directly.
 			add_filter( 'query', array( $this, 'savepoints' ), 0 );
 			$this->plugin->forget_config();

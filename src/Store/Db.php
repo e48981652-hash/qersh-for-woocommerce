@@ -207,7 +207,8 @@ final class Db {
 	 * is a programming error (LogicException, before any statement), because it could wait in a circle with
 	 * another path. Roll back and take all the names in one call instead.
 	 *
-	 * @param string[] $names Lock names such as `payer:01001234567`, `txn:orange_cash:12345678901234`, `trf:trf_…`.
+	 * @param string[] $names Lock names such as `payer:01001234567`, `txn:250046173830512` (MatchPolicy::txn_lock(),
+	 *                        the canonical transaction id alone, whatever the wallet), `trf:trf_…`.
 	 * @throws \LogicException Outside a transaction, or for names that break the order of the locks already held.
 	 * @throws \RuntimeException LockTimeout (a RuntimeException) when a lock could not be had in time; a plain
 	 *                           RuntimeException when a lock statement failed for another reason.

@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-18T03:47:55+00:00\n"
+"POT-Creation-Date: 2026-10-18T13:52:11+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: scripts/make-pot.php\n"
 "X-Domain: qersh-for-woocommerce\n"
@@ -29,7 +29,7 @@ msgstr ""
 #. Author of the plugin
 #: src/Admin/Module.php:154
 #: src/Admin/Module.php:158
-#: src/Admin/OrderBox.php:61
+#: src/Admin/OrderBox.php:60
 #: templates/admin/page.php:17
 msgid "Qersh"
 msgstr ""
@@ -86,236 +86,242 @@ msgstr ""
 msgid "This action needs a form submission."
 msgstr ""
 
-#: src/Admin/OrderBox.php:140
+#: src/Admin/OrderBox.php:139
 msgid "The wait for the transfer has not started yet. Send the customer the payment page (Order actions → “Send order details to customer”) so they enter the number they will transfer from, or attach their transfer from “Personal transfers” if they transferred before the order was created."
 msgstr ""
 
-#. translators: %s: wallet number or InstaPay address.
-#: src/Admin/OrderBox.php:144
+#. translators: %s: wallet number.
+#: src/Admin/OrderBox.php:143
 #, php-format
 msgid "Payer number: %s"
 msgstr ""
 
-#. translators: 1: wallet name, 2: wallet number or address.
-#: src/Admin/OrderBox.php:148
+#. translators: 1: wallet name, 2: wallet number.
+#: src/Admin/OrderBox.php:147
 #, php-format
 msgid "Wallet: %1$s (%2$s)"
 msgstr ""
 
-#. translators: %s: wallet id.
+#. translators: %s: wallet number.
 #: src/Admin/OrderBox.php:151
+#, php-format
+msgid "Wallet: %s"
+msgstr ""
+
+#. translators: %s: wallet id.
+#: src/Admin/OrderBox.php:154
 #, php-format
 msgid "Wallet: %s (deleted)"
 msgstr ""
 
 #. translators: %s: date and time.
-#: src/Admin/OrderBox.php:155
+#: src/Admin/OrderBox.php:158
 #, php-format
 msgid "Deadline: %s Cairo time"
 msgstr ""
 
 #. translators: 1: amount received, 2: order amount.
-#: src/Admin/OrderBox.php:161
+#: src/Admin/OrderBox.php:164
 #: src/Emails/AdminAlert.php:243
 #, php-format
 msgid "Received: %1$s of %2$s"
 msgstr ""
 
 #. translators: %s: date and time.
-#: src/Admin/OrderBox.php:177
-#: src/Admin/Wallets.php:167
+#: src/Admin/OrderBox.php:180
+#: src/Admin/Wallets.php:147
 #, php-format
 msgid "Last delivery from this wallet's phone: %s"
 msgstr ""
 
-#: src/Admin/OrderBox.php:179
+#: src/Admin/OrderBox.php:182
 msgid "Nothing has arrived from this wallet's phone yet."
 msgstr ""
 
-#: src/Admin/OrderBox.php:228
+#: src/Admin/OrderBox.php:232
 msgid "No transfer with this transaction id has arrived yet"
 msgstr ""
 
 #. translators: %s: transfer id.
-#: src/Admin/OrderBox.php:234
+#: src/Admin/OrderBox.php:237
 #, php-format
 msgid "Matched transfer %s"
 msgstr ""
 
 #. translators: %s: order number.
-#: src/Admin/OrderBox.php:239
+#: src/Admin/OrderBox.php:242
 #, php-format
 msgid "Already paid order %s"
 msgstr ""
 
-#: src/Admin/OrderBox.php:245
+#: src/Admin/OrderBox.php:248
 msgid "Waits for your decision in “Personal transfers”"
 msgstr ""
 
-#: src/Admin/OrderBox.php:246
-#: src/Admin/OrderBox.php:270
+#: src/Admin/OrderBox.php:249
+#: src/Admin/OrderBox.php:273
 msgid "Waits for your decision in “Needs a decision”"
 msgstr ""
 
 #. translators: 1: transaction id, 2: date and time, 3: what became of it.
-#: src/Admin/OrderBox.php:252
+#: src/Admin/OrderBox.php:255
 #, php-format
 msgid "Transaction id from the customer: %1$s (%2$s) · %3$s"
 msgstr ""
 
-#: src/Admin/OrderBox.php:264
+#: src/Admin/OrderBox.php:267
 msgid "Waiting for the transfer"
 msgstr ""
 
-#: src/Admin/OrderBox.php:266
+#: src/Admin/OrderBox.php:269
 msgid "Part of the amount arrived"
 msgstr ""
 
-#: src/Admin/OrderBox.php:268
+#: src/Admin/OrderBox.php:271
 msgid "Paid by wallet transfer"
 msgstr ""
 
-#: src/Admin/OrderBox.php:272
+#: src/Admin/OrderBox.php:275
 msgid "The transfer window ended"
 msgstr ""
 
-#: src/Admin/OrderBox.php:274
+#: src/Admin/OrderBox.php:277
 msgid "Closed"
 msgstr ""
 
-#: src/Admin/Reasons.php:327
+#: src/Admin/Reasons.php:352
 msgid "Qersh has not confirmed the wallet balance yet: confirm your balance with “Sync balance” on the phone."
 msgstr ""
 
-#: src/Admin/Reasons.php:329
+#: src/Admin/Reasons.php:354
 msgid "Larger than the “Auto-confirm limit (EGP)” in the wallet settings on the phone."
 msgstr ""
 
 #. translators: %s: risk reason code.
-#: src/Admin/Reasons.php:334
-#: src/Admin/Reasons.php:405
+#: src/Admin/Reasons.php:359
+#: src/Admin/Reasons.php:430
 #, php-format
 msgid "Qersh did not confirm this transfer on its own (%s): check that the money arrived in the wallet app."
 msgstr ""
 
-#: src/Admin/Reasons.php:336
-#: src/Admin/Reasons.php:339
-msgid "An InstaPay notification alone, with no bank message to confirm it; check that the money arrived in the InstaPay app."
+#: src/Admin/Reasons.php:361
+#: src/Admin/Reasons.php:364
+msgid "A notification alone, with no SMS to confirm it: check that the money arrived in the wallet app."
 msgstr ""
 
-#: src/Admin/Reasons.php:341
-msgid "This message does not state the balance, so Qersh cannot check it: check that the money arrived in the bank or wallet app."
+#: src/Admin/Reasons.php:366
+msgid "This message does not state the balance, so Qersh cannot check it: check that the money arrived in the wallet app."
 msgstr ""
 
-#: src/Admin/Reasons.php:345
-msgid "Qersh reads this message with a template that is not fully verified yet: check that the money arrived in the bank or wallet app."
+#: src/Admin/Reasons.php:370
+msgid "Qersh reads this message with a template that is not fully verified yet: check that the money arrived in the wallet app."
 msgstr ""
 
-#: src/Admin/Reasons.php:348
+#: src/Admin/Reasons.php:373
 msgid "The message does not name the payer's number, and no customer has entered this transaction id yet."
 msgstr ""
 
-#: src/Admin/Reasons.php:350
+#: src/Admin/Reasons.php:375
 msgid "The message does not name the payer's number."
 msgstr ""
 
-#: src/Admin/Reasons.php:352
+#: src/Admin/Reasons.php:377
 msgid "The payer's number arrived masked; set “Send sender details” to “Full name and number”."
 msgstr ""
 
 #. translators: %s: transfer id.
-#: src/Admin/Reasons.php:355
+#: src/Admin/Reasons.php:380
 #, php-format
 msgid "Duplicate transaction id: it came before in transfer %s."
 msgstr ""
 
-#: src/Admin/Reasons.php:358
+#: src/Admin/Reasons.php:383
 msgid "Arrived after the payer's order was closed."
 msgstr ""
 
 #. translators: %s: order number.
-#: src/Admin/Reasons.php:361
+#: src/Admin/Reasons.php:386
 #, php-format
 msgid "Arrived after order %s was closed."
 msgstr ""
 
 #. translators: %s: order number.
-#: src/Admin/Reasons.php:364
+#: src/Admin/Reasons.php:389
 #, php-format
 msgid "There is not enough stock to bring back order %s."
 msgstr ""
 
-#: src/Admin/Reasons.php:366
+#: src/Admin/Reasons.php:391
 msgid "Part of the amount arrived, and the rest did not arrive before the deadline."
 msgstr ""
 
 #. translators: %s: order number.
-#: src/Admin/Reasons.php:369
+#: src/Admin/Reasons.php:394
 #: src/Emails/AdminAlert.php:230
 #, php-format
 msgid "The customer of order %s entered this transaction id, and its deadline came before your decision; the order is on hold until you decide."
 msgstr ""
 
 #. translators: 1: order number, 2: order number.
-#: src/Admin/Reasons.php:373
+#: src/Admin/Reasons.php:398
 #, php-format
 msgid "This transaction id was entered on orders %1$s and %2$s."
 msgstr ""
 
 #. translators: 1: order number, 2: order number.
-#: src/Admin/Reasons.php:376
+#: src/Admin/Reasons.php:401
 #, php-format
 msgid "The customer of order %1$s entered this transaction id, but order %2$s waits for the same amount on this wallet. Check the payer's name in the wallet app before you attach it."
 msgstr ""
 
 #. translators: 1: order number, 2: amount.
-#: src/Admin/Reasons.php:379
+#: src/Admin/Reasons.php:404
 #, php-format
 msgid "The customer of order %1$s entered this transaction id, but the amount differs from what is left to pay on the order (%2$s)."
 msgstr ""
 
 #. translators: %s: order number.
-#: src/Admin/Reasons.php:383
+#: src/Admin/Reasons.php:408
 #, php-format
 msgid "The transaction id was entered on order %s before the operator sent the message of this transfer."
 msgstr ""
 
 #. translators: %s: order number.
-#: src/Admin/Reasons.php:386
+#: src/Admin/Reasons.php:411
 #, php-format
 msgid "The customer of order %s entered this transaction id, but the money arrived before the order was created, or outside its time."
 msgstr ""
 
 #. translators: 1: order number, 2: wallet name.
-#: src/Admin/Reasons.php:389
+#: src/Admin/Reasons.php:414
 #, php-format
 msgid "The customer of order %1$s entered this transaction id, but chose the wallet %2$s."
 msgstr ""
 
-#: src/Admin/Reasons.php:391
+#: src/Admin/Reasons.php:416
 msgid "This transfer's message is suspected to be forged."
 msgstr ""
 
-#: src/Admin/Reasons.php:393
+#: src/Admin/Reasons.php:418
 msgid "You confirmed the balance on the phone after the transfer arrived: attach it to its order."
 msgstr ""
 
-#: src/Admin/Reasons.php:395
+#: src/Admin/Reasons.php:420
 msgid "Personal transfer: no open order for it in the store"
 msgstr ""
 
 #. translators: %s: reason code.
-#: src/Admin/Reasons.php:400
-#: src/Admin/Reasons.php:420
+#: src/Admin/Reasons.php:425
+#: src/Admin/Reasons.php:445
 #, php-format
 msgid "A reason this version does not know (%s): check the transfer in the wallet app."
 msgstr ""
 
-#: src/Admin/Reasons.php:402
+#: src/Admin/Reasons.php:427
 msgid "A new risk reason that this version does not know: check the transfer in the wallet app."
 msgstr ""
 
-#: src/Admin/Reasons.php:445
+#: src/Admin/Reasons.php:470
 msgid "This transfer's message is suspected to be forged. Do not deliver the order until you have checked that the money arrived in the wallet app."
 msgstr ""
 
@@ -341,9 +347,9 @@ msgstr ""
 
 #: src/Admin/Settings.php:160
 #: src/Admin/Settings.php:208
-#: src/Admin/Wallets.php:376
-#: src/Admin/Wallets.php:449
-#: src/ConfigStore.php:463
+#: src/Admin/Wallets.php:367
+#: src/Admin/Wallets.php:433
+#: src/ConfigStore.php:531
 msgid "These settings are set in wp-config.php (QERSH_WC_CONFIG) and cannot be changed here."
 msgstr ""
 
@@ -613,11 +619,11 @@ msgstr ""
 #: src/Admin/Transfers.php:295
 #: src/Admin/Transfers.php:352
 #: src/Admin/Transfers.php:384
-#: src/Orders.php:758
-#: src/Orders.php:776
-#: src/Orders.php:855
-#: src/Orders.php:873
-#: src/Orders.php:2139
+#: src/Orders.php:760
+#: src/Orders.php:778
+#: src/Orders.php:857
+#: src/Orders.php:875
+#: src/Orders.php:2122
 msgid "This transfer was not found."
 msgstr ""
 
@@ -656,7 +662,7 @@ msgid "This transfer does not need a decision any more."
 msgstr ""
 
 #: src/Admin/Transfers.php:395
-#: src/Orders.php:909
+#: src/Orders.php:911
 msgid "The transfer could not be marked as decided. Try again in a moment."
 msgstr ""
 
@@ -668,7 +674,7 @@ msgstr ""
 
 #. translators: %s: order number.
 #: src/Admin/Transfers.php:424
-#: src/Orders.php:1005
+#: src/Orders.php:1008
 #, php-format
 msgid "This transaction id already paid order %s. Attach it only if you are sure this is a different transfer."
 msgstr ""
@@ -676,14 +682,14 @@ msgstr ""
 #. translators: %s: order number.
 #: src/Admin/Transfers.php:438
 #: src/Admin/TransfersTable.php:296
-#: src/Orders.php:2668
+#: src/Orders.php:2651
 #, php-format
 msgid "This transfer arrived before order %s was created, so attach it only if you are sure it is for that order."
 msgstr ""
 
 #: src/Admin/Transfers.php:466
 #: src/Admin/TransfersTable.php:300
-#: src/Orders.php:977
+#: src/Orders.php:979
 msgid "Check the payer's name and the amount in the wallet app before you attach it."
 msgstr ""
 
@@ -708,7 +714,7 @@ msgstr ""
 
 #: src/Admin/TransfersTable.php:71
 #: templates/admin/settings.php:81
-#: templates/order/txn-box.php:20
+#: templates/order/txn-box.php:23
 msgid "Transaction id"
 msgstr ""
 
@@ -742,7 +748,7 @@ msgstr ""
 
 #. translators: %s: order number.
 #: src/Admin/TransfersTable.php:264
-#: src/Orders.php:962
+#: src/Orders.php:964
 #, php-format
 msgid "Its customer entered this transaction id · Attach to order %s"
 msgstr ""
@@ -791,139 +797,111 @@ msgstr ""
 msgid "Order number or payer number"
 msgstr ""
 
-#: src/Admin/View.php:140
-#: src/Admin/View.php:156
+#: src/Admin/View.php:130
+#: src/Admin/View.php:146
 msgid "unknown amount"
 msgstr ""
 
-#: src/Admin/View.php:173
-#: src/Checkout.php:513
-msgid "Vodafone Cash"
-msgstr ""
-
-#: src/Admin/View.php:175
-#: src/Checkout.php:515
-msgid "e& money"
-msgstr ""
-
+#. translators: %s: wallet number, such as 0100 123 4567.
 #: src/Admin/View.php:177
-#: src/Checkout.php:517
-msgid "Orange Cash"
+#, php-format
+msgid "E-wallet %s"
 msgstr ""
 
-#: src/Admin/View.php:179
-#: src/Checkout.php:519
-msgid "InstaPay"
-msgstr ""
-
-#: src/Admin/View.php:181
-#: src/Checkout.php:521
-msgid "National Bank of Egypt"
-msgstr ""
-
-#: src/Admin/View.php:183
-#: src/Checkout.php:523
-msgid "CIB"
-msgstr ""
-
-#: src/Admin/View.php:185
-msgid "Egyptian Gulf Bank (EGBANK)"
-msgstr ""
-
-#: src/Admin/Wallets.php:142
+#: src/Admin/Wallets.php:122
 msgid "The connection key in wp-config.php is not a valid key."
 msgstr ""
 
 #. translators: 1: a constant name, 2: key fingerprint.
-#: src/Admin/Wallets.php:144
+#: src/Admin/Wallets.php:124
 #, php-format
 msgid "Connection key: set in wp-config.php (%1$s), fingerprint %2$s."
 msgstr ""
 
 #. translators: 1: key fingerprint, 2: date and time.
-#: src/Admin/Wallets.php:147
+#: src/Admin/Wallets.php:127
 #, php-format
 msgid "Connection key: fingerprint %1$s, set %2$s."
 msgstr ""
 
-#: src/Admin/Wallets.php:149
+#: src/Admin/Wallets.php:129
 msgid "No connection key yet. Generate your developer's link with the connection key below, or paste the message from the phone."
 msgstr ""
 
 #. translators: %s: date and time.
-#: src/Admin/Wallets.php:156
+#: src/Admin/Wallets.php:136
 #, php-format
 msgid "“Test connection” arrived from the phone at %s ✓"
 msgstr ""
 
-#: src/Admin/Wallets.php:158
+#: src/Admin/Wallets.php:138
 msgid "What the phone sent carries the new key, so it is the connection key now."
 msgstr ""
 
-#: src/Admin/Wallets.php:162
+#: src/Admin/Wallets.php:142
 msgid "The test does not mean Qersh is activated: real transfers do not arrive before it is activated in the app. Try a transfer of one pound."
 msgstr ""
 
 #. translators: %s: date.
-#: src/Admin/Wallets.php:171
+#: src/Admin/Wallets.php:151
 #, php-format
 msgid "The phone says the Qersh subscription is in its grace period until %s; after that it does not send transfers until it is renewed."
 msgstr ""
 
-#: src/Admin/Wallets.php:177
-msgid "Transfers of this wallet arrive in “Needs a decision” with the suggested order, so you confirm them with one click after you see the money in the wallet or bank app."
-msgstr ""
-
-#: src/Admin/Wallets.php:180
-msgid "Orange Cash messages usually do not name the payer's number. Your customer enters the transaction id on their order page after transferring, and the order is confirmed on its own after “Sync balance” in the Qersh app. Without it, the transfer goes to “Needs a decision”."
-msgstr ""
-
-#: src/Admin/Wallets.php:181
-msgid "Use this Orange Cash line for online store orders only: a transfer you receive for a sale in your shop or on WhatsApp is filed as a “personal transfer”, and an order created after it never takes it."
-msgstr ""
-
-#: src/Admin/Wallets.php:183
-msgid "Customers are not asked for the transaction id (Qersh → Settings), so Orange Cash transfers wait for your decision."
-msgstr ""
-
-#: src/Admin/Wallets.php:190
+#: src/Admin/Wallets.php:160
 msgid "Your store does not use https://. The Qersh app sends only to https:// addresses (except local test addresses), so set up https on your store first."
 msgstr ""
 
-#: src/Admin/Wallets.php:193
-#: src/Admin/Wallets.php:739
+#: src/Admin/Wallets.php:163
+#: src/Admin/Wallets.php:723
 msgid "The Qersh app would not accept this store URL. Check the site address in Settings → General."
 msgstr ""
 
+#: src/Admin/Wallets.php:204
+msgid "A transfer whose message shows the sender's number confirms its order on its own."
+msgstr ""
+
+#: src/Admin/Wallets.php:206
+msgid "The others (the sender's number masked or missing) wait for your click in “Needs a decision”, or for the transaction id the customer enters on their order page after transferring."
+msgstr ""
+
+#: src/Admin/Wallets.php:207
+msgid "The others (the sender's number masked or missing) wait for your click in “Needs a decision”: customers are not asked for the transaction id (Qersh → Settings)."
+msgstr ""
+
+#: src/Admin/Wallets.php:208
+msgid "Use this wallet for online store orders only: a transfer that no open order waits for, such as one for a sale in your shop or on WhatsApp, is filed as a “personal transfer”, and an order created after it never takes it on its own."
+msgstr ""
+
 #. translators: 1: date and time of deletion, 2: date and time.
-#: src/Admin/Wallets.php:280
+#: src/Admin/Wallets.php:269
 #, php-format
 msgid "Deleted %1$s. It can be restored with one click until %2$s Cairo time, and what the phone resends arrives on its own."
 msgstr ""
 
-#: src/Admin/Wallets.php:281
+#: src/Admin/Wallets.php:270
 msgid "Restore wallet"
 msgstr ""
 
 #. translators: %s: date and time of deletion.
-#: src/Admin/Wallets.php:284
+#: src/Admin/Wallets.php:273
 #, php-format
 msgid "Deleted %s, and its connection key was erased, so restoring it needs a new key."
 msgstr ""
 
-#: src/Admin/Wallets.php:285
-#: src/Admin/Wallets.php:289
+#: src/Admin/Wallets.php:274
+#: src/Admin/Wallets.php:278
 msgid "Restore with a new key"
 msgstr ""
 
 #. translators: 1: date and time of deletion, 2: date and time.
-#: src/Admin/Wallets.php:288
+#: src/Admin/Wallets.php:277
 #, php-format
 msgid "Deleted %1$s. Since %2$s the store has told the phone that it was removed for good, so the phone does not resend its transfers."
 msgstr ""
 
 #. translators: %s: number of orders.
-#: src/Admin/Wallets.php:347
+#: src/Admin/Wallets.php:337
 #: src/Emails/AdminAlert.php:224
 #, php-format
 msgid "%s order waits for a transfer to this wallet."
@@ -931,299 +909,267 @@ msgid_plural "%s orders wait for a transfer to this wallet."
 msgstr[0] ""
 msgstr[1] ""
 
-#: src/Admin/Wallets.php:349
+#: src/Admin/Wallets.php:339
 msgid "No order waits for a transfer to this wallet."
 msgstr ""
 
-#: src/Admin/Wallets.php:397
-msgid "Choose the wallet type."
-msgstr ""
-
-#: src/Admin/Wallets.php:431
+#: src/Admin/Wallets.php:415
 msgid "The wallet was added. Now link the phone: generate your developer's link with the connection key and open it on the wallet's phone."
 msgstr ""
 
-#: src/Admin/Wallets.php:433
+#: src/Admin/Wallets.php:417
 msgid "The wallet was saved."
 msgstr ""
 
-#: src/Admin/Wallets.php:465
-#: src/Admin/Wallets.php:585
-#: src/Admin/Wallets.php:704
+#: src/Admin/Wallets.php:449
+#: src/Admin/Wallets.php:569
+#: src/Admin/Wallets.php:688
 msgid "This wallet does not exist any more."
 msgstr ""
 
 #. translators: %s: wallet name.
-#: src/Admin/Wallets.php:491
+#: src/Admin/Wallets.php:475
 #, php-format
 msgid "The wallet “%s” was deleted and its connection key erased. Restoring it now needs a new key."
 msgstr ""
 
 #. translators: 1: wallet name, 2: date and time.
-#: src/Admin/Wallets.php:494
+#: src/Admin/Wallets.php:478
 #, php-format
 msgid "The wallet “%1$s” was deleted. You can restore it with one click until %2$s Cairo time."
 msgstr ""
 
-#: src/Admin/Wallets.php:521
-#: src/Admin/Wallets.php:541
+#: src/Admin/Wallets.php:505
+#: src/Admin/Wallets.php:525
 msgid "This wallet is not deleted, so there is nothing to restore."
 msgstr ""
 
-#: src/Admin/Wallets.php:529
+#: src/Admin/Wallets.php:513
 msgid "This wallet is no longer in QERSH_WC_CONFIG in wp-config.php, so it cannot be restored. Add it back there with the same id first."
 msgstr ""
 
-#: src/Admin/Wallets.php:535
+#: src/Admin/Wallets.php:519
 msgid "The saved copy of this wallet is incomplete or no longer valid, so it cannot be restored. Add the wallet again with “Add wallet” and link the phone to it."
 msgstr ""
 
-#: src/Admin/Wallets.php:565
+#: src/Admin/Wallets.php:549
 msgid "The wallet was restored with its key. Tap “Test connection” on the phone so what is waiting arrives now; otherwise it arrives with the next attempt, within about 12 hours."
 msgstr ""
 
-#: src/Admin/Wallets.php:567
+#: src/Admin/Wallets.php:551
 msgid "The wallet was restored with the same link, without a key. 1) Generate your developer's link with the connection key and open it on the wallet's phone (“Update wallet”). 2) Tap “Test connection”. 3) Open “Not delivered” and tap “Resend all”."
 msgstr ""
 
-#: src/Admin/Wallets.php:589
+#: src/Admin/Wallets.php:573
 msgid "The connection key of this wallet is set in wp-config.php and cannot be changed here."
 msgstr ""
 
-#: src/Admin/Wallets.php:601
+#: src/Admin/Wallets.php:585
 msgid "This is your developer's link that the plugin made, and it has no key in it. Paste the message the phone showed after saving."
 msgstr ""
 
-#: src/Admin/Wallets.php:603
+#: src/Admin/Wallets.php:587
 msgid "No connection key was found in what you pasted. Paste the whole message from the phone, the link alone, or the key itself (at least 24 characters, no spaces)."
 msgstr ""
 
-#: src/Admin/Wallets.php:610
+#: src/Admin/Wallets.php:594
 msgid "The link in this message does not point to this store, so the phone sends that wallet's transfers somewhere else. Open your developer's link (under “Another way”) on the wallet's phone first, then paste the new message."
 msgstr ""
 
-#: src/Admin/Wallets.php:614
+#: src/Admin/Wallets.php:598
 msgid "This message belongs to another wallet of this store. Paste it in the card of that wallet."
 msgstr ""
 
-#: src/Admin/Wallets.php:623
+#: src/Admin/Wallets.php:607
 msgid "This is the key of the link the plugin generated. Open the link on the wallet's phone, then tap “Test connection”; do not paste it here."
 msgstr ""
 
-#: src/Admin/Wallets.php:627
+#: src/Admin/Wallets.php:611
 msgid "You have a link with the connection key that nothing has arrived with yet. Pasting this message cancels it and makes the pasted key the connection key. Tick the box under the paste box to continue, then paste again."
 msgstr ""
 
 #. translators: %s: key fingerprint.
-#: src/Admin/Wallets.php:633
+#: src/Admin/Wallets.php:617
 #, php-format
 msgid "This key is already the connection key of this wallet (fingerprint %s)."
 msgstr ""
 
 #. translators: %s: key fingerprint.
-#: src/Admin/Wallets.php:646
+#: src/Admin/Wallets.php:630
 #, php-format
 msgid "The connection key was saved (fingerprint %s). Tap “Test connection” on the phone."
 msgstr ""
 
-#: src/Admin/Wallets.php:669
+#: src/Admin/Wallets.php:653
 msgid "The link was cancelled: its connection key no longer works. The wallet keeps its current key."
 msgstr ""
 
-#: src/Admin/Wallets.php:672
+#: src/Admin/Wallets.php:656
 msgid "The link was cancelled and its connection key erased. This wallet has no connection key now."
 msgstr ""
 
-#: src/Admin/Wallets.php:674
+#: src/Admin/Wallets.php:658
 msgid "This link was already replaced or cancelled, so nothing was changed."
 msgstr ""
 
-#: src/Admin/Wallets.php:713
+#: src/Admin/Wallets.php:697
 msgid "The link with the connection key is turned off for this wallet."
 msgstr ""
 
-#: src/Admin/Wallets.php:724
+#: src/Admin/Wallets.php:708
 msgid "A link was generated a few seconds ago. Wait a moment before you generate another one."
 msgstr ""
 
-#: src/Admin/Wallets.php:877
-msgid "Enter the InstaPay address customers transfer to, such as name@instapay."
-msgstr ""
-
-#: src/Admin/Wallets.php:879
+#: src/Admin/Wallets.php:858
 msgid "Enter the wallet number customers transfer to: 11 digits starting with 01, such as 01001234567."
 msgstr ""
 
 #. translators: %s: a constant name.
-#: src/Admin/Wallets.php:913
+#: src/Admin/Wallets.php:892
 #, php-format
 msgid "The connection key could not be saved on this site. Define LOGGED_IN_KEY and LOGGED_IN_SALT in wp-config.php, or put a key in the constant %s there."
 msgstr ""
 
-#: src/Checkout.php:494
-msgid "Your order is confirmed on its own when your transfer arrives, usually within minutes."
+#: src/Checkout.php:499
+msgid "Your order is confirmed once your transfer reaches the store. After you transfer, you can also enter the transaction id on your order page: it helps when the store cannot see the number you transferred from."
 msgstr ""
 
-#: src/Checkout.php:496
-msgid "After you transfer, enter the transaction id from your transfer message on your order page, and your order is usually confirmed on its own within minutes."
+#: src/Checkout.php:501
+msgid "Your order is confirmed once your transfer reaches the store."
 msgstr ""
 
-#: src/Checkout.php:498
-msgid "After you transfer, enter the transaction id on your order page so the store finds your transfer faster. The store confirms your order once it checks that your transfer arrived."
-msgstr ""
-
-#: src/Checkout.php:500
-msgid "The store confirms your order once it checks that your transfer arrived."
-msgstr ""
-
-#: src/Checkout.php:525
-msgid "EGBANK"
-msgstr ""
-
-#: src/Checkout.php:690
+#: src/Checkout.php:628
 msgid "Waiting for your transfer…"
 msgstr ""
 
-#: src/Checkout.php:691
-msgid "Waiting for the store to confirm that your transfer arrived…"
-msgstr ""
-
-#: src/Checkout.php:692
+#: src/Checkout.php:629
 msgid "We have your transaction id. Your order is confirmed once the store matches your transfer; do not transfer again."
 msgstr ""
 
-#: src/Checkout.php:693
+#: src/Checkout.php:630
 msgid "Your transfer arrived and your order is confirmed."
 msgstr ""
 
-#: src/Checkout.php:694
+#: src/Checkout.php:631
 msgid "Part of the amount arrived. Send the rest from the same number before the deadline."
 msgstr ""
 
-#: src/Checkout.php:695
+#: src/Checkout.php:632
 msgid "We are checking your transfer and will let you know."
 msgstr ""
 
-#: src/Checkout.php:696
+#: src/Checkout.php:633
 msgid "The transfer window has ended."
 msgstr ""
 
-#: src/Checkout.php:697
+#: src/Checkout.php:634
 msgid "This order was cancelled."
 msgstr ""
 
-#: src/Checkout.php:799
-#: templates/admin/wallet-card.php:56
+#: src/Checkout.php:731
+#: templates/admin/wallet-card.php:59
 msgid "Copy"
 msgstr ""
 
-#: src/Checkout.php:800
+#: src/Checkout.php:732
 #: assets/js/admin.js:144
 msgid "Copied"
 msgstr ""
 
-#: src/Checkout.php:801
+#: src/Checkout.php:733
 msgid "Sending…"
 msgstr ""
 
-#: src/Checkout.php:802
+#: src/Checkout.php:734
 msgid "Transferred from another number? Contact the store with your order number so it can attach your transfer."
 msgstr ""
 
-#: src/Checkout.php:803
+#: src/Checkout.php:735
 msgid "Transferred? Enter the transaction id above so the store finds your transfer."
 msgstr ""
 
 #. translators: %s: the transaction id read from what the customer entered or pasted.
-#: src/Checkout.php:807
+#: src/Checkout.php:739
 #, php-format
 msgid "We will send: %s"
 msgstr ""
 
-#: src/Checkout.php:808
+#: src/Checkout.php:740
 msgid "Reload this page to see the amount that remains."
 msgstr ""
 
 #. translators: %s: deadline time in Cairo.
 #. translators: %s: deadline date and time in Cairo.
-#: src/Checkout.php:810
-#: templates/emails/instructions.php:101
-#: templates/emails/plain/instructions.php:71
-#: templates/order/thankyou-box.php:109
+#: src/Checkout.php:742
+#: templates/emails/instructions.php:94
+#: templates/emails/plain/instructions.php:64
+#: templates/order/thankyou-box.php:100
 #, php-format
 msgid "Before: %s Cairo time"
 msgstr ""
 
-#: src/Checkout.php:839
-#: src/Claims.php:331
-msgid "This does not look like an Orange Cash transaction id. Check it in your message."
-msgstr ""
-
-#: src/Checkout.php:841
-#: src/Claims.php:316
-msgid "Enter the transaction id."
-msgstr ""
-
-#: src/Checkout.php:844
-#: src/Claims.php:318
-msgid "We found more than one possible number in what you pasted. Enter the transaction id only."
-msgstr ""
-
-#: src/Checkout.php:845
-#: src/Claims.php:320
-msgid "This is a wallet number, not a transaction id."
-msgstr ""
-
-#: src/Checkout.php:846
-#: src/Claims.php:322
-msgid "You have changed it several times. Try again in 10 minutes."
-msgstr ""
-
-#. translators: %s: order number.
-#: src/Checkout.php:848
-#: src/Claims.php:325
-#, php-format
-msgid "The transaction id cannot be changed again. Contact the store with your order number #%s."
-msgstr ""
-
-#: src/Checkout.php:849
-#: src/Claims.php:327
-msgid "This order is no longer waiting for a transfer."
-msgstr ""
-
-#: src/Checkout.php:850
-#: src/Claims.php:329
-msgid "We could not save the transaction id. Try again."
-msgstr ""
-
 #. translators: %s: transaction id.
-#: src/Checkout.php:960
+#: src/Checkout.php:870
 #, php-format
 msgid "Your transfer (transaction id %s) arrived and your order is confirmed."
 msgstr ""
 
 #. translators: 1: masked wallet number, 2: transaction id.
-#: src/Checkout.php:967
+#: src/Checkout.php:877
 #, php-format
 msgid "Your transfer from %1$s (transaction id %2$s) arrived and your order is confirmed."
 msgstr ""
 
 #. translators: %s: masked wallet number.
-#: src/Checkout.php:970
+#: src/Checkout.php:880
 #, php-format
 msgid "Your transfer from %s arrived and your order is confirmed."
 msgstr ""
 
 #. translators: %s: transaction id.
-#: src/Claims.php:173
+#: src/Claims.php:176
 #, php-format
 msgid "The customer entered the transaction id %s."
 msgstr ""
 
 #. translators: 1: new transaction id, 2: the one before.
-#: src/Claims.php:176
+#: src/Claims.php:179
 #, php-format
 msgid "The customer changed the transaction id to %1$s (it was %2$s)."
+msgstr ""
+
+#: src/Claims.php:321
+msgid "Enter the transaction id."
+msgstr ""
+
+#: src/Claims.php:323
+msgid "We found more than one possible number in what you pasted. Enter the transaction id only."
+msgstr ""
+
+#: src/Claims.php:325
+msgid "This is a wallet number, not a transaction id."
+msgstr ""
+
+#: src/Claims.php:327
+msgid "You have changed it several times. Try again in 10 minutes."
+msgstr ""
+
+#. translators: %s: order number.
+#: src/Claims.php:330
+#, php-format
+msgid "The transaction id cannot be changed again. Contact the store with your order number #%s."
+msgstr ""
+
+#: src/Claims.php:332
+msgid "This order is no longer waiting for a transfer."
+msgstr ""
+
+#: src/Claims.php:334
+msgid "We could not save the transaction id. Try again."
+msgstr ""
+
+#: src/Claims.php:336
+msgid "This does not look like a transaction id. Check it in your transfer message."
 msgstr ""
 
 #. translators: 1: transaction id, 2: order number.
@@ -1253,125 +1199,111 @@ msgid "Order #%s could not be completed: WooCommerce reported an error each time
 msgstr ""
 
 #. translators: %s: list of the fields that are wrong, each with the reason.
-#: src/ConfigStore.php:191
+#: src/ConfigStore.php:218
 #, php-format
 msgid "The imported settings were refused: %s"
 msgstr ""
 
 #. translators: %s: list of the fields that are wrong, each with the reason.
-#: src/ConfigStore.php:194
+#: src/ConfigStore.php:221
 #, php-format
 msgid "The settings were not saved: %s"
 msgstr ""
 
-#: src/ConfigStore.php:214
+#: src/ConfigStore.php:241
 msgid "The settings could not be saved. Please try again."
 msgstr ""
 
-#: src/ConfigStore.php:447
+#: src/ConfigStore.php:515
 msgid "QERSH_WC_CONFIG in wp-config.php is not a JSON object."
 msgstr ""
 
-#: src/ConfigStore.php:450
+#: src/ConfigStore.php:518
 msgid "This wallet was deleted. Use “Restore wallet” in WooCommerce → Qersh → Wallets instead of adding it again."
 msgstr ""
 
-#: src/Diagnostics.php:782
+#: src/Diagnostics.php:578
 msgid "The Qersh tables are missing, so the store answers the phone 503 and no transfer is recorded. Deactivate and activate Qersh for WooCommerce, and check that the database user may create tables."
 msgstr ""
 
-#: src/Diagnostics.php:786
+#: src/Diagnostics.php:582
 msgid "The site time zone is not Cairo, so order times in the admin and in WooCommerce emails differ from your clock. Set it in Settings → General → Timezone: Cairo."
 msgstr ""
 
-#: src/Diagnostics.php:789
+#: src/Diagnostics.php:585
 msgid "The time zone database of PHP on your server is old, so email deadlines are an hour late in summer. Ask your host to update it."
 msgstr ""
 
-#: src/Diagnostics.php:792
+#: src/Diagnostics.php:588
 msgid "“New order” and “Processing” emails for Qersh orders are waiting for Cron and will not be sent on their own. Set up a real Cron on your hosting, or run them now from Tools → Scheduled Actions."
 msgstr ""
 
 #. translators: %s: list of database table names.
-#: src/Diagnostics.php:797
+#: src/Diagnostics.php:593
 #, php-format
 msgid "These Qersh tables do not use the InnoDB engine, so the locks that keep two deliveries apart do not work: %s. Ask your host to convert them to InnoDB."
 msgstr ""
 
-#. translators: %s: the last three digits of a transaction id.
-#: src/Diagnostics.php:802
-#, php-format
-msgid "An Orange Cash transfer arrived with a transaction id whose format this version does not expect (…%s), so your customers' ids may not match it. Update Qersh for WooCommerce."
-msgstr ""
-
-#: src/Diagnostics.php:803
-msgid "Customers cannot enter the transaction id for this wallet until you update Qersh for WooCommerce."
-msgstr ""
-
 #. translators: %s: number of transfers.
-#: src/Diagnostics.php:810
+#: src/Diagnostics.php:599
 #, php-format
 msgid "Unpaid orders with the same amount kept %s transfer from being confirmed on its own today."
 msgid_plural "Unpaid orders with the same amount kept %s transfers from being confirmed on their own today."
 msgstr[0] ""
 msgstr[1] ""
 
-#: src/Diagnostics.php:825
+#: src/Diagnostics.php:614
 msgid "At the last delivery:"
 msgstr ""
 
-#: src/Diagnostics.php:830
+#: src/Diagnostics.php:619
 msgid "The connection key is stored but cannot be read any more (the site's security keys in wp-config.php may have changed), so the store answers the phone 401. Generate your developer's link with the connection key and open it on the wallet's phone, or paste the key again."
 msgstr ""
 
-#: src/Diagnostics.php:832
+#: src/Diagnostics.php:621
 msgid "The connection key in wp-config.php is not a valid key (at least 24 characters, no spaces), so the store answers the phone 401."
 msgstr ""
 
-#: src/Diagnostics.php:834
+#: src/Diagnostics.php:623
 msgid "The phone has no permission to read messages: no transfer will arrive. Open Qersh → “Set up the phone”."
 msgstr ""
 
-#: src/Diagnostics.php:836
-msgid "Qersh cannot reach InstaPay notifications: no transfer will arrive."
-msgstr ""
-
-#: src/Diagnostics.php:838
+#: src/Diagnostics.php:625
 msgid "The system stops Qersh from working in the background: open “Set up the phone”."
 msgstr ""
 
 #. translators: %s: date and time.
-#: src/Diagnostics.php:841
+#: src/Diagnostics.php:628
 #: src/Emails/AdminAlert.php:221
 #, php-format
 msgid "The phone of this wallet seems to have been offline since %s: orders will not be confirmed on their own until it is back."
 msgstr ""
 
 #. translators: %s: date and time.
-#: src/Diagnostics.php:844
+#: src/Diagnostics.php:631
 #, php-format
 msgid "The phone of this wallet has been offline since %s."
 msgstr ""
 
-#: src/Diagnostics.php:846
+#: src/Diagnostics.php:633
 msgid "Transfers of this wallet arrive without the payer's full number, so they are not matched automatically. In the Qersh app open the wallet page → “Developer settings” and set “Send sender details” to “Full name and number”."
 msgstr ""
 
-#: src/Diagnostics.php:848
+#: src/Diagnostics.php:635
 msgid "Your store URL has changed since the phone last delivered, so the phone still sends to the old URL. Open your new developer's link on the wallet's phone (or paste it in “More → Wallets → Add wallet”), which updates the same wallet and keeps the connection key, then tap “Test connection”."
 msgstr ""
 
-#: src/Diagnostics.php:850
+#: src/Diagnostics.php:637
 msgid "Your phone has a newer connection key than the store, and the phone keeps accepting the old one for only 24 hours after the new one was made. Generate your developer's link with the connection key and open it on the phone, or tap “Send this wallet's link to your developer” on the wallet page on the phone and paste the message here."
 msgstr ""
 
 #. translators: %s: date and time.
-#: src/Diagnostics.php:853
+#: src/Diagnostics.php:640
 #, php-format
 msgid "A link with the connection key has been waiting since %s. If you opened it on the phone, tap “Test connection”; otherwise cancel it or generate a new link."
 msgstr ""
 
-#: src/Diagnostics.php:855
+#: src/Diagnostics.php:642
 msgid "Nothing has arrived with the pending key for 7 days. If you opened the link on the phone, tap “Test connection”; otherwise cancel it or generate a new link."
 msgstr ""
 
@@ -1414,8 +1346,8 @@ msgstr ""
 
 #. translators: %s: date and time.
 #: src/Emails/AdminAlert.php:219
-#: src/Orders.php:1749
-#: src/Orders.php:1752
+#: src/Orders.php:1756
+#: src/Orders.php:1759
 #, php-format
 msgid "%s Cairo time"
 msgstr ""
@@ -1538,43 +1470,37 @@ msgid "If you need help with your order, reply to this email with your order num
 msgstr ""
 
 #. translators: %s: order number.
-#: src/Expiry.php:580
+#: src/Expiry.php:583
 #, php-format
 msgid "The time for your order #%s has ended. The store will contact you to complete the order or refund what arrived."
 msgstr ""
 
 #. translators: 1: order number, 2: amount received, 3: order total.
-#: src/Expiry.php:617
+#: src/Expiry.php:620
 #, php-format
 msgid "The time for your order #%1$s has ended, and we received %2$s of %3$s. The store will contact you to complete the order or refund what arrived."
 msgstr ""
 
-#: src/Expiry.php:642
+#: src/Expiry.php:645
 msgid "The transfer did not arrive before the deadline."
 msgstr ""
 
-#. translators: %s: order number.
-#: src/Expiry.php:665
-#, php-format
-msgid "The transfer window for order #%s has ended and the order was cancelled. Do not transfer for it now. If you transferred before the deadline, your order will be confirmed when the transfer arrives; otherwise contact the store with your order number."
-msgstr ""
-
 #. translators: 1: order number, 2: link to the order page.
-#: src/Expiry.php:670
+#: src/Expiry.php:669
 #, php-format
-msgid "The transfer window for order #%1$s has ended and the order was cancelled. Do not transfer for it now. If you transferred before the deadline, enter the transaction id from your transfer message on your order page within 72 hours: %2$s. Your order comes back when your transfer matches it, as long as the products are available; otherwise contact the store with your order number."
+msgid "The transfer window for order #%1$s has ended and the order was cancelled. Do not transfer for it now. If you transferred before the deadline, your order comes back when your transfer matches it, as long as the products are available. If the store cannot see the number you transferred from, you can enter the transaction id from your transfer message on your order page within 72 hours: %2$s. If your order does not come back, contact the store with your order number."
 msgstr ""
 
 #. translators: 1: order number, 2: transaction id.
-#: src/Expiry.php:673
+#: src/Expiry.php:672
 #, php-format
 msgid "The transfer window for order #%1$s has ended and the order was cancelled. We kept the transaction id %2$s, so do not transfer again. If you transferred before the deadline, your order comes back when your transfer arrives and the store checks it, as long as the products are available; otherwise contact the store with your order number."
 msgstr ""
 
 #. translators: %s: order number.
-#: src/Expiry.php:676
+#: src/Expiry.php:675
 #, php-format
-msgid "The transfer window for order #%s has ended and the order was cancelled. Do not transfer for it now. If you transferred before the deadline, the store brings your order back after it checks your transfer, as long as the products are available; otherwise contact the store with your order number."
+msgid "The transfer window for order #%s has ended and the order was cancelled. Do not transfer for it now. If you transferred before the deadline, your order comes back once your transfer reaches the store and is confirmed, as long as the products are available; otherwise contact the store with your order number."
 msgstr ""
 
 #: src/Gateway.php:60
@@ -1590,7 +1516,7 @@ msgid "Title"
 msgstr ""
 
 #: src/Gateway.php:107
-msgid "What customers see at checkout. Leave it empty to follow your enabled wallets."
+msgid "What customers see at checkout. Leave it empty to use the default title."
 msgstr ""
 
 #: src/Gateway.php:113
@@ -1613,312 +1539,303 @@ msgstr ""
 msgid "Added to the order page after checkout and to the transfer instructions email."
 msgstr ""
 
-#: src/Gateway.php:153
-msgid "E-wallet or InstaPay transfer"
-msgstr ""
-
-#: src/Gateway.php:154
-#: assets/js/checkout-blocks.js:29
+#: src/Gateway.php:151
+#: assets/js/checkout-blocks.js:28
 msgid "E-wallet transfer"
 msgstr ""
 
 #. translators: %s: URL of the order page.
-#: src/Gateway.php:260
+#: src/Gateway.php:249
 #, php-format
 msgid "Already transferred for this order? Do not transfer again, and enter the transaction id on <a href=\"%s\">your order page</a>."
 msgstr ""
 
-#: src/Gateway.php:267
+#: src/Gateway.php:256
 msgid "You entered a transaction id for this order, so it cannot be cancelled here. Contact the store with your order number."
 msgstr ""
 
-#: src/Gateway.php:321
+#: src/Gateway.php:310
 msgid "We could not find your order. Please try again."
 msgstr ""
 
-#: src/Gateway.php:331
-#: src/Gateway.php:358
+#: src/Gateway.php:320
+#: src/Gateway.php:347
 msgid "Your order could not be saved. Please try again in a moment."
 msgstr ""
 
-#: src/Gateway.php:347
+#: src/Gateway.php:336
 msgid "Waiting for the wallet transfer again."
 msgstr ""
 
 #. translators: %s: order number.
-#: src/MatchPolicy.php:1325
+#: src/MatchPolicy.php:1355
 #, php-format
 msgid "That transfer paid order %s."
 msgstr ""
 
-#: src/MatchPolicy.php:1331
+#: src/MatchPolicy.php:1361
 msgid "Several open orders of this payer, and none matches the amount."
 msgstr ""
 
-#: src/MatchPolicy.php:1333
+#: src/MatchPolicy.php:1363
 msgid "Arrived late: no order of this payer was open when the money arrived."
 msgstr ""
 
-#: src/MatchPolicy.php:1335
+#: src/MatchPolicy.php:1365
 msgid "The message does not show the amount."
 msgstr ""
 
-#: src/MatchPolicy.php:1337
+#: src/MatchPolicy.php:1367
 msgid "The time the money arrived cannot be read from the message: check the transfer in the wallet app."
 msgstr ""
 
 #. translators: %s: order number.
-#: src/MatchPolicy.php:1340
+#: src/MatchPolicy.php:1370
 #, php-format
 msgid "Order %s was cancelled or its payment method changed after money arrived for it: refund the customer from the wallet app."
 msgstr ""
 
-#: src/MatchPolicy.php:1342
+#: src/MatchPolicy.php:1372
 msgid "Qersh did not confirm this transfer on its own: check that the money arrived in the wallet app."
 msgstr ""
 
-#: src/MatchPolicy.php:1369
+#: src/MatchPolicy.php:1399
 msgid "Matched by the transaction id the customer entered"
 msgstr ""
 
-#: src/MatchPolicy.php:1372
+#: src/MatchPolicy.php:1402
 msgid "Attached to the order by the merchant"
 msgstr ""
 
 #. translators: %s: order number.
-#: src/MatchPolicy.php:1383
+#: src/MatchPolicy.php:1413
 #, php-format
 msgid "A transfer from this payer arrived after order %s was closed; decide: attach it or refund the money."
 msgstr ""
 
 #. translators: %s: the piasters added, as an amount.
-#: src/MatchPolicy.php:1403
-#: src/Orders.php:1381
+#: src/MatchPolicy.php:1433
+#: src/Orders.php:1345
 #, php-format
 msgid "Rounded to the pound (+%s)."
 msgstr ""
 
-#: src/MatchPolicy.php:1405
-#: src/Orders.php:1377
+#: src/MatchPolicy.php:1435
+#: src/Orders.php:1341
 msgid "Paid after the deadline."
 msgstr ""
 
 #. translators: %s: amount.
-#: src/MatchPolicy.php:1408
-#: src/Orders.php:1385
-#: src/Orders.php:2335
+#: src/MatchPolicy.php:1438
+#: src/Orders.php:1349
+#: src/Orders.php:2318
 #, php-format
 msgid "Overpaid by %s"
 msgstr ""
 
 #. translators: %s: order number.
-#: src/MatchPolicy.php:1411
+#: src/MatchPolicy.php:1441
 #, php-format
 msgid "Possibly a second payment for order %s from the same payer; contact them to refund the amount from the wallet app."
 msgstr ""
 
-#: src/OrderStatusRoute.php:179
+#: src/OrderStatusRoute.php:180
 msgid "Order not found."
 msgstr ""
 
-#: src/Orders.php:720
-#: src/Orders.php:2151
+#: src/Orders.php:722
+#: src/Orders.php:2134
 msgid "This order was not found."
 msgstr ""
 
-#: src/Orders.php:734
+#: src/Orders.php:736
 msgid "The transfer could not be attached. Try again."
 msgstr ""
 
-#: src/Orders.php:739
-#: src/Orders.php:835
-#: src/Orders.php:912
+#: src/Orders.php:741
+#: src/Orders.php:837
+#: src/Orders.php:914
 msgid "The transfer is being processed right now. Try again in a moment."
 msgstr ""
 
 #. translators: 1: name of the admin, 2: amount.
-#: src/Orders.php:809
+#: src/Orders.php:811
 #, php-format
 msgid "%1$s dismissed a wallet transfer of %2$s; it no longer counts toward this order."
 msgstr ""
 
 #. translators: %s: name of the admin.
-#: src/Orders.php:821
+#: src/Orders.php:823
 #, php-format
 msgid "Dismissed by %s."
 msgstr ""
 
-#: src/Orders.php:832
+#: src/Orders.php:834
 msgid "The transfer could not be dismissed. Try again."
 msgstr ""
 
-#: src/Orders.php:860
+#: src/Orders.php:862
 msgid "This transfer is not linked to an order. Attach it to its order or dismiss it."
 msgstr ""
 
 #. translators: %s: name of the admin.
-#: src/Orders.php:889
+#: src/Orders.php:891
 #, php-format
 msgid "Marked as decided by %s."
 msgstr ""
 
 #. translators: 1: name of the admin, 2: amount.
-#: src/Orders.php:896
+#: src/Orders.php:898
 #, php-format
 msgid "%1$s marked the wallet transfer of %2$s as decided."
 msgstr ""
 
 #. translators: 1: order number, 2: amount that remains.
-#: src/Orders.php:970
+#: src/Orders.php:972
 #, php-format
 msgid "Order %1$s: %2$s remains."
 msgstr ""
 
 #. translators: 1: the payer, 2: why the transfer needs a decision.
-#: src/Orders.php:1283
+#: src/Orders.php:1248
 #, php-format
 msgid "A wallet transfer from %1$s may be for this order and needs your decision: %2$s"
 msgstr ""
 
 #. translators: 1: amount, 2: the payer, 3: why the transfer needs a decision.
-#: src/Orders.php:1290
+#: src/Orders.php:1255
 #, php-format
 msgid "A wallet transfer of %1$s from %2$s may be for this order and needs your decision: %3$s"
 msgstr ""
 
-#. translators: 1: wallet type, 2: amount, 3: the payer, 4: transaction id, 5: when the money arrived.
-#: src/Orders.php:1356
+#. translators: 1: amount, 2: the payer, 3: transaction id, 4: when the money arrived.
+#: src/Orders.php:1321
 #, php-format
-msgid "A %1$s transfer of %2$s from %3$s matched this order by the transaction id the customer entered (%4$s, money arrived %5$s)."
+msgid "A wallet transfer of %1$s from %2$s matched this order by the transaction id the customer entered (%3$s, money arrived %4$s)."
 msgstr ""
 
 #. translators: 1: amount, 2: the payer, 3: transaction id, 4: when the money arrived.
-#: src/Orders.php:1368
+#: src/Orders.php:1332
 #, php-format
 msgid "A wallet transfer of %1$s from %2$s matched this order (transaction %3$s, money arrived %4$s)."
 msgstr ""
 
 #. translators: 1: amount received so far, 2: order total, 3: amount that remains, 4: deadline.
-#: src/Orders.php:1407
+#: src/Orders.php:1372
 #, php-format
 msgid "We received %1$s of %2$s; %3$s remains. Send the rest from the same number before %4$s."
 msgstr ""
 
-#: src/Orders.php:1414
+#: src/Orders.php:1379
 msgid "Then enter the transaction id of the new transfer on your order page."
 msgstr ""
 
-#: src/Orders.php:1860
+#: src/Orders.php:1845
 msgid "This transfer could not be read: check it in the wallet app."
 msgstr ""
 
 #. translators: 1: name of the admin, 2: amount, 3: the payer, masked, 4: transaction id.
-#: src/Orders.php:2092
+#: src/Orders.php:2075
 #, php-format
 msgid "%1$s attached a wallet transfer of %2$s from %3$s to this order (transaction %4$s)."
 msgstr ""
 
 #. translators: 1: name of the admin, 2: amount, 3: the payer, masked, 4: transaction id.
-#: src/Orders.php:2119
+#: src/Orders.php:2102
 #, php-format
 msgid "%1$s confirmed the wallet transfer of %2$s from %3$s for this order (transaction %4$s)."
 msgstr ""
 
-#: src/Orders.php:2141
+#: src/Orders.php:2124
 msgid "This transfer is already linked to an order."
 msgstr ""
 
-#: src/Orders.php:2147
+#: src/Orders.php:2130
 msgid "This transfer has no amount, so it cannot be attached."
 msgstr ""
 
-#: src/Orders.php:2155
+#: src/Orders.php:2138
 msgid "This order is not paid by wallet transfer."
 msgstr ""
 
-#: src/Orders.php:2158
+#: src/Orders.php:2141
 msgid "This order is flagged as a suspected forgery. Check that the money arrived in the wallet app, then change the order's status yourself."
 msgstr ""
 
-#: src/Orders.php:2174
+#: src/Orders.php:2157
 msgid "Only an order that is pending payment, on hold or failed, or one that the transfer window cancelled, can take a transfer."
 msgstr ""
 
-#: src/Orders.php:2228
+#: src/Orders.php:2211
 msgid "This order was cancelled when its transfer window ended, and what arrived does not cover it, so it cannot be brought back with part of the amount."
 msgstr ""
 
 #. translators: 1: name of the admin, 2: amount, 3: order number.
-#: src/Orders.php:2243
+#: src/Orders.php:2226
 #, php-format
 msgid "%1$s moved a wallet transfer of %2$s from this order to order #%3$s; it no longer counts toward this order."
 msgstr ""
 
 #. translators: 1: amount received, 2: order total.
-#: src/Orders.php:2341
+#: src/Orders.php:2324
 #, php-format
 msgid "The order is completed with what arrived: %1$s of %2$s."
 msgstr ""
 
 #. translators: %s: order number.
-#: src/Orders.php:2414
+#: src/Orders.php:2397
 #, php-format
 msgid "This transfer paid part of order #%s. Attach it to that order to complete it with what arrived, or cancel the order and refund the customer before you dismiss it."
 msgstr ""
 
 #. translators: %s: order number.
-#: src/Orders.php:2421
+#: src/Orders.php:2404
 #, php-format
 msgid "This transfer paid order #%s. Refund the extra amount from the wallet app, then attach it to that order to confirm it."
 msgstr ""
 
-#: src/Orders.php:2424
+#: src/Orders.php:2407
 msgid "This transfer is linked to an order and cannot be dismissed."
 msgstr ""
 
 #. translators: %s: amount received.
-#: src/Orders.php:2544
+#: src/Orders.php:2527
 #, php-format
 msgid "This order has %s paid: refund it to the customer from the wallet app."
 msgstr ""
 
 #. translators: %s: amount of the transfers suspected to be forged.
-#: src/Orders.php:2553
+#: src/Orders.php:2536
 #, php-format
 msgid "%s of what this order received comes from a transfer suspected to be forged: check in the wallet app that this money really arrived before you refund any of it."
 msgstr ""
 
-#: src/PayerField.php:203
-#: assets/js/checkout-blocks.js:51
+#: src/PayerField.php:194
+#: assets/js/checkout-blocks.js:42
 msgid "Choose the wallet you will transfer to."
 msgstr ""
 
-#: src/PayerField.php:205
-#: assets/js/checkout-blocks.js:54
+#: src/PayerField.php:196
+#: assets/js/checkout-blocks.js:45
 msgid "This is the store's wallet number. Enter the wallet number you will transfer from."
 msgstr ""
 
-#: src/PayerField.php:207
-#: templates/checkout/payer-field.php:66
+#: src/PayerField.php:198
+#: templates/checkout/payer-field.php:32
 msgid "This store has no wallet to transfer to right now. Choose another way to pay."
 msgstr ""
 
-#: src/PayerField.php:210
-#: assets/js/checkout-blocks.js:57
-msgid "Enter an Egyptian wallet number of 11 digits starting with 01, or an InstaPay address like name@instapay."
-msgstr ""
-
-#: src/PayerField.php:211
-#: assets/js/checkout-blocks.js:58
+#: src/PayerField.php:200
+#: assets/js/checkout-blocks.js:47
 msgid "Enter an Egyptian wallet number of 11 digits starting with 01."
 msgstr ""
 
 #: src/Privacy.php:97
-msgid "When you pay by wallet transfer, we ask for the wallet number or InstaPay address you transfer from, so we can recognize your transfer. We store it with your order."
+msgid "When you pay by wallet transfer, we ask for the wallet number you transfer from, so we can recognize your transfer. We store it with your order."
 msgstr ""
 
 #: src/Privacy.php:98
-msgid "Our store's phone, running the Qersh app, reads the confirmation message of each transfer it receives and sends us directly the amount, the payer's number or InstaPay address and name as the message prints them, the operator's transaction id and the time. If you enter the transaction id of your transfer on your order page, we keep that id only, never the text you pasted. All of this is stored in our own database only: it does not pass through Qersh or any other outside service."
+msgid "Our store's phone, running the Qersh app, reads the confirmation message of each transfer it receives and sends us directly the amount, the payer's number and name as the message prints them, the operator's transaction id and the time. If you enter the transaction id of your transfer on your order page, we keep that id only, never the text you pasted. All of this is stored in our own database only: it does not pass through Qersh or any other outside service."
 msgstr ""
 
 #. translators: %d: number of days.
@@ -1930,7 +1847,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: src/Privacy.php:109
-msgid "When you ask for your personal data, it includes the wallet data of your orders, and the transfers that paid none of your orders but came from a number or InstaPay address that paid one of them. When you ask us to erase your personal data, we erase the payer's number and name of those transfers, except a transfer we still have to settle, such as money we may need to return, whose data is erased at the end of the period above. The wallet data of an order is erased with the order's personal data."
+msgid "When you ask for your personal data, it includes the wallet data of your orders, and the transfers that paid none of your orders but came from a wallet number that paid one of them. When you ask us to erase your personal data, we erase the payer's number and name of those transfers, except a transfer we still have to settle, such as money we may need to return, whose data is erased at the end of the period above. The wallet data of an order is erased with the order's personal data."
 msgstr ""
 
 #: src/Privacy.php:112
@@ -1947,7 +1864,7 @@ msgid "Wallet transfers"
 msgstr ""
 
 #: src/Privacy.php:355
-msgid "Transfers the store's phone received that paid none of your orders, from a wallet number or InstaPay address that paid one of them."
+msgid "Transfers the store's phone received that paid none of your orders, from a wallet number that paid one of them."
 msgstr ""
 
 #. translators: %d: number of wallet transfers.
@@ -1967,7 +1884,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: src/Privacy.php:485
-msgid "Wallet number or InstaPay address you transfer from"
+msgid "Wallet number you transfer from"
 msgstr ""
 
 #: src/Privacy.php:491
@@ -1979,7 +1896,7 @@ msgid "Transfer"
 msgstr ""
 
 #: src/Privacy.php:564
-msgid "Payer number or InstaPay address"
+msgid "Payer number"
 msgstr ""
 
 #: src/Privacy.php:570
@@ -2007,12 +1924,12 @@ msgid "Set in wp-config.php (QERSH_WC_CONFIG): these settings are read-only here
 msgstr ""
 
 #: templates/admin/settings.php:22
-#: templates/admin/wallets.php:18
+#: templates/admin/wallets.php:19
 msgid "QERSH_WC_CONFIG in wp-config.php has problems:"
 msgstr ""
 
 #: templates/admin/settings.php:33
-msgid "Your prices have piasters, but a transfer made with *9# carries whole pounds only. Turn on “Round up to the next pound” so such transfers match."
+msgid "Your prices have piasters, but a wallet transfer made by code carries whole pounds only. Turn on “Round up to the next pound” so such transfers match."
 msgstr ""
 
 #: templates/admin/settings.php:41
@@ -2052,7 +1969,7 @@ msgid "Whole pounds"
 msgstr ""
 
 #: templates/admin/settings.php:74
-msgid "Round up to the next pound: accept a transfer of the amount left rounded up to a whole pound (*9# transfers carry no piasters)"
+msgid "Round up to the next pound: accept a transfer of the amount left rounded up to a whole pound (wallet transfers made by code carry no piasters)"
 msgstr ""
 
 #: templates/admin/settings.php:77
@@ -2064,11 +1981,11 @@ msgid "Offer “Generate your developer's link with the connection key” on the
 msgstr ""
 
 #: templates/admin/settings.php:83
-msgid "Ask the customer for the transaction id (Orange Cash)"
+msgid "Ask the customer for the transaction id"
 msgstr ""
 
 #: templates/admin/settings.php:84
-msgid "After transferring, the customer enters the transaction id from the transfer message on their order page. When this is off, Orange Cash transfers wait for your decision, and the ids customers already entered stay visible in the order's Qersh box."
+msgid "After transferring, the customer can enter the transaction id from the transfer message on their order page, on every wallet. It confirms the order only for a transfer whose message does not show the sender's number, and only when the id is exactly the one in the message. When this is off, such transfers wait for your decision, and the ids customers already entered stay visible in the order's Qersh box."
 msgstr ""
 
 #: templates/admin/settings.php:88
@@ -2143,7 +2060,7 @@ msgid "“Test connection” arrives even before Qersh is activated, but the pho
 msgstr ""
 
 #: templates/admin/settings.php:146
-msgid "For a wallet whose messages state the balance (all but InstaPay and banks): on the wallet page open the ⋮ menu → “Sync balance” and enter your real balance from the wallet app or its balance code. Without it, Qersh waits up to 15 minutes before it reports the first transfers of the wallet to your store, and asks you to check the balance; answer in “Confirm your balance” within that time and the order is confirmed on its own, otherwise the transfer goes to “Needs a decision”."
+msgid "For a wallet whose messages state the balance: on the wallet page open the ⋮ menu → “Sync balance” and enter your real balance from the wallet app or its balance code. Without it, Qersh waits up to 15 minutes before it reports the first transfers of the wallet to your store, and asks you to check the balance; answer in “Confirm your balance” within that time and the order is confirmed on its own, otherwise the transfer goes to “Needs a decision”."
 msgstr ""
 
 #: templates/admin/settings.php:147
@@ -2167,7 +2084,7 @@ msgid "The Transfers tab lists Needs a decision, Unmatched, Personal transfers, 
 msgstr ""
 
 #: templates/admin/settings.php:155
-msgid "Each order paid by wallet transfer has a Qersh box: the payer number, the wallet, the deadline, the transfers applied, the forgery flag, the last delivery from the phone, and for Orange Cash the transaction id the customer entered."
+msgid "Each order paid by wallet transfer has a Qersh box: the payer number, the wallet, the deadline, the transfers applied, the forgery flag, the last delivery from the phone, and the transaction id the customer entered, if any."
 msgstr ""
 
 #: templates/admin/settings.php:156
@@ -2180,7 +2097,7 @@ msgstr ""
 
 #: templates/admin/status.php:14
 #: templates/admin/status.php:28
-#: templates/admin/wallet-card.php:126
+#: templates/admin/wallet-card.php:129
 msgid "Check your store URL"
 msgstr ""
 
@@ -2199,15 +2116,15 @@ msgid "Result for %1$s, %2$s"
 msgstr ""
 
 #: templates/admin/status.php:63
-#: templates/admin/wallet-card.php:98
-#: assets/js/admin.js:396
+#: templates/admin/wallet-card.php:101
+#: assets/js/admin.js:383
 msgid "Copy link"
 msgstr ""
 
 #: templates/admin/status.php:64
-#: templates/admin/wallet-card.php:99
+#: templates/admin/wallet-card.php:102
 #: assets/js/admin.js:170
-#: assets/js/admin.js:395
+#: assets/js/admin.js:382
 msgid "Show QR code"
 msgstr ""
 
@@ -2235,7 +2152,7 @@ msgstr ""
 
 #: templates/admin/transfers.php:43
 #: templates/admin/wallet-delete.php:44
-#: templates/admin/wallet-form.php:72
+#: templates/admin/wallet-form.php:57
 msgid "Cancel"
 msgstr ""
 
@@ -2248,59 +2165,59 @@ msgstr ""
 msgid "Payer number, name, transaction id"
 msgstr ""
 
-#: templates/admin/wallet-card.php:22
+#: templates/admin/wallet-card.php:25
 msgid "Off at checkout"
 msgstr ""
 
-#: templates/admin/wallet-card.php:26
+#: templates/admin/wallet-card.php:29
 msgid "Edit"
 msgstr ""
 
-#: templates/admin/wallet-card.php:27
+#: templates/admin/wallet-card.php:30
 msgid "Delete"
 msgstr ""
 
-#: templates/admin/wallet-card.php:54
+#: templates/admin/wallet-card.php:57
 msgid "Your store URL"
 msgstr ""
 
-#: templates/admin/wallet-card.php:61
+#: templates/admin/wallet-card.php:64
 msgid "Generate your developer's link with the connection key"
 msgstr ""
 
-#: templates/admin/wallet-card.php:62
+#: templates/admin/wallet-card.php:65
 msgid "The connection key is made in your store and shown once."
 msgstr ""
 
 #. translators: 1: date and time, 2: key fingerprint.
-#: templates/admin/wallet-card.php:74
+#: templates/admin/wallet-card.php:77
 #, php-format
 msgid "Pending key since %1$s (fingerprint %2$s): it becomes the connection key when the phone first delivers with it, usually at “Test connection”."
 msgstr ""
 
-#: templates/admin/wallet-card.php:88
-#: assets/js/admin.js:418
+#: templates/admin/wallet-card.php:91
+#: assets/js/admin.js:405
 msgid "Cancel this link"
 msgstr ""
 
-#: templates/admin/wallet-card.php:94
+#: templates/admin/wallet-card.php:97
 msgid "Another way: your developer's link (paste it in the Qersh app: “Add wallet” → “Have a link from your developer?”)"
 msgstr ""
 
-#: templates/admin/wallet-card.php:109
+#: templates/admin/wallet-card.php:112
 msgid "Connection key or the wallet link from the phone"
 msgstr ""
 
-#: templates/admin/wallet-card.php:113
+#: templates/admin/wallet-card.php:116
 msgid "Paste the whole message the phone showed after saving, the link alone, the line QERSH_WEBHOOK_SECRET=…, or the key itself. Only its fingerprint is shown after saving."
 msgstr ""
 
-#: templates/admin/wallet-card.php:115
+#: templates/admin/wallet-card.php:118
 #: assets/js/admin.js:239
 msgid "You have a link with the connection key that nothing has arrived with yet. Pasting this message cancels it and makes the pasted key the connection key. Continue?"
 msgstr ""
 
-#: templates/admin/wallet-card.php:117
+#: templates/admin/wallet-card.php:120
 msgid "Save the connection key"
 msgstr ""
 
@@ -2328,150 +2245,114 @@ msgstr ""
 msgid "Delete wallet"
 msgstr ""
 
-#: templates/admin/wallet-form.php:21
-#: templates/admin/wallet-form.php:71
-#: templates/admin/wallets.php:33
-#: templates/admin/wallets.php:41
+#: templates/admin/wallet-form.php:22
+#: templates/admin/wallet-form.php:56
+#: templates/admin/wallets.php:51
+#: templates/admin/wallets.php:59
 msgid "Add wallet"
 msgstr ""
 
 #. translators: %s: wallet name.
-#: templates/admin/wallet-form.php:24
+#: templates/admin/wallet-form.php:25
 #, php-format
 msgid "Edit wallet “%s”"
 msgstr ""
 
-#: templates/admin/wallet-form.php:36
-msgid "Wallet type"
+#: templates/admin/wallet-form.php:37
+msgid "Wallet number customers transfer to"
 msgstr ""
 
 #: templates/admin/wallet-form.php:40
-msgid "Choose…"
+msgid "The 11-digit e-wallet number, starting with 01, such as 01001234567."
 msgstr ""
 
-#: templates/admin/wallet-form.php:47
-msgid "The type cannot change: it is part of the link on the phone. To use another type, add a new wallet."
-msgstr ""
-
-#: templates/admin/wallet-form.php:52
-msgid "Number or InstaPay address customers transfer to"
-msgstr ""
-
-#: templates/admin/wallet-form.php:55
-msgid "An 11-digit wallet number such as 01001234567, or for InstaPay an address such as name@instapay."
-msgstr ""
-
-#: templates/admin/wallet-form.php:59
+#: templates/admin/wallet-form.php:44
 msgid "Name"
 msgstr ""
 
-#: templates/admin/wallet-form.php:62
-msgid "Customers see this name when they choose the wallet to transfer to, and the phone shows it for the wallet."
+#: templates/admin/wallet-form.php:47
+msgid "Customers see this name when they choose the wallet to transfer to, and the phone shows it for the wallet. Without a name, the wallet number is shown."
 msgstr ""
 
-#: templates/admin/wallet-form.php:66
+#: templates/admin/wallet-form.php:51
 msgid "Checkout"
 msgstr ""
 
-#: templates/admin/wallet-form.php:67
+#: templates/admin/wallet-form.php:52
 msgid "Show this wallet at checkout"
 msgstr ""
 
-#: templates/admin/wallet-form.php:71
+#: templates/admin/wallet-form.php:56
 msgid "Save wallet"
 msgstr ""
 
-#: templates/admin/wallets.php:15
+#: templates/admin/wallets.php:16
 msgid "These settings are set in wp-config.php (QERSH_WC_CONFIG), so wallets are added, changed and removed there. Connection keys are still linked from each card."
 msgstr ""
 
-#: templates/admin/wallets.php:30
+#. translators: 1: wallet name, 2: the address it was saved with.
+#: templates/admin/wallets.php:36
+#, php-format
+msgid "The wallet “%1$s” (%2$s) is no longer offered to customers: its address is not an 11-digit e-wallet number, which every wallet needs. It is removed the next time you save the settings or a wallet. To keep receiving, add the e-wallet number customers transfer to with “Add wallet”."
+msgstr ""
+
+#: templates/admin/wallets.php:48
 msgid "Add your first wallet"
 msgstr ""
 
-#: templates/admin/wallets.php:31
-msgid "Add the wallet or InstaPay address your customers transfer to, then link it to the Qersh app on the phone that receives its messages."
+#: templates/admin/wallets.php:49
+msgid "Add the e-wallet number your customers transfer to, then link it to the Qersh app on the phone that receives its messages."
 msgstr ""
 
-#: templates/admin/wallets.php:46
+#: templates/admin/wallets.php:64
 msgid "Deleted wallets"
 msgstr ""
 
-#: templates/admin/wallets.php:70
+#: templates/admin/wallets.php:88
 msgid "How to link the phone"
 msgstr ""
 
-#: templates/admin/wallets.php:72
+#: templates/admin/wallets.php:90
 msgid "In the Qersh app, first complete the “Set up Qersh” list on the home screen (“Activate Qersh”, then “Set up the phone”)."
 msgstr ""
 
-#: templates/admin/wallets.php:73
+#: templates/admin/wallets.php:91
 msgid "With the link with the connection key: open it on the wallet's phone (scan its code, tap “Open in Qersh” on the phone itself, or copy it into “Have a link from your developer?”), and save the wallet, or tap “Update wallet” if it is on the phone already. Nothing to paste in the store."
 msgstr ""
 
-#: templates/admin/wallets.php:74
+#: templates/admin/wallets.php:92
 msgid "With the link without a key: in the app open “More → Wallets → Add wallet”, paste it in “Have a link from your developer?” and save. Qersh makes the connection key and opens “Send this link to your developer”, the only time it shows the key: share or copy the message to yourself (WhatsApp Web, email), then paste it, as it arrived, in the box of the wallet card here."
 msgstr ""
 
-#: templates/admin/wallets.php:75
+#: templates/admin/wallets.php:93
 msgid "If the wallet was on the phone before (linked to n8n or another server), the app offers to update it so it sends to this store: each wallet on the phone sends to one address."
 msgstr ""
 
-#: templates/admin/wallets.php:76
-msgid "Keep “Send sender details” (wallet page → “Developer settings”) on “Full name and number”: any other choice stops automatic matching for Vodafone Cash and e& money."
+#: templates/admin/wallets.php:94
+msgid "Keep “Send sender details” (wallet page → “Developer settings”) on “Full name and number”: any other choice hides the payer's number (masked or not sent at all), which stops automatic matching by number."
 msgstr ""
 
-#: templates/admin/wallets.php:77
+#: templates/admin/wallets.php:95
 msgid "Then tap “Test connection” on the phone: the card says when it arrived."
 msgstr ""
 
-#: templates/admin/wallets.php:78
+#: templates/admin/wallets.php:96
 msgid "“Send this wallet's link to your developer” on the wallet page is for later only (a key that was lost or never pasted): each tap makes a new key and the old one stays accepted on the phone for 24 hours, so paste only the latest message."
 msgstr ""
 
-#: templates/checkout/payer-field.php:33
-#: assets/js/checkout-blocks.js:330
-msgid "Wallet number you will transfer from"
-msgstr ""
-
-#: templates/checkout/payer-field.php:34
-#: assets/js/checkout-blocks.js:329
-msgid "InstaPay address you will transfer from"
-msgstr ""
-
-#: templates/checkout/payer-field.php:35
-#: assets/js/checkout-blocks.js:320
-msgid "We recognize your transfer by this number, so send it from this number only."
-msgstr ""
-
-#: templates/checkout/payer-field.php:36
-#: assets/js/checkout-blocks.js:318
-msgid "Enter the number you will transfer from, so the store can check your transfer more easily."
-msgstr ""
-
-#: templates/checkout/payer-field.php:37
-#: assets/js/checkout-blocks.js:316
-msgid "Enter the InstaPay address you will transfer from, so the store can check your transfer more easily."
-msgstr ""
-
-#: templates/checkout/payer-field.php:76
-#: assets/js/checkout-blocks.js:231
+#: templates/checkout/payer-field.php:42
+#: assets/js/checkout-blocks.js:206
 msgid "Which wallet will you transfer to?"
 msgstr ""
 
-#: templates/checkout/payer-field.php:97
-#: assets/js/checkout-blocks.js:270
-msgid "Wallet number / InstaPay address"
+#: templates/checkout/payer-field.php:62
+#: assets/js/checkout-blocks.js:244
+msgid "Wallet number you will transfer from"
 msgstr ""
 
-#: templates/checkout/payer-field.php:100
-#: assets/js/checkout-blocks.js:286
-msgid "Wallet number"
-msgstr ""
-
-#: templates/checkout/payer-field.php:104
-#: assets/js/checkout-blocks.js:307
-msgid "InstaPay address"
+#: templates/checkout/payer-field.php:66
+#: assets/js/checkout-blocks.js:271
+msgid "Transfer from this number, so the store can match your transfer to your order."
 msgstr ""
 
 #. translators: %s: order number.
@@ -2484,7 +2365,7 @@ msgstr ""
 #. translators: %s: amount to transfer.
 #: templates/emails/instructions.php:48
 #: templates/emails/plain/instructions.php:37
-#: templates/order/thankyou-box.php:39
+#: templates/order/thankyou-box.php:40
 #, php-format
 msgid "Amount: %s"
 msgstr ""
@@ -2492,102 +2373,90 @@ msgstr ""
 #. translators: 1: what remains of the order, with piasters, 2: the same rounded up to the pound.
 #: templates/emails/instructions.php:57
 #: templates/emails/plain/instructions.php:41
-#: templates/order/thankyou-box.php:51
+#: templates/order/thankyou-box.php:52
 #, php-format
-msgid "The rest of your order is %1$s, rounded up to %2$s because *9# transfers carry no piasters."
+msgid "The rest of your order is %1$s, rounded up to %2$s because wallet transfers made by code accept whole pounds only."
 msgstr ""
 
 #. translators: 1: order total with piasters, 2: the total rounded up to the pound.
 #: templates/emails/instructions.php:60
 #: templates/emails/plain/instructions.php:44
-#: templates/order/thankyou-box.php:54
+#: templates/order/thankyou-box.php:55
 #, php-format
-msgid "Your order total is %1$s, rounded up to %2$s because *9# transfers carry no piasters."
+msgid "Your order total is %1$s, rounded up to %2$s because wallet transfers made by code accept whole pounds only."
 msgstr ""
 
-#. translators: 1: the store's wallet number or InstaPay address, 2: wallet type and name.
-#: templates/emails/instructions.php:73
-#: templates/emails/plain/instructions.php:53
+#. translators: 1: the store's wallet number, 2: the name the store gave that wallet.
+#: templates/emails/instructions.php:72
+#: templates/emails/plain/instructions.php:52
 #: templates/order/thankyou-box.php:69
 #, php-format
 msgid "Send to: %1$s (%2$s)"
 msgstr ""
 
-#. translators: %s: the store's wallet number or InstaPay address.
-#: templates/emails/instructions.php:76
-#: templates/emails/plain/instructions.php:56
+#. translators: %s: the store's wallet number.
+#: templates/emails/instructions.php:75
+#: templates/emails/plain/instructions.php:55
 #: templates/order/thankyou-box.php:72
 #, php-format
 msgid "Send to: %s"
 msgstr ""
 
-#. translators: %s: the customer's InstaPay address.
-#: templates/emails/instructions.php:88
-#: templates/emails/plain/instructions.php:63
-#: templates/order/thankyou-box.php:89
-#, php-format
-msgid "From your address: %s"
-msgstr ""
-
 #. translators: %s: the customer's wallet number.
-#: templates/emails/instructions.php:91
-#: templates/emails/plain/instructions.php:66
-#: templates/order/thankyou-box.php:92
+#: templates/emails/instructions.php:85
+#: templates/emails/plain/instructions.php:60
+#: templates/order/thankyou-box.php:84
 #, php-format
 msgid "From your number: %s"
 msgstr ""
 
 #. translators: %s: link to the order page.
-#: templates/emails/instructions.php:117
-#: templates/emails/plain/instructions.php:77
+#: templates/emails/instructions.php:111
+#: templates/emails/plain/instructions.php:71
 #, php-format
-msgid "After you transfer, enter the transaction id from your transfer message on your order page: %s"
+msgid "If the store cannot see the number you transferred from, you can enter the transaction id on your order page: %s"
 msgstr ""
 
-#: templates/emails/instructions.php:118
+#: templates/emails/instructions.php:112
 msgid "open your order page"
 msgstr ""
 
-#: templates/order/thankyou-box.php:30
+#: templates/order/thankyou-box.php:31
 msgid "Your transfer"
 msgstr ""
 
-#: templates/order/thankyou-box.php:45
+#: templates/order/thankyou-box.php:46
 msgid "Copy the amount"
 msgstr ""
 
 #: templates/order/thankyou-box.php:76
-msgid "Copy the address to send to"
-msgstr ""
-
-#: templates/order/thankyou-box.php:77
 msgid "Copy the number to send to"
 msgstr ""
 
 #. translators: 1: deadline time in Cairo, 2: how long until then, e.g. "2 hours".
-#: templates/order/thankyou-box.php:106
+#: templates/order/thankyou-box.php:97
 #, php-format
 msgid "Before: %1$s Cairo time (within %2$s)"
 msgstr ""
 
-#: templates/order/txn-box.php:18
+#: templates/order/txn-box.php:21
 msgid "After you transfer"
 msgstr ""
 
-#: templates/order/txn-box.php:22
+#: templates/order/txn-box.php:25
 msgid "Enter the transaction id from your transfer message, or paste the whole message."
 msgstr ""
 
-#: templates/order/txn-box.php:23
-msgid "In the Orange Cash message, it is the number after \"رقم المعاملة\"."
+#: templates/order/txn-box.php:26
+msgid "It is in the message your wallet sent you about this transfer, usually after \"transaction number\"."
 msgstr ""
 
-#: templates/order/txn-box.php:24
+#: templates/order/txn-box.php:27
 msgid "Send transaction id"
 msgstr ""
 
-#: templates/order/txn-box.php:28
-msgid "After you transfer, send the transaction id to the store with your order number."
+#: templates/order/txn-box.php:31
+msgid "After you transfer, you can send the store the transaction id with your order number: it helps when the store cannot see the number you transferred from."
 msgstr ""
 
 #: assets/js/admin.js:144
@@ -2605,51 +2474,51 @@ msgid_plural "Message pasted (%d characters)."
 msgstr[0] ""
 msgstr[1] ""
 
-#: assets/js/admin.js:387
+#: assets/js/admin.js:374
 msgid "Your developer's link with the connection key (shown once)"
 msgstr ""
 
-#: assets/js/admin.js:388
+#: assets/js/admin.js:375
 msgid "This link carries the connection key. Anyone who gets it can send your store fake transfers that confirm orders. Open it, or scan its code, on the wallet's phone only; do not send it to anyone, take a picture of it or share your screen. It is shown this one time only: if you close this window before using it, generate a new link."
 msgstr ""
 
-#: assets/js/admin.js:389
+#: assets/js/admin.js:376
 msgid "On the wallet's phone, open the link in Qersh, save the wallet or tap “Update wallet”, then tap “Test connection”. You do not need to paste anything here."
 msgstr ""
 
-#: assets/js/admin.js:397
+#: assets/js/admin.js:384
 msgid "Open in Qersh"
 msgstr ""
 
-#: assets/js/admin.js:398
+#: assets/js/admin.js:385
 msgid "Close"
 msgstr ""
 
-#: assets/js/admin.js:415
+#: assets/js/admin.js:402
 msgid "Did you open this link on the wallet's phone?"
 msgstr ""
 
-#: assets/js/admin.js:417
+#: assets/js/admin.js:404
 msgid "I opened it on the phone"
 msgstr ""
 
-#: assets/js/admin.js:441
+#: assets/js/admin.js:428
 msgid "The QR code was hidden after 5 minutes. If you still need it, close this window and generate a new link."
 msgstr ""
 
-#: assets/js/admin.js:452
+#: assets/js/admin.js:439
 msgid "Copied. Paste it only on the wallet's phone."
 msgstr ""
 
-#: assets/js/admin.js:452
+#: assets/js/admin.js:439
 msgid "Your browser did not allow copying. Use “Show QR code” instead."
 msgstr ""
 
-#: assets/js/admin.js:522
+#: assets/js/admin.js:509
 msgid "Generating…"
 msgstr ""
 
-#: assets/js/admin.js:544
-#: assets/js/admin.js:562
+#: assets/js/admin.js:531
+#: assets/js/admin.js:549
 msgid "The link could not be generated. Reload the page and try again."
 msgstr ""

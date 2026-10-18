@@ -9,14 +9,16 @@
 namespace QershPay\WooCommerce;
 
 use QershPay\WooCommerce\Core\Money;
-use QershPay\WooCommerce\Core\TxnId;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
  * Registers the customer-facing side (docs/17 §3, §4.1, §4.7, §4.10, §6, §7), and holds what the checkout, the
- * thank-you box, the Blocks data and the instructions email share: the wallet views, the confirmation line of each
- * wallet, the amounts, and the customer-facing status.
+ * thank-you box, the Blocks data and the instructions email share: the wallet views, the confirmation line, the
+ * amounts, and the customer-facing status.
+ *
+ * Nothing here depends on the wallet type: every wallet is an e-wallet number, shown with the merchant's label, and
+ * gets the same texts. Whether a transfer names its payer is the webhook's business, never the storefront's.
  */
 final class Checkout {
 
@@ -53,11 +55,23 @@ final class Checkout {
 	/** The order meta that records which customer email carried the "confirmed" line (email_confirmed_line()). */
 	const META_CONFIRMED_MAILED = '_qersh_confirmed_mailed';
 
-	/** After 15 minutes of waiting, the "Transferred from another number?" line (or the Orange reminder). */
+	/** After 15 minutes of waiting, the "Transferred from another number?" line (or the transaction-id reminder). */
 	const NUDGE_SEC = 900;
 
-	/** Wallet types whose messages name the payer: the order is confirmed on its own. */
-	const AUTO_PROVIDERS = array( 'vodafone_cash', 'etisalat_cash' );
+	/**
+	 * The route codes the transaction-id field may show (docs/17 §7), whose texts thankyou.js gets from
+	 * txn_error_texts(), with `other` for an answer without a code, or no answer.
+	 */
+	const TXN_ERROR_CODES = array(
+		'qersh_txn_empty',
+		'qersh_txn_format',
+		'qersh_txn_too_long',
+		'qersh_txn_several',
+		'qersh_txn_wallet_number',
+		'qersh_txn_wait',
+		'qersh_txn_locked',
+		'qersh_txn_closed',
+	);
 
 	/**
 	 * Thank-you boxes already printed in this request (classic and Blocks may both fire the hook).
@@ -173,10 +187,10 @@ final class Checkout {
 			return;
 		}
 		$url = QERSH_WC_URL . 'assets/';
-		wp_register_script( self::H_NORMALIZE, $url . 'js/txn-normalize.js', array(), QERSH_WC_VERSION, true );
-		wp_register_script( self::H_PAYER, $url . 'js/payer-field.js', array( self::H_NORMALIZE, 'jquery' ), QERSH_WC_VERSION, true );
-		wp_register_script( self::H_THANKYOU, $url . 'js/thankyou.js', array( self::H_NORMALIZE ), QERSH_WC_VERSION, true );
-		wp_register_style( self::H_STYLE, $url . 'css/front.css', array(), QERSH_WC_VERSION );
+		wp_register_script( self::H_NORMALIZE, $url . 'js/txn-normalize.js', array(), Plugin::asset_version( 'assets/js/txn-normalize.js' ), true );
+		wp_register_script( self::H_PAYER, $url . 'js/payer-field.js', array( self::H_NORMALIZE, 'jquery' ), Plugin::asset_version( 'assets/js/payer-field.js' ), true );
+		wp_register_script( self::H_THANKYOU, $url . 'js/thankyou.js', array( self::H_NORMALIZE ), Plugin::asset_version( 'assets/js/thankyou.js' ), true );
+		wp_register_style( self::H_STYLE, $url . 'css/front.css', array(), Plugin::asset_version( 'assets/css/front.css' ) );
 	}
 
 	/**
@@ -265,6 +279,9 @@ final class Checkout {
 	 * What the thank-you box and the instructions email show for an order, or null when the order has none of our
 	 * data (no row and no chosen wallet).
 	 *
+	 * `txn_box` is the wallet's gate (txn_entry_open()), `txn_open` that gate and the route's own rule for the order
+	 * now (txn_accepted()): the transaction-id section, its email link and the confirmation line follow `txn_open`.
+	 *
 	 * @param Plugin    $plugin The plugin.
 	 * @param \WC_Order $order  Order.
 	 * @param int       $now    UTC seconds.
@@ -280,11 +297,8 @@ final class Checkout {
 		$store  = isset( $config['store'] ) && is_array( $config['store'] ) ? $config['store'] : array();
 		$late   = isset( $config['receiver']['matching']['late_window_min'] ) ? (int) $config['receiver']['matching']['late_window_min'] : 120;
 		$wallet = '' === $wallet_id ? null : $plugin->wallet( $wallet_id );
-		$seen   = self::auto_seen( $plugin );
 
-		$provider = null === $wallet ? '' : (string) $wallet['provider'];
-		$txn_open = self::txn_entry_open( $plugin, $wallet );
-		$kind     = '' === $provider ? 'decision' : self::confirm_kind( $provider, ! empty( $seen[ $wallet_id ] ), $txn_open );
+		$txn_box = self::txn_entry_open( $plugin, $wallet );
 
 		$price  = null !== $row && isset( $row['price_minor'] ) ? (int) $row['price_minor'] : (int) round( (float) $order->get_total() * 100 );
 		$paid   = null !== $row && isset( $row['paid_minor'] ) ? (int) $row['paid_minor'] : 0;
@@ -302,35 +316,30 @@ final class Checkout {
 		$status = self::status_of( $state, (string) $order->get_status(), self::completing( $row ) );
 		$claim  = null !== $row && ! empty( $row['claim_txn'] );
 
-		$txn_now = $txn_open && self::txn_accepted( $order, $row, $now );
+		$txn_now = $txn_box && self::txn_accepted( $order, $row, $now );
 
 		return array(
-			'status'        => $status,
-			'state'         => $state,
-			'wallet'        => $wallet,
-			'wallet_id'     => $wallet_id,
-			'provider'      => $provider,
-			'provider_name' => self::provider_name( $provider ),
-			'wallet_label'  => null === $wallet ? '' : (string) $wallet['label'],
-			'address'       => null === $wallet ? '' : (string) $wallet['receive_address'],
-			'payer'         => $payer,
-			'payer_handle'  => false !== strpos( $payer, '@' ),
-			'due_minor'     => $amount['due'],
-			'exact_minor'   => $amount['exact'],
-			'rounded'       => $amount['due'] !== $amount['exact'],
-			'paid_minor'    => $paid,
-			'currency'      => (string) $order->get_currency(),
-			'deadline'      => $deadline > 0 ? $deadline : null,
-			'placed_at'     => $placed > 0 ? $placed : null,
-			'stop_at'       => $deadline > 0 ? $deadline + 60 * max( 0, $late ) : null,
-			'kind'          => $kind,
-			'confirm'       => self::confirm_text( $kind ),
-			'decision'      => 'decision' === $kind,
-			'orange'        => 'orange_cash' === $provider,
-			'txn_open'      => $txn_now,
-			'claim'         => $claim,
-			'pending'       => in_array( $status, array( 'waiting', 'partial' ), true ),
-			'instructions'  => self::merchant_instructions(),
+			'status'       => $status,
+			'state'        => $state,
+			'wallet'       => $wallet,
+			'wallet_id'    => $wallet_id,
+			'wallet_label' => null === $wallet || ! isset( $wallet['label'] ) ? '' : (string) $wallet['label'],
+			'address'      => null === $wallet || ! isset( $wallet['receive_address'] ) ? '' : (string) $wallet['receive_address'],
+			'payer'        => $payer,
+			'due_minor'    => $amount['due'],
+			'exact_minor'  => $amount['exact'],
+			'rounded'      => $amount['due'] !== $amount['exact'],
+			'paid_minor'   => $paid,
+			'currency'     => (string) $order->get_currency(),
+			'deadline'     => $deadline > 0 ? $deadline : null,
+			'placed_at'    => $placed > 0 ? $placed : null,
+			'stop_at'      => $deadline > 0 ? $deadline + 60 * max( 0, $late ) : null,
+			'confirm'      => self::confirm_text( self::confirm_kind( $txn_now ) ),
+			'txn_box'      => $txn_box,
+			'txn_open'     => $txn_now,
+			'claim'        => $claim,
+			'pending'      => in_array( $status, array( 'waiting', 'partial' ), true ),
+			'instructions' => self::merchant_instructions(),
 		);
 	}
 
@@ -418,8 +427,8 @@ final class Checkout {
 	}
 
 	/**
-	 * The amount to transfer: what remains, rounded up to the pound when the store allows it (a *9# transfer
-	 * carries no piasters, docs/17 §4.6). Pure.
+	 * The amount to transfer: what remains, rounded up to the pound when the store allows it (a wallet transfer
+	 * made by code carries no piasters, docs/17 §4.6). Pure.
 	 *
 	 * @param int  $price_minor Order total.
 	 * @param int  $paid_minor  Received so far.
@@ -465,103 +474,60 @@ final class Checkout {
 	}
 
 	/**
-	 * Which confirmation line a wallet gets (docs/17 §3). Pure.
+	 * Which confirmation line a wallet or an order gets (docs/17 §3): the same for every wallet, with the
+	 * transaction-id sentence only where the order page takes one. Pure.
 	 *
-	 * @param string $provider  Provider id.
-	 * @param bool   $auto_seen Whether this wallet has seen a transfer with auto_confirm_ok (Store\Wallets).
-	 * @param bool   $txn_open  Whether customers may enter a transaction id for it.
-	 * @return string `auto`, `orange_auto`, `orange` or `decision`.
+	 * @param bool $txn_open Whether the customer may enter a transaction id (txn_entry_open() at checkout, the box's
+	 *                       `txn_open` for an order).
+	 * @return string `txn` or `plain`.
 	 */
-	public static function confirm_kind( string $provider, bool $auto_seen, bool $txn_open ): string {
-		if ( in_array( $provider, self::AUTO_PROVIDERS, true ) ) {
-			return 'auto';
-		}
-		if ( 'orange_cash' === $provider && $txn_open ) {
-			return $auto_seen ? 'orange_auto' : 'orange';
-		}
-		return 'decision';
+	public static function confirm_kind( bool $txn_open ): string {
+		return $txn_open ? 'txn' : 'plain';
 	}
 
 	/**
-	 * The confirmation line printed next to a wallet, in the thank-you box and in the email (not editable).
+	 * The confirmation line printed next to a wallet, in the thank-you box and in the email (not editable). It says
+	 * the order is confirmed once the transfer reaches the store, and promises no time and no automatic
+	 * confirmation: whether a transfer confirms on its own, or waits for the merchant's click or a typed transaction
+	 * id, depends on what its message shows, which only the webhook tells.
 	 *
 	 * @param string $kind From confirm_kind().
 	 * @return string
 	 */
 	public static function confirm_text( string $kind ): string {
-		switch ( $kind ) {
-			case 'auto':
-				return __( 'Your order is confirmed on its own when your transfer arrives, usually within minutes.', 'qersh-for-woocommerce' );
-			case 'orange_auto':
-				return __( 'After you transfer, enter the transaction id from your transfer message on your order page, and your order is usually confirmed on its own within minutes.', 'qersh-for-woocommerce' );
-			case 'orange':
-				return __( 'After you transfer, enter the transaction id on your order page so the store finds your transfer faster. The store confirms your order once it checks that your transfer arrived.', 'qersh-for-woocommerce' );
-			default:
-				return __( 'The store confirms your order once it checks that your transfer arrived.', 'qersh-for-woocommerce' );
+		if ( 'txn' === $kind ) {
+			return __( 'Your order is confirmed once your transfer reaches the store. After you transfer, you can also enter the transaction id on your order page: it helps when the store cannot see the number you transferred from.', 'qersh-for-woocommerce' );
 		}
+		return __( 'Your order is confirmed once your transfer reaches the store.', 'qersh-for-woocommerce' );
 	}
 
 	/**
-	 * The customer-facing name of a wallet type.
-	 *
-	 * @param string $provider Provider id.
-	 * @return string
-	 */
-	public static function provider_name( string $provider ): string {
-		switch ( $provider ) {
-			case 'vodafone_cash':
-				return __( 'Vodafone Cash', 'qersh-for-woocommerce' );
-			case 'etisalat_cash':
-				return __( 'e& money', 'qersh-for-woocommerce' );
-			case 'orange_cash':
-				return __( 'Orange Cash', 'qersh-for-woocommerce' );
-			case 'instapay_app':
-				return __( 'InstaPay', 'qersh-for-woocommerce' );
-			case 'bank_nbe':
-				return __( 'National Bank of Egypt', 'qersh-for-woocommerce' );
-			case 'bank_cib':
-				return __( 'CIB', 'qersh-for-woocommerce' );
-			case 'bank_egbank':
-				return __( 'EGBANK', 'qersh-for-woocommerce' );
-			default:
-				return '';
-		}
-	}
-
-	/**
-	 * The enabled wallets as the checkout shows them, in configuration order.
+	 * The enabled wallets as the checkout shows them, in configuration order: the merchant's label (may be empty;
+	 * the number is shown either way) and the number, never a wallet type.
 	 *
 	 * @param Plugin $plugin The plugin.
-	 * @return array[] Each `[ id, label, provider, provider_name, address, address_display, instapay, kind,
-	 *                 confirm, decision ]`.
+	 * @return array[] Each `[ id, label, address, address_display, confirm ]`.
 	 */
 	public static function wallet_views( Plugin $plugin ): array {
 		$config = $plugin->config();
-		$seen   = self::auto_seen( $plugin );
 		$out    = array();
 		foreach ( PayerField::enabled_wallets( isset( $config['wallets'] ) && is_array( $config['wallets'] ) ? $config['wallets'] : array() ) as $wallet ) {
-			$provider = isset( $wallet['provider'] ) ? (string) $wallet['provider'] : '';
-			$kind     = self::confirm_kind( $provider, ! empty( $seen[ $wallet['id'] ] ), self::txn_entry_open( $plugin, $wallet ) );
-			$address  = isset( $wallet['receive_address'] ) ? (string) $wallet['receive_address'] : '';
-			$out[]    = array(
+			$address = isset( $wallet['receive_address'] ) ? (string) $wallet['receive_address'] : '';
+			$out[]   = array(
 				'id'              => (string) $wallet['id'],
 				'label'           => isset( $wallet['label'] ) ? (string) $wallet['label'] : '',
-				'provider'        => $provider,
-				'provider_name'   => self::provider_name( $provider ),
 				'address'         => $address,
 				'address_display' => Format::number( $address ),
-				'instapay'        => 'instapay_app' === $provider,
-				'kind'            => $kind,
-				'confirm'         => self::confirm_text( $kind ),
-				'decision'        => 'auto' !== $kind,
+				'confirm'         => self::confirm_text( self::confirm_kind( self::txn_entry_open( $plugin, $wallet ) ) ),
 			);
 		}
 		return $out;
 	}
 
 	/**
-	 * Whether customers may enter a transaction id for this wallet: an Orange Cash wallet of the configuration
-	 * (txn_wallet()), store.txn_entry on, and the field not hidden by the transaction-id drift alert (docs/17 §4.9).
+	 * Whether customers may enter a transaction id for this wallet (docs/17 §4.10): a wallet of the configuration
+	 * (txn_wallet()) and store.txn_entry on, as Diagnostics::txn_entry_open() decides it for the wallet id. The same
+	 * for every wallet: a typed id only ever decides a transfer that arrived without the payer's number.
 	 *
 	 * @param Plugin     $plugin The plugin.
 	 * @param array|null $wallet Wallet entry.
@@ -579,7 +545,7 @@ final class Checkout {
 			try {
 				$diagnostics = $plugin->diagnostics();
 				if ( method_exists( $diagnostics, 'txn_entry_open' ) ) {
-					return (bool) $diagnostics->txn_entry_open( (string) $wallet['provider'] );
+					return (bool) $diagnostics->txn_entry_open( (string) $wallet['id'] );
 				}
 			} catch ( \Throwable $e ) {
 				return true;
@@ -589,7 +555,7 @@ final class Checkout {
 	}
 
 	/**
-	 * Whether a wallet entry takes transaction ids: an Orange Cash entry (TxnId::CLAIM_PROVIDERS). Enabled or not:
+	 * Whether a wallet entry can take transaction ids: any entry with an id, whatever its wallet. Enabled or not:
 	 * turning a wallet off only hides it from the checkout (docs/17 §5 step 10), so the orders already waiting on it
 	 * keep their field. A deleted wallet has no entry in the configuration, so it never gets here. Pure.
 	 *
@@ -597,35 +563,7 @@ final class Checkout {
 	 * @return bool
 	 */
 	public static function txn_wallet( ?array $wallet ): bool {
-		if ( null === $wallet || ! isset( $wallet['provider'], $wallet['id'] ) ) {
-			return false;
-		}
-		return 'orange_cash' === $wallet['provider'] && in_array( $wallet['provider'], TxnId::CLAIM_PROVIDERS, true );
-	}
-
-	/**
-	 * Which wallets have seen a transfer with auto_confirm_ok (qersh_wallets.auto_seen), for the Orange line.
-	 *
-	 * @param Plugin $plugin The plugin.
-	 * @return array<string, bool>
-	 */
-	public static function auto_seen( Plugin $plugin ): array {
-		static $cache = null;
-		if ( null !== $cache ) {
-			return $cache;
-		}
-		$cache = array();
-		if ( ! $plugin->tables_ready() ) {
-			return $cache;
-		}
-		try {
-			foreach ( $plugin->wallets()->all() as $id => $row ) {
-				$cache[ (string) $id ] = ! empty( $row['auto_seen'] );
-			}
-		} catch ( \Throwable $e ) {
-			$cache = array();
-		}
-		return $cache;
+		return null !== $wallet && isset( $wallet['id'] ) && is_string( $wallet['id'] ) && '' !== $wallet['id'];
 	}
 
 	/**
@@ -687,59 +625,56 @@ final class Checkout {
 	 */
 	public static function status_lines(): array {
 		return array(
-			'waiting'          => __( 'Waiting for your transfer…', 'qersh-for-woocommerce' ),
-			'waiting_decision' => __( 'Waiting for the store to confirm that your transfer arrived…', 'qersh-for-woocommerce' ),
-			'saved'            => __( 'We have your transaction id. Your order is confirmed once the store matches your transfer; do not transfer again.', 'qersh-for-woocommerce' ),
-			'paid'             => __( 'Your transfer arrived and your order is confirmed.', 'qersh-for-woocommerce' ),
-			'partial'          => __( 'Part of the amount arrived. Send the rest from the same number before the deadline.', 'qersh-for-woocommerce' ),
-			'review'           => __( 'We are checking your transfer and will let you know.', 'qersh-for-woocommerce' ),
-			'expired'          => __( 'The transfer window has ended.', 'qersh-for-woocommerce' ),
-			'cancelled'        => __( 'This order was cancelled.', 'qersh-for-woocommerce' ),
+			'waiting'   => __( 'Waiting for your transfer…', 'qersh-for-woocommerce' ),
+			'saved'     => __( 'We have your transaction id. Your order is confirmed once the store matches your transfer; do not transfer again.', 'qersh-for-woocommerce' ),
+			'paid'      => __( 'Your transfer arrived and your order is confirmed.', 'qersh-for-woocommerce' ),
+			'partial'   => __( 'Part of the amount arrived. Send the rest from the same number before the deadline.', 'qersh-for-woocommerce' ),
+			'review'    => __( 'We are checking your transfer and will let you know.', 'qersh-for-woocommerce' ),
+			'expired'   => __( 'The transfer window has ended.', 'qersh-for-woocommerce' ),
+			'cancelled' => __( 'This order was cancelled.', 'qersh-for-woocommerce' ),
 		);
 	}
 
 	/**
-	 * Which status line to show. Pure.
+	 * Which status line to show: one waiting line for every wallet, the saved line once a transaction id is saved.
+	 * thankyou.js applies the same rule. Pure.
 	 *
-	 * @param string $status   Customer-facing status.
-	 * @param bool   $decision Whether the wallet needs the store's decision.
-	 * @param bool   $claim    Whether a transaction id is saved.
+	 * @param string $status Customer-facing status.
+	 * @param bool   $claim  Whether a transaction id is saved.
 	 * @return string Key of status_lines().
 	 */
-	public static function status_line_key( string $status, bool $decision, bool $claim ): string {
+	public static function status_line_key( string $status, bool $claim ): string {
 		if ( 'waiting' === $status ) {
-			if ( $claim ) {
-				return 'saved';
-			}
-			return $decision ? 'waiting_decision' : 'waiting';
+			return $claim ? 'saved' : 'waiting';
 		}
 		return in_array( $status, array( 'partial', 'paid', 'review', 'expired', 'cancelled' ), true ) ? $status : 'waiting';
 	}
 
 	/**
 	 * Which line follows the status after 15 minutes of waiting (docs/17 §4.10, §6.2): "Transferred from another
-	 * number?", replaced for an Orange Cash order by the transaction-id reminder only while the field is there and
-	 * no id was entered (the reminder points at the field "above"). thankyou.js applies the same rule. Pure.
+	 * number?", replaced by the transaction-id reminder only while the field is there and no id was entered (the
+	 * reminder points at the field "above"). thankyou.js applies the same rule. Pure.
 	 *
 	 * @param string $status   Customer-facing status.
 	 * @param bool   $due      Whether the 15 minutes have passed.
-	 * @param bool   $orange   Whether the order's wallet is Orange Cash.
-	 * @param bool   $txn_open Whether the transaction-id field is shown for the order.
+	 * @param bool   $txn_open Whether the transaction-id field is shown for the order (the box's `txn_open`).
 	 * @param bool   $claim    Whether a transaction id is saved.
 	 * @return string `nudge_other`, `nudge_txn`, or '' for none.
 	 */
-	public static function nudge_key( string $status, bool $due, bool $orange, bool $txn_open, bool $claim ): string {
+	public static function nudge_key( string $status, bool $due, bool $txn_open, bool $claim ): string {
 		if ( 'waiting' !== $status || ! $due ) {
 			return '';
 		}
-		if ( $orange && $txn_open ) {
+		if ( $txn_open ) {
 			return $claim ? '' : 'nudge_txn';
 		}
 		return 'nudge_other';
 	}
 
 	/**
-	 * What thankyou.js needs (printed as JSON in a data attribute).
+	 * What thankyou.js needs (printed as JSON in a data attribute). `txn` carries what the page's copy of the
+	 * transaction-id reader needs (TxnId::canonical_typed(): the order's payer and the store's numbers, both left out
+	 * of the id), and nothing about the wallet.
 	 *
 	 * @param Plugin    $plugin The plugin.
 	 * @param \WC_Order $order  Order.
@@ -766,8 +701,7 @@ final class Checkout {
 			'fast_for'   => self::POLL_FAST_UNTIL,
 			'nudge_at'   => $placed + self::NUDGE_SEC,
 			'status'     => $box['status'],
-			'decision'   => $box['decision'],
-			'orange'     => $box['orange'],
+			'txn_box'    => $box['txn_box'],
 			'txn_open'   => $box['txn_open'],
 			'claim'      => $box['claim'],
 			'urls'       => array(
@@ -789,10 +723,8 @@ final class Checkout {
 				),
 			),
 			'txn'        => array(
-				'provider'      => $box['provider'],
 				'payer_key'     => $box['payer'],
 				'store_numbers' => PayerField::browser_numbers( $wallets, (string) $box['wallet_id'] ),
-				'shapes'        => self::txn_shapes(),
 			),
 			'lines'      => self::status_lines(),
 			'strings'    => array(
@@ -813,42 +745,20 @@ final class Checkout {
 	}
 
 	/**
-	 * The transaction-id shapes, from Core\TxnId (so the script never drifts from the server).
-	 *
-	 * @return array
-	 */
-	public static function txn_shapes(): array {
-		$out = array();
-		foreach ( TxnId::PATTERNS as $provider => $pattern ) {
-			$out[ $provider ] = array(
-				'pattern' => $pattern,
-				'lengths' => TxnId::LENGTHS[ $provider ],
-				'cls'     => TxnId::CLASSES[ $provider ],
-			);
-		}
-		return $out;
-	}
-
-	/**
-	 * The messages of the transaction-id field, by route code (docs/17 §7).
+	 * The messages of the transaction-id field, by route code (docs/17 §7): the route's own texts
+	 * (Claims::message()), so the page and the server never say two different things. `other` is the route's
+	 * "could not save" text.
 	 *
 	 * @param \WC_Order $order Order.
 	 * @return array<string, string>
 	 */
 	public static function txn_error_texts( \WC_Order $order ): array {
-		$format = __( 'This does not look like an Orange Cash transaction id. Check it in your message.', 'qersh-for-woocommerce' );
-		return array(
-			'qersh_txn_empty'         => __( 'Enter the transaction id.', 'qersh-for-woocommerce' ),
-			'qersh_txn_format'        => $format,
-			'qersh_txn_too_long'      => $format,
-			'qersh_txn_several'       => __( 'We found more than one possible number in what you pasted. Enter the transaction id only.', 'qersh-for-woocommerce' ),
-			'qersh_txn_wallet_number' => __( 'This is a wallet number, not a transaction id.', 'qersh-for-woocommerce' ),
-			'qersh_txn_wait'          => __( 'You have changed it several times. Try again in 10 minutes.', 'qersh-for-woocommerce' ),
-			/* translators: %s: order number. */
-			'qersh_txn_locked'        => sprintf( __( 'The transaction id cannot be changed again. Contact the store with your order number #%s.', 'qersh-for-woocommerce' ), $order->get_order_number() ),
-			'qersh_txn_closed'        => __( 'This order is no longer waiting for a transfer.', 'qersh-for-woocommerce' ),
-			'other'                   => __( 'We could not save the transaction id. Try again.', 'qersh-for-woocommerce' ),
-		);
+		$out = array();
+		foreach ( self::TXN_ERROR_CODES as $code ) {
+			$out[ $code ] = Claims::message( $code, $order );
+		}
+		$out['other'] = Claims::message( 'qersh_txn_busy', $order );
+		return $out;
 	}
 
 	/**

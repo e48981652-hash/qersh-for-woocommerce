@@ -1,7 +1,8 @@
 // The Blocks content of the method (assets/js/checkout-blocks.js) with a small stand-in for wp.element: Blocks draws
 // a method's content only while the method is selected, so choosing another method and coming back mounts it again.
 // What the customer chose and typed must survive that, and the billing phone fills the field only while it is empty
-// and untouched (docs/17 §4.1, §6.1).
+// and untouched (docs/17 §4.1, §6.1). Every wallet is drawn the same way (label and number, one help line, a number
+// only): the script never knows a wallet's type.
 // Run: node --test tests/js/checkout-blocks.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -13,10 +14,14 @@ const require = createRequire(import.meta.url);
 const N = require('../../assets/js/txn-normalize.js');
 const SOURCE = readFileSync(new URL('../../assets/js/checkout-blocks.js', import.meta.url), 'utf8');
 
+// What BlocksIntegration::get_payment_method_data() sends for each wallet: { id, label, address, display, confirm }.
+const CONFIRM = 'Your order is confirmed once your transfer reaches the store.';
 const WALLETS = [
-	{ id: 'aaaaaaaaaaa1', label: 'Vodafone', provider: 'vodafone_cash', name: 'Vodafone Cash', address: '01001234567', display: '0100 123 4567', instapay: false, confirm: 'auto', decision: false },
-	{ id: 'bbbbbbbbbbb2', label: 'Orange', provider: 'orange_cash', name: 'Orange Cash', address: '01201234567', display: '0120 123 4567', instapay: false, confirm: 'orange', decision: true },
+	{ id: 'aaaaaaaaaaa1', label: 'Main', address: '01001234567', display: '0100 123 4567', confirm: CONFIRM },
+	{ id: 'bbbbbbbbbbb2', label: 'Second', address: '01201234567', display: '0120 123 4567', confirm: CONFIRM },
 ];
+const HELP = 'Transfer from this number, so the store can match your transfer to your order.';
+const INVALID = 'Enter an Egyptian wallet number of 11 digits starting with 01.';
 
 // One component instance at a time: hook slots by call order, effects after the render when their deps change.
 function harness(wallets, opts = {}) {
@@ -47,7 +52,7 @@ function harness(wallets, opts = {}) {
 	ctx.wp = { element, i18n: { __: (s) => s }, htmlEntities: { decodeEntities: (s) => s } };
 	ctx.wc = {
 		wcBlocksRegistry: { registerPaymentMethod: (config) => { registered = config; } },
-		wcSettings: { getSetting: () => ({ title: 'E-wallet transfer', ready: true, wallets, store_numbers: wallets.map((w) => w.address), instapay: !!opts.instapay }) },
+		wcSettings: { getSetting: () => ({ title: 'E-wallet transfer', ready: true, wallets, store_numbers: wallets.map((w) => w.address), ...(opts.extra || {}) }) },
 	};
 	ctx.qershWcNormalize = N;
 	vm.runInContext(SOURCE, ctx);
@@ -192,18 +197,102 @@ test('a wrong number with a wallet chosen stays the payer field\'s error', () =>
 	assert.equal(find(tree, 'qersh_wallet_blocks_error').props.hidden, true);
 });
 
-test('the help line follows the InstaPay switch', () => {
-	const wallets = [
-		WALLETS[0],
-		{ id: 'ccccccccccc3', label: 'InstaPay', provider: 'instapay_app', name: 'InstaPay', address: 'shop@instapay', display: 'shop@instapay', instapay: true, confirm: 'decision', decision: true },
-	];
-	const h = harness(wallets, { instapay: true });
+// Every node of a tree whose props match.
+function all(node, match, out = []) {
+	if (!node || typeof node !== 'object') {
+		return out;
+	}
+	if (Array.isArray(node)) {
+		node.forEach((child) => all(child, match, out));
+		return out;
+	}
+	if (node.props && match(node)) {
+		out.push(node);
+	}
+	all(node.children, match, out);
+	return out;
+}
+
+// The text of a tree, as a reader would see it.
+function text(node) {
+	if (node === null || node === undefined || node === false) {
+		return '';
+	}
+	if (typeof node === 'string' || typeof node === 'number') {
+		return String(node);
+	}
+	if (Array.isArray(node)) {
+		return node.map(text).join('');
+	}
+	return text(node.children);
+}
+
+test('one help line and one number field for every wallet, whichever is chosen', () => {
+	const h = harness(WALLETS);
 	let tree = h.render('01009998887');
-	assert.deepEqual(find(tree, 'qersh_payer_blocks_help').children, ['We recognize your transfer by this number, so send it from this number only.']);
-	find(tree, 'qersh_wallet_blocks_ccccccccccc3').props.onChange();
-	tree = h.render('01009998887');
-	assert.deepEqual(find(tree, 'qersh_payer_blocks_help').children, ['Enter the InstaPay address you will transfer from, so the store can check your transfer more easily.']);
-	find(tree, 'qersh_payer_kind_blocks_number').props.onChange();
-	tree = h.render('01009998887');
-	assert.deepEqual(find(tree, 'qersh_payer_blocks_help').children, ['Enter the number you will transfer from, so the store can check your transfer more easily.'], 'a number to an InstaPay wallet needs the store\'s decision');
+	assert.deepEqual(find(tree, 'qersh_payer_blocks_help').children, [HELP]);
+	for (const w of WALLETS) {
+		find(tree, `qersh_wallet_blocks_${w.id}`).props.onChange();
+		tree = h.render('01009998887');
+		assert.deepEqual(find(tree, 'qersh_payer_blocks_help').children, [HELP], w.id);
+		assert.equal(field(tree).props.inputMode, 'numeric', w.id);
+		assert.equal(field(tree).props.autoComplete, 'tel', w.id);
+		assert.equal(field(tree).props.value, '01009998887', `${w.id}: the prefill stays`);
+	}
+	assert.equal(all(tree, (n) => n.type === 'fieldset').length, 1, 'the wallet choice only: no number/address switch');
+	assert.equal(all(tree, (n) => n.props.type === 'radio').length, WALLETS.length, 'one radio per wallet, nothing else');
+});
+
+test('a wallet is shown by its label and number; without a label, by its number alone', () => {
+	const wallets = [WALLETS[0], { id: 'ccccccccccc3', label: '', address: '01112223344', display: '0111 222 3344', confirm: CONFIRM }];
+	const tree = harness(wallets).render('');
+	const labels = all(tree, (n) => n.type === 'label' && typeof n.props.htmlFor === 'string' && n.props.htmlFor.startsWith('qersh_wallet_blocks_'));
+	assert.equal(labels.length, 2);
+	assert.equal(text(labels[0]), 'Main 0100 123 4567');
+	assert.equal(text(labels[1]), '0111 222 3344');
+	assert.equal(all(labels[1], (n) => n.props.className === 'qersh-wallet__name').length, 0, 'no empty name');
+	for (const w of wallets) {
+		assert.deepEqual(find(tree, `qersh_wallet_blocks_${w.id}_confirm`).children, [CONFIRM], 'the same line for every wallet');
+	}
+});
+
+test('an address or a bare name is refused like any other wrong number', () => {
+	for (const typed of ['ahmed@instapay', 'Ahmed@InstaPay', 'ahmed', '0111***3445']) {
+		const h = harness([WALLETS[0]]);
+		field(h.render('')).props.onChange({ target: { value: typed } });
+		let tree = h.render('');
+		field(tree).props.onBlur();
+		tree = h.render('');
+		assert.equal(find(tree, 'qersh_payer_blocks_error').props.hidden, false, typed);
+		assert.deepEqual(find(tree, 'qersh_payer_blocks_error').children, [INVALID], typed);
+		const answer = h.place();
+		assert.equal(answer.type, 'error', typed);
+		assert.equal(answer.message, INVALID, typed);
+	}
+});
+
+test('a type the page data may still carry changes nothing (the script never reads it)', () => {
+	const typed = WALLETS.map((w, i) => ({ ...w, provider: ['instapay_app', 'orange_cash'][i], instapay: i === 0, decision: true, name: 'Brand' }));
+	const plain = harness(WALLETS);
+	const legacy = harness(typed, { extra: { instapay: true } });
+	for (const h of [plain, legacy]) {
+		let tree = h.render('01009998887');
+		find(tree, 'qersh_wallet_blocks_aaaaaaaaaaa1').props.onChange();
+		tree = h.render('01009998887');
+		field(tree).props.onChange({ target: { value: 'ahmed@instapay' } });
+		h.render('01009998887');
+		assert.equal(h.place().message, INVALID, 'no address, even with an InstaPay flag');
+		field(h.render('01009998887')).props.onChange({ target: { value: '+20 111 222 3334' } });
+		tree = h.render('01009998887');
+		assert.doesNotMatch(text(tree), /Brand|InstaPay/);
+		const ok = h.place();
+		assert.equal(JSON.stringify(ok.meta.paymentMethodData), JSON.stringify({ qersh_payer: '01112223334', qersh_wallet: 'aaaaaaaaaaa1' }));
+	}
+});
+
+test('a billing phone that is no number (a name) never fills the field', () => {
+	const h = harness([WALLETS[0]]);
+	assert.equal(field(h.render('ahmed')).props.value, '');
+	assert.equal(field(h.render('01001234567')).props.value, '', "the store's own number");
+	assert.equal(field(h.render('+20 100 999 8887')).props.value, '01009998887');
 });

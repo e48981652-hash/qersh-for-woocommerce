@@ -39,9 +39,10 @@ final class Transfers {
 	const NEEDS_DECISION_SQL = "( outcome IN ('review','overpaid') OR ( flag = 'forgery' AND ( outcome IS NULL OR outcome <> 'dismissed' ) ) OR ( reason IN ('partial_overdue','claim_overdue') AND ( outcome IS NULL OR outcome <> 'dismissed' ) ) )";
 
 	/**
-	 * Columns insert() requires.
+	 * Columns insert() requires. `provider` is not one: it is the envelope's `wallet.provider`, kept as information
+	 * only, and '' when the row leaves it out.
 	 */
-	const REQUIRED = array( 'transfer_id', 'wallet', 'provider', 'delivery_id', 'currency', 'money_at' );
+	const REQUIRED = array( 'transfer_id', 'wallet', 'delivery_id', 'currency', 'money_at' );
 
 	/**
 	 * The plugin, if any.
@@ -79,22 +80,22 @@ final class Transfers {
 	}
 
 	/**
-	 * Every transfer with this provider and canonical transaction id, oldest first (the duplicate-id rule and the
-	 * customer's transaction id, docs/17 §4.6 rule 2 and §4.10).
+	 * Every transfer with this canonical transaction id, on any wallet, oldest first (the duplicate-id rule and the
+	 * customer's transaction id, docs/17 §4.6 rule 2 and §4.10). The id is compared whole and exactly, never by the
+	 * kind of wallet; a caller that needs one wallet's transfers keeps the rows whose `wallet` is that wallet.
 	 *
-	 * @param string $provider Provider.
-	 * @param string $txn      Canonical transaction id.
+	 * @param string $txn Canonical transaction id.
 	 * @return array[]
 	 */
-	public function find_by_txn( string $provider, string $txn ): array {
+	public function find_by_txn( string $txn ): array {
 		if ( 'NULL' === Db::value( 'transfers', 'provider_txn_id', $txn )[0] ) {
 			return array(); // Empty or longer than the column: such an id is never stored, so it equals no row.
 		}
 		$db = $this->db();
 		return $this->typed_rows(
 			$db->rows(
-				'SELECT * FROM %i WHERE provider = %s AND provider_txn_id = %s ORDER BY id ASC',
-				array( $db->table( 'transfers' ), $provider, $txn )
+				'SELECT * FROM %i WHERE provider_txn_id = %s ORDER BY id ASC',
+				array( $db->table( 'transfers' ), $txn )
 			)
 		);
 	}
@@ -116,6 +117,12 @@ final class Transfers {
 			}
 		}
 		unset( $row['id'] );
+		// Written, never left to the column's default: a store upgraded from schema 1 may still have the column
+		// without one (the SQLite drop-in does not apply dbDelta's SET DEFAULT), and there INSERT IGNORE would skip
+		// a row missing a NOT NULL value instead of failing.
+		if ( ! isset( $row['provider'] ) ) {
+			$row['provider'] = '';
+		}
 		$now = time();
 		if ( ! isset( $row['created_at'] ) ) {
 			$row['created_at'] = $now;
@@ -154,8 +161,9 @@ final class Transfers {
 
 	/**
 	 * The first fence of rule 4a (docs/17 §4.6): the transfer becomes `matched` to the order only while it has no
-	 * order and no verdict yet, or is still the `review`/`no_payer` row that waits for a customer's transaction id.
-	 * False means someone else decided it first: roll back.
+	 * order and no verdict yet, or is still the `review` row of a payerless transfer (`no_payer`, or `masked` when
+	 * the payer's number arrived hidden) that waits for a customer's transaction id. False means someone else decided
+	 * it first: roll back.
 	 *
 	 * @param string $transfer_id Transfer id.
 	 * @param int    $order_id    Order id.
@@ -164,7 +172,7 @@ final class Transfers {
 	public function fence_match( string $transfer_id, int $order_id ): bool {
 		$db = $this->db();
 		$n  = $db->exec(
-			"UPDATE %i SET outcome = 'matched', order_id = %d, updated_at = %d WHERE transfer_id = %s AND order_id IS NULL AND ( outcome IS NULL OR ( outcome = 'review' AND reason = 'no_payer' ) )",
+			"UPDATE %i SET outcome = 'matched', order_id = %d, updated_at = %d WHERE transfer_id = %s AND order_id IS NULL AND ( outcome IS NULL OR ( outcome = 'review' AND reason IN ('no_payer','masked') ) )",
 			array( $db->table( 'transfers' ), $order_id, time(), $transfer_id )
 		);
 		return 1 === $n;
@@ -239,10 +247,11 @@ final class Transfers {
 	 * One page of transfers for the admin list.
 	 *
 	 * Filter keys (all optional): `view` (`needs_decision`, `unmatched` without personal ones, `personal`,
-	 * `matched` = matched/partial/attached, `dismissed`, or `all`), `wallet`, `provider`, `outcome` (string or list),
+	 * `matched` = matched/partial/attached, `dismissed`, or `all`), `wallet`, `outcome` (string or list),
 	 * `order_id`, `payer_key`, `from` and `to` (created_at, UTC seconds), `search` (transfer id, transaction id,
-	 * payer number or handle, or part of the payer name), `orderby` (`created_at`, `money_at`, `amount_minor`,
-	 * `updated_at`) and `order` (`ASC` or `DESC`, newest first by default).
+	 * payer number, or part of the payer name), `orderby` (`created_at`, `money_at`, `amount_minor`, `updated_at`)
+	 * and `order` (`ASC` or `DESC`, newest first by default). There is no filter by kind of wallet: a `provider` key
+	 * is ignored.
 	 *
 	 * @param array $filter   Filter.
 	 * @param int   $page     Page, from 1.
@@ -340,7 +349,7 @@ final class Transfers {
 		} elseif ( 'dismissed' === $view ) {
 			$sql[] = "outcome = 'dismissed'";
 		}
-		foreach ( array( 'wallet', 'provider', 'payer_key' ) as $column ) {
+		foreach ( array( 'wallet', 'payer_key' ) as $column ) {
 			if ( isset( $filter[ $column ] ) && is_string( $filter[ $column ] ) && '' !== $filter[ $column ] ) {
 				$sql[]  = $column . ' = %s';
 				$args[] = $filter[ $column ];

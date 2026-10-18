@@ -25,12 +25,17 @@ defined( 'ABSPATH' ) || exit;
  * - Constants: STORE_REASONS (the codes of qersh_transfers.reason), CLAIM_EVALS, RISK_ORDER (the risk reasons with
  *   a sentence, in the order they are shown).
  * - Pure: needs_decision( array $row ): bool, names_claimant( string $code ): bool,
- *   pick( array $row ): array `[ 'code', 'variant', 'detail' ]`, window_variant( array $row, ?array $claimant,
- *   int $late ): string, remainder( array $order, bool $round ): int.
+ *   pick( array $row ): array `[ 'code', 'variant', 'detail' ]`, no_payer_variant( string $variant,
+ *   bool $txn_entry, int $claimants ): string, window_variant( array $row, ?array $claimant, int $late ): string,
+ *   remainder( array $order, bool $round ): int.
  * - Store reads: params( array $row, array $pick, Plugin $plugin ): array `[ 'n', 'm', 't', 'z', 'w', 'variant' ]`.
  * - Texts: text( array $pick, array $params ): string (escaped HTML, values isolated with `<bdi>`),
  *   for_row( array $row, Plugin $plugin ): string (pick, params and text in one call), and forgery_warning():
  *   string (plain text, the warning a forged transfer's order carries).
+ *
+ * Nothing here reads the wallet type (the row's `provider` column is an opaque copy of the delivery's
+ * wallet.provider): a sentence follows what the transfer carries (a payer key, a transaction id, the app's risk
+ * reasons) and the store's settings.
  */
 final class Reasons {
 
@@ -55,7 +60,8 @@ final class Reasons {
 	);
 
 	/**
-	 * Evaluations of a customer's transaction id that explain a `no_payer` row better than its reason.
+	 * Evaluations of a customer's transaction id that explain a payerless row (`no_payer`, or `masked`, which rule 4a
+	 * decides the same way) better than its reason.
 	 */
 	const CLAIM_EVALS = array( 'txn_contested', 'txn_amount', 'txn_window', 'txn_wallet', 'closed_order' );
 
@@ -114,6 +120,13 @@ final class Reasons {
 	 * so they are shown only on a row that needs a decision; an attached, matched, partial or unmatched row shows its
 	 * note instead. A dismissed row shows its note ("Dismissed by …") too.
 	 *
+	 * A `no_payer` row with a transaction id a customer can enter (one with a canonical form, as rule 4a compares it:
+	 * TxnId::canonical_stored()) gets the variant `txn` (params() keeps it only while store.txn_entry is on and no
+	 * customer has entered that id); a `no_payer` or `masked` row whose customer's id failed a gate shows
+	 * that evaluation instead. `balance_unavailable` reads `notification` when the app's risk reasons also say the
+	 * transfer came from a notification alone (`notification_only`, which RISK_ORDER names first anyway), `sms`
+	 * otherwise. The row's `provider` column is never read.
+	 *
 	 * @param array $row qersh_transfers row (typed: risk_reasons an array).
 	 * @return array `[ 'code' => string, 'variant' => string, 'detail' => string ]`; code '' when there is none.
 	 *               Codes are the STORE_REASONS, the RISK_ORDER risk reasons, `merchant_confirmed`, `risk_other`
@@ -121,18 +134,18 @@ final class Reasons {
 	 *               `unknown_risk` the detail is the risk reasons this version does not know, comma separated.
 	 */
 	public static function pick( array $row ): array {
-		$out      = function ( $code, $variant = '', $detail = '' ) {
+		$out     = function ( $code, $variant = '', $detail = '' ) {
 			return array(
 				'code'    => $code,
 				'variant' => $variant,
 				'detail'  => (string) $detail,
 			);
 		};
-		$provider = isset( $row['provider'] ) ? (string) $row['provider'] : '';
-		$reason   = isset( $row['reason'] ) && is_string( $row['reason'] ) ? $row['reason'] : '';
-		$eval     = isset( $row['claim_eval'] ) && is_string( $row['claim_eval'] ) ? $row['claim_eval'] : '';
-		$reasons  = isset( $row['risk_reasons'] ) && is_array( $row['risk_reasons'] ) ? array_values( array_filter( $row['risk_reasons'], 'is_string' ) ) : array();
-		$outcome  = isset( $row['outcome'] ) && is_string( $row['outcome'] ) ? $row['outcome'] : '';
+		$reason  = isset( $row['reason'] ) && is_string( $row['reason'] ) ? $row['reason'] : '';
+		$eval    = isset( $row['claim_eval'] ) && is_string( $row['claim_eval'] ) ? $row['claim_eval'] : '';
+		$reasons = isset( $row['risk_reasons'] ) && is_array( $row['risk_reasons'] ) ? array_values( array_filter( $row['risk_reasons'], 'is_string' ) ) : array();
+		$outcome = isset( $row['outcome'] ) && is_string( $row['outcome'] ) ? $row['outcome'] : '';
+		$has_txn = isset( $row['provider_txn_id'] ) && null !== TxnId::canonical_stored( $row['provider_txn_id'] );
 		if ( 'decided' === $reason ) {
 			// "Mark as decided" (Orders::resolved_fields()) replaced an overdue reason: no reason is left, so the row
 			// shows its note ("Marked as decided by …").
@@ -145,11 +158,11 @@ final class Reasons {
 		if ( 'dismissed' === $outcome ) {
 			return $out( '' );
 		}
-		if ( 'no_payer' === $reason && in_array( $eval, self::CLAIM_EVALS, true ) ) {
+		if ( in_array( $reason, array( 'no_payer', 'masked' ), true ) && in_array( $eval, self::CLAIM_EVALS, true ) ) {
 			return $out( $eval, 'claim_eval' );
 		}
 		if ( 'no_payer' === $reason ) {
-			return $out( 'no_payer', in_array( $provider, TxnId::CLAIM_PROVIDERS, true ) ? 'orange' : '' );
+			return $out( 'no_payer', $has_txn ? 'txn' : '' );
 		}
 		if ( 'unknown_risk' === $reason ) {
 			return $out( 'unknown_risk', '', implode( ', ', Risk::unknown_reasons( $reasons ) ) );
@@ -169,8 +182,7 @@ final class Reasons {
 					return $out( 'forgery' );
 				}
 				if ( 'balance_unavailable' === $risk ) {
-					$notification = 'instapay_app' === $provider || in_array( 'notification_only', $reasons, true );
-					return $out( 'balance_unavailable', $notification ? 'notification' : 'sms' );
+					return $out( 'balance_unavailable', in_array( 'notification_only', $reasons, true ) ? 'notification' : 'sms' );
 				}
 				return $out( $risk );
 			}
@@ -182,6 +194,20 @@ final class Reasons {
 			return $out( Risk::is_known( $reasons[0] ) ? 'risk_other' : 'unknown', '', $reasons[0] );
 		}
 		return $out( '' );
+	}
+
+	/**
+	 * The variant of a `no_payer` sentence, as shown: `txn` ("…and no customer has entered this transaction id yet")
+	 * only for a transfer with a transaction id while customers are asked for it (store.txn_entry) and none has
+	 * entered it; '' otherwise. The same for every wallet. Pure.
+	 *
+	 * @param string $variant   pick()'s variant.
+	 * @param bool   $txn_entry store.txn_entry.
+	 * @param int    $claimants How many orders' customers entered the transfer's id.
+	 * @return string `txn` or ''.
+	 */
+	public static function no_payer_variant( string $variant, bool $txn_entry, int $claimants ): string {
+		return 'txn' === $variant && $txn_entry && 0 === $claimants ? 'txn' : '';
 	}
 
 	/**
@@ -246,7 +272,8 @@ final class Reasons {
 		$txn    = isset( $row['provider_txn_id'] ) && is_string( $row['provider_txn_id'] ) ? $row['provider_txn_id'] : '';
 		try {
 			if ( 'duplicate_txn' === $code && '' !== $txn ) {
-				foreach ( $plugin->transfers()->find_by_txn( (string) $row['provider'], $txn ) as $other ) {
+				// Store-wide, as rule 2 decides it: the same id on any wallet.
+				foreach ( $plugin->transfers()->find_by_txn( $txn ) as $other ) {
 					if ( $other['transfer_id'] !== $row['transfer_id'] ) {
 						$out['t'] = (string) $other['transfer_id'];
 						$out['n'] = isset( $other['order_id'] ) ? $other['order_id'] : null;
@@ -255,15 +282,13 @@ final class Reasons {
 				}
 				return $out;
 			}
-			$claimants = array();
-			if ( '' !== $txn && in_array( (string) $row['provider'], TxnId::CLAIM_PROVIDERS, true ) ) {
-				$claimants = $plugin->orders_index()->claimants( $txn );
-			}
-			$first = isset( $claimants[0] ) ? $claimants[0] : null;
+			// Every claimant of the id counts, whatever its wallet: one on another wallet is what txn_wallet names.
+			$claimants = '' !== $txn ? $plugin->orders_index()->claimants( $txn ) : array();
+			$first     = isset( $claimants[0] ) ? $claimants[0] : null;
 			switch ( $code ) {
 				case 'no_payer':
 					// "…and no customer has entered this transaction id yet" stops being true once one has.
-					$out['variant'] = 'orange' === $pick['variant'] && empty( $claimants ) ? 'orange' : '';
+					$out['variant'] = self::no_payer_variant( (string) $pick['variant'], ! empty( $config['store']['txn_entry'] ), count( $claimants ) );
 					break;
 				case 'closed_order':
 					$out['n'] = null !== $first ? (int) $first['order_id'] : self::closed_order_of_payer( $row, $plugin, $late );
@@ -333,18 +358,18 @@ final class Reasons {
 				/* translators: %s: risk reason code. */
 				return sprintf( esc_html__( 'Qersh did not confirm this transfer on its own (%s): check that the money arrived in the wallet app.', 'qersh-for-woocommerce' ), View::ltr( 'amount_over_max' ) );
 			case 'notification_only':
-				return esc_html__( 'An InstaPay notification alone, with no bank message to confirm it; check that the money arrived in the InstaPay app.', 'qersh-for-woocommerce' );
+				return esc_html__( 'A notification alone, with no SMS to confirm it: check that the money arrived in the wallet app.', 'qersh-for-woocommerce' );
 			case 'balance_unavailable':
 				if ( 'notification' === $pick['variant'] ) {
-					return esc_html__( 'An InstaPay notification alone, with no bank message to confirm it; check that the money arrived in the InstaPay app.', 'qersh-for-woocommerce' );
+					return esc_html__( 'A notification alone, with no SMS to confirm it: check that the money arrived in the wallet app.', 'qersh-for-woocommerce' );
 				}
-				return esc_html__( 'This message does not state the balance, so Qersh cannot check it: check that the money arrived in the bank or wallet app.', 'qersh-for-woocommerce' );
+				return esc_html__( 'This message does not state the balance, so Qersh cannot check it: check that the money arrived in the wallet app.', 'qersh-for-woocommerce' );
 			case 'partial_template':
 			case 'unverified_template':
 			case 'local_template':
-				return esc_html__( 'Qersh reads this message with a template that is not fully verified yet: check that the money arrived in the bank or wallet app.', 'qersh-for-woocommerce' );
+				return esc_html__( 'Qersh reads this message with a template that is not fully verified yet: check that the money arrived in the wallet app.', 'qersh-for-woocommerce' );
 			case 'no_payer':
-				if ( 'orange' === $params['variant'] ) {
+				if ( 'txn' === $params['variant'] ) {
 					return esc_html__( 'The message does not name the payer\'s number, and no customer has entered this transaction id yet.', 'qersh-for-woocommerce' );
 				}
 				return esc_html__( 'The message does not name the payer\'s number.', 'qersh-for-woocommerce' );

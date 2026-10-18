@@ -4,6 +4,10 @@
   - **The design** is `docs/17-woocommerce-plugin-design.md` in the Qersh repository (not public), with its evidence in `docs/16-woocommerce-research.md`.
   - **The names** every module shares, and who owns which file, are in `docs-dev/CONTRACTS.md` here. Read it before you write code.
 - **Legal wording:** Qersh is a "wallet notification relay" and a notification tool, never a payment gateway, payment service provider or collection service. `node scripts/check-wording.mjs` enforces this on everything a user reads.
+- **No wallet type (the owner's decision of 2026-10-18):** the plugin works with any e-wallet the Qersh app reads (Vodafone Cash, Orange Cash, e& money and others) and never branches on the kind of wallet.
+  - Decide from the webhook alone: the payer key or none (`Core\Payer`), `provider_txn_id` by exact equality of its canonical form (`Core\TxnId`), the amount, the time and `auto_confirm_ok`.
+  - The envelope's `wallet.provider` is stored as information only (`qersh_transfers.provider`); never read it in a rule. A `provider` in a wallet entry is legacy input that is dropped.
+  - No per-wallet branches, lists, id shapes or texts in code, and no wallet brand in a text for customers or merchants. The readmes name wallets only as examples of "any e-wallet the Qersh app reads", never as a list of what confirms on its own. See `docs-dev/CONTRACTS.md` §13.
 - **Vendored copies:** `fixtures/*`, `tests/php/fixtures/verify.php` and `tests/parity/{core,kit}/*` are copies from the Qersh repository, pinned by `fixtures.lock.json`.
   - Never edit them here. Change the source there, then run `node scripts/import-from-qersh.mjs "<path to the Qersh repository>"`.
   - `fixtures/test-vectors.json` contains Arabic text. Copy the file, never retype it.
@@ -11,7 +15,7 @@
 - **PHP 7.4 syntax, WordPress coding standards, no runtime dependencies.** Composer is for development tools only. `src/Core` is pure PHP without WordPress.
 - **Checks:**
   - `composer test:unit` runs the unit tests (no WordPress).
-  - `node scripts/check-fixtures.mjs` checks the vendored copies and the patterns.
+  - `node scripts/check-fixtures.mjs` checks the vendored copies, the risk reasons and the QR library hash.
   - `node scripts/check-wording.mjs` is the wording guard.
   - `php scripts/lint-php.php` runs `php -l` on every file.
 - **Releases:** bare version tags (`0.1.0`, never `v0.1.0`) from a clean `main`. The zip is built from an allow-list by `scripts/build-zip.mjs` and never contains dotfiles, `*.dist`, `*.sh`, tests, fixtures, scripts or vendor.

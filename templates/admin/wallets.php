@@ -4,10 +4,11 @@
  *
  * @package QershPay\WooCommerce
  *
- * @var array $args `constant`, `issues`, `cards`, `deleted`, `add_url`.
+ * @var array $args `constant`, `issues`, `dropped`, `cards`, `deleted`, `add_url`.
  */
 
 use QershPay\WooCommerce\Admin\Module;
+use QershPay\WooCommerce\Admin\View;
 
 defined( 'ABSPATH' ) || exit;
 ?>
@@ -25,10 +26,27 @@ defined( 'ABSPATH' ) || exit;
 	<?php endif; ?>
 <?php endif; ?>
 
+<?php foreach ( $args['dropped'] as $qersh_wc_dropped ) : ?>
+	<?php // A wallet a test build saved with an address instead of a number (ConfigStore::split_legacy()): never offered, removed at the next save. ?>
+	<div class="notice notice-warning inline"><p>
+		<?php
+		echo wp_kses(
+			sprintf(
+				/* translators: 1: wallet name, 2: the address it was saved with. */
+				esc_html__( 'The wallet “%1$s” (%2$s) is no longer offered to customers: its address is not an 11-digit e-wallet number, which every wallet needs. It is removed the next time you save the settings or a wallet. To keep receiving, add the e-wallet number customers transfer to with “Add wallet”.', 'qersh-for-woocommerce' ),
+				esc_html( '' !== trim( $qersh_wc_dropped['label'] ) ? trim( $qersh_wc_dropped['label'] ) : $qersh_wc_dropped['id'] ),
+				View::ltr( $qersh_wc_dropped['address'] )
+			),
+			View::allowed_html()
+		);
+		?>
+	</p></div>
+<?php endforeach; ?>
+
 <?php if ( empty( $args['cards'] ) ) : ?>
 	<section class="qersh-wc-card qersh-wc-empty">
 		<h2><?php esc_html_e( 'Add your first wallet', 'qersh-for-woocommerce' ); ?></h2>
-		<p><?php esc_html_e( 'Add the wallet or InstaPay address your customers transfer to, then link it to the Qersh app on the phone that receives its messages.', 'qersh-for-woocommerce' ); ?></p>
+		<p><?php esc_html_e( 'Add the e-wallet number your customers transfer to, then link it to the Qersh app on the phone that receives its messages.', 'qersh-for-woocommerce' ); ?></p>
 		<?php if ( ! $args['constant'] ) : ?>
 			<p><a class="button button-primary" href="<?php echo esc_url( $args['add_url'] ); ?>"><?php esc_html_e( 'Add wallet', 'qersh-for-woocommerce' ); ?></a></p>
 		<?php endif; ?>
@@ -73,7 +91,7 @@ defined( 'ABSPATH' ) || exit;
 		<li><?php esc_html_e( 'With the link with the connection key: open it on the wallet\'s phone (scan its code, tap “Open in Qersh” on the phone itself, or copy it into “Have a link from your developer?”), and save the wallet, or tap “Update wallet” if it is on the phone already. Nothing to paste in the store.', 'qersh-for-woocommerce' ); ?></li>
 		<li><?php esc_html_e( 'With the link without a key: in the app open “More → Wallets → Add wallet”, paste it in “Have a link from your developer?” and save. Qersh makes the connection key and opens “Send this link to your developer”, the only time it shows the key: share or copy the message to yourself (WhatsApp Web, email), then paste it, as it arrived, in the box of the wallet card here.', 'qersh-for-woocommerce' ); ?></li>
 		<li><?php esc_html_e( 'If the wallet was on the phone before (linked to n8n or another server), the app offers to update it so it sends to this store: each wallet on the phone sends to one address.', 'qersh-for-woocommerce' ); ?></li>
-		<li><?php esc_html_e( 'Keep “Send sender details” (wallet page → “Developer settings”) on “Full name and number”: any other choice stops automatic matching for Vodafone Cash and e& money.', 'qersh-for-woocommerce' ); ?></li>
+		<li><?php esc_html_e( 'Keep “Send sender details” (wallet page → “Developer settings”) on “Full name and number”: any other choice hides the payer\'s number (masked or not sent at all), which stops automatic matching by number.', 'qersh-for-woocommerce' ); ?></li>
 		<li><?php esc_html_e( 'Then tap “Test connection” on the phone: the card says when it arrived.', 'qersh-for-woocommerce' ); ?></li>
 		<li><?php esc_html_e( '“Send this wallet\'s link to your developer” on the wallet page is for later only (a key that was lost or never pasted): each tap makes a new key and the old one stays accepted on the phone for 24 hours, so paste only the latest message.', 'qersh-for-woocommerce' ); ?></li>
 	</ol>

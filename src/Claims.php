@@ -1,6 +1,6 @@
 <?php
 /**
- * The Orange Cash transaction id a customer types on the order page (docs/17 §4.10): saving it, and the late
+ * The transaction id a customer types on the order page (docs/17 §4.10), on any e-wallet: saving it, and the late
  * evaluation when the transfer arrived before it.
  *
  * @package QershPay\WooCommerce
@@ -16,26 +16,29 @@ defined( 'ABSPATH' ) || exit;
 
 /**
  * The id only identifies the order; it never proves the payment: the confirmation stays the phone's
- * (auto_confirm_ok of the transfer.received itself), and every rule of 4a applies.
+ * (auto_confirm_ok of the transfer.received itself), and every rule of 4a applies. It decides only a transfer that
+ * came without a payer key (a name only, a masked number, or nothing), and only by exact equality of its canonical
+ * form with the canonical provider_txn_id of the webhook. Nothing here depends on the type of the wallet.
  *
- * - submit() is the core of `POST qersh/v1/order-txn` after its permission check (ClaimRoute, package C): the shape
- *   before any database work, the same id again for free, the locks, the order's state, the atomic counter, a
- *   private note, COMMIT, `_qersh_claim_txn`, then the late evaluation after the reply. One body, whatever is
- *   behind the id: the route never tells anything about the transfers.
+ * - submit() is the core of `POST qersh/v1/order-txn` after its permission check (ClaimRoute, package C): the
+ *   canonical form before any database work, the same id again for free, the locks, the order's state, the atomic
+ *   counter, a private note, COMMIT, `_qersh_claim_txn`, then the late evaluation after the reply. One body,
+ *   whatever is behind the id: the route never tells anything about the transfers.
  * - evaluate() looks, under the locks of §4.4 step 8, for the transfer the customer means, and runs rule 4a on it
- *   when it waits as `review`/`no_payer` (the eligible row). Never inside the customer's request: after the
- *   response on `shutdown` (priority 5) where the host can finish it early, else in the `qersh_wc_claim_eval`
- *   Action Scheduler action.
- * - sweep() evaluates again the live ids an eligible row matches but whose evaluation never ran.
+ *   when it waits as `review` with `no_payer` or `masked` (the eligible row). Never inside the customer's request:
+ *   after the response on `shutdown` (priority 5) where the host can finish it early, else in the
+ *   `qersh_wc_claim_eval` Action Scheduler action.
+ * - sweep() evaluates again the live ids an eligible row of the same wallet matches but whose evaluation never ran.
  *
- * What the customer wrote is never stored: only the canonical id.
+ * What the customer wrote is never stored: only the canonical id. A refused text stays on the order page.
  */
 final class Claims {
 
 	/**
-	 * The provider whose customers type an id (0.1.0).
+	 * The reasons of a payerless transfer in review that a typed id may decide later (eligible(), sweep()): the
+	 * message names no payer number, or names it masked. Store\Transfers::fence_match() takes the same two.
 	 */
-	const PROVIDER = 'orange_cash';
+	const ELIGIBLE_REASONS = array( 'no_payer', 'masked' );
 
 	/**
 	 * After our expiry cancelled the order, an id is still accepted this long (the owner's decision).
@@ -112,16 +115,15 @@ final class Claims {
 		}
 		// The order's wallet is still in the configuration, turned off or not: turning a wallet off only hides it from
 		// the checkout (docs/17 §5 step 10), so the orders already waiting on it keep their field (ClaimRoute,
-		// Checkout::txn_wallet()). A deleted wallet has no entry.
+		// Checkout::txn_wallet()). A deleted wallet has no entry. Its type is never read.
 		$wallet = $this->plugin->wallet( (string) $row['wallet'] );
-		if ( null === $wallet || ! isset( $wallet['provider'] ) || self::PROVIDER !== $wallet['provider'] ) {
+		if ( null === $wallet ) {
 			return self::not_found();
 		}
 
-		// Step 1: the shape, before any database write.
-		$read = TxnId::canonical_typed( self::PROVIDER, $raw, (string) $row['payer_key'], $this->store_numbers() );
+		// Step 1: the canonical form, before any database write. A refusal keeps nothing of what was sent.
+		$read = TxnId::canonical_typed( $raw, (string) $row['payer_key'], $this->store_numbers() );
 		if ( empty( $read['ok'] ) ) {
-			$this->count_long_run( (string) $read['error'], $raw, $id, (string) $row['payer_key'] );
 			return self::refusal( 400, (string) $read['error'], $order );
 		}
 		$txn = (string) $read['txn'];
@@ -131,14 +133,15 @@ final class Claims {
 			return self::saved( $txn, (int) $row['claim_tries'] );
 		}
 
-		// Steps 3–6 under txn:orange_cash:<id> then payer:<the order's payer>.
+		// Steps 3–6 under txn:<id> (MatchPolicy::txn_lock(), the lock a payerless delivery of this id takes) then
+		// payer:<the order's payer>.
 		$db    = $this->plugin->db();
 		$payer = (string) $row['payer_key'];
 		$saved = null;
 		for ( $attempt = 0; $attempt < 3 && null === $saved; $attempt++ ) {
 			try {
 				$db->begin();
-				$db->lock( array_merge( array( 'txn:' . self::PROVIDER . ':' . $txn ), Orders::payer_lock( $payer ) ) );
+				$db->lock( array_merge( array( MatchPolicy::txn_lock( $txn ) ), Orders::payer_lock( $payer ) ) );
 				$row = $index->get( $id );
 				if ( null === $row ) {
 					$db->rollback();
@@ -211,8 +214,9 @@ final class Claims {
 	}
 
 	/**
-	 * The late evaluation (docs/17 §4.10): under the locks, the transfer with this provider and canonical id. Rule
-	 * 4a runs only for the one eligible row (`review`, `no_payer`, no order, no flag, auto_confirm_ok = 1), after
+	 * The late evaluation (docs/17 §4.10): under the locks, the transfers with this canonical id, on any wallet of
+	 * the store (gate 1 refuses one that reached another wallet than the order's). Rule 4a runs only for the one
+	 * eligible row (eligible(): `review` with `no_payer` or `masked`, no order, no flag, auto_confirm_ok = 1), after
 	 * rule 1 on its stored reasons. A row of this order already: nothing. A row that paid another order, or any other
 	 * row: a private note. A failed evaluation is kept in claim_eval only, so the row stays eligible. Never throws
 	 * for a busy lock (the sweep tries again).
@@ -241,8 +245,9 @@ final class Claims {
 	}
 
 	/**
-	 * The sweep (every 15 minutes, from Webhook\Module): evaluates again the live ids that an eligible row matches
-	 * and whose last evaluation is older than the claim (a callback that never ran).
+	 * The sweep (every 15 minutes, from Webhook\Module): evaluates again the live ids that an eligible row of the
+	 * order's own wallet matches (eligible(); only such a row can pass gate 1) and whose last evaluation is older than
+	 * the claim (a callback that never ran).
 	 */
 	public function sweep(): void {
 		if ( ! $this->plugin->wc_ready() || ! $this->plugin->tables_ready() ) {
@@ -250,8 +255,8 @@ final class Claims {
 		}
 		$db   = $this->plugin->db();
 		$rows = $db->rows(
-			"SELECT DISTINCT o.order_id FROM %i o INNER JOIN %i t ON t.provider_txn_id = o.claim_txn WHERE o.claim_txn IS NOT NULL AND o.state IN ('open','partial','expired') AND t.provider = %s AND t.outcome = 'review' AND t.reason = 'no_payer' AND t.order_id IS NULL AND t.flag IS NULL AND t.auto_confirm_ok = 1 AND ( t.claim_eval_at IS NULL OR t.claim_eval_at < o.claim_at ) ORDER BY o.order_id ASC LIMIT %d",
-			array( $db->table( 'orders' ), $db->table( 'transfers' ), self::PROVIDER, self::SWEEP_LIMIT )
+			"SELECT DISTINCT o.order_id FROM %i o INNER JOIN %i t ON t.provider_txn_id = o.claim_txn AND t.wallet = o.wallet WHERE o.claim_txn IS NOT NULL AND o.state IN ('open','partial','expired') AND t.outcome = 'review' AND t.reason IN ('no_payer','masked') AND t.order_id IS NULL AND t.flag IS NULL AND t.auto_confirm_ok = 1 AND ( t.claim_eval_at IS NULL OR t.claim_eval_at < o.claim_at ) ORDER BY o.order_id ASC LIMIT %d",
+			array( $db->table( 'orders' ), $db->table( 'transfers' ), self::SWEEP_LIMIT )
 		);
 		foreach ( $rows as $row ) {
 			try {
@@ -328,7 +333,7 @@ final class Claims {
 			case 'qersh_txn_busy':
 				return __( 'We could not save the transaction id. Try again.', 'qersh-for-woocommerce' );
 			default:
-				return __( 'This does not look like an Orange Cash transaction id. Check it in your message.', 'qersh-for-woocommerce' );
+				return __( 'This does not look like a transaction id. Check it in your transfer message.', 'qersh-for-woocommerce' );
 		}
 	}
 
@@ -351,19 +356,14 @@ final class Claims {
 		if ( null === $row || null === $row['claim_txn'] || '' === (string) $row['claim_txn'] ) {
 			return true;
 		}
-		$providers = $orders->wallet_providers();
-		if ( ! isset( $providers[ $row['wallet'] ] ) || self::PROVIDER !== $providers[ $row['wallet'] ] ) {
-			return true;
-		}
 		$txn   = (string) $row['claim_txn'];
 		$hint  = $orders->claimants( $txn );
 		$probe = array(
 			'transfer_id' => '',
-			'provider'    => self::PROVIDER,
 			'payer_key'   => null,
 			'txn'         => $txn,
 		);
-		$names = MatchPolicy::lock_names( $probe, $hint, true );
+		$names = MatchPolicy::lock_names( $probe, $hint, true ); // txn:<id> first, as a payerless delivery of it.
 		foreach ( Orders::payer_lock( (string) $row['payer_key'] ) as $own ) {
 			if ( ! in_array( $own, $names, true ) && count( $names ) <= MatchPolicy::MAX_CLAIM_LOCKS ) {
 				$names[] = $own;
@@ -382,7 +382,7 @@ final class Claims {
 			$db->rollback();
 			return true; // The customer changed the id meanwhile; its own evaluation follows.
 		}
-		$rows = $transfers->find_by_txn( self::PROVIDER, $txn );
+		$rows = $transfers->find_by_txn( $txn );
 		if ( empty( $rows ) ) {
 			$db->commit();
 			return true; // The transfer has not arrived: rule 4a runs when it does.
@@ -466,13 +466,15 @@ final class Claims {
 	}
 
 	/**
-	 * The one kind of row the late path may decide alone (docs/17 §4.10). Pure.
+	 * The one kind of row the late path may decide alone (docs/17 §4.10): a payerless transfer in review for that
+	 * alone (`no_payer`, or `masked`: the number came with `*`), with no order, no flag, and confirmed by the phone.
+	 * Its wallet and its type do not matter here; gate 1 compares the wallet. Pure.
 	 *
 	 * @param array $tr Typed transfer row.
 	 * @return bool
 	 */
 	public static function eligible( array $tr ): bool {
-		return 'review' === $tr['outcome'] && 'no_payer' === $tr['reason'] && null === $tr['order_id']
+		return 'review' === $tr['outcome'] && in_array( $tr['reason'], self::ELIGIBLE_REASONS, true ) && null === $tr['order_id']
 			&& ( ! isset( $tr['flag'] ) || '' === $tr['flag'] ) && 1 === (int) $tr['auto_confirm_ok'];
 	}
 
@@ -487,43 +489,6 @@ final class Claims {
 	public static function personal( array $tr ): bool {
 		return 'unmatched' === $tr['outcome'] && isset( $tr['reason'] ) && 'personal' === $tr['reason'] && null === $tr['order_id']
 			&& ( ! isset( $tr['flag'] ) || '' === $tr['flag'] );
-	}
-
-	/**
-	 * Which refusals of step 1 may hold an id one or two digits longer than the shape (TxnId::long_run()): what was
-	 * read had no id of the shape (qersh_txn_format), or only wallet numbers besides (qersh_txn_wallet_number: an
-	 * Orange message carries the sender's 0020 number). Not an empty or too long text, nor several ids. Pure.
-	 *
-	 * @param string $code Refusal code of TxnId::canonical_typed().
-	 * @return bool
-	 */
-	public static function counts_long_run( string $code ): bool {
-		return in_array( $code, array( 'qersh_txn_format', 'qersh_txn_wallet_number' ), true );
-	}
-
-	/**
-	 * The second drift trigger of docs/17 §4.9: a step-1 refusal of a text with a number one or two digits longer
-	 * than the shape is counted (Diagnostics::record_txn_refusal(), only order ids, a tag of the payer and times),
-	 * so the store learns when the operator lengthened its ids. The order page sends that number alone after its
-	 * own refusal (thankyou.js). Nothing the customer typed is kept. Never throws.
-	 *
-	 * @param string $code      Refusal code.
-	 * @param mixed  $raw       What the customer sent.
-	 * @param int    $order_id  The order.
-	 * @param string $payer_key The order's payer key.
-	 */
-	private function count_long_run( string $code, $raw, int $order_id, string $payer_key ): void {
-		if ( ! self::counts_long_run( $code ) ) {
-			return;
-		}
-		try {
-			$run = TxnId::long_run( self::PROVIDER, $raw );
-			if ( null !== $run ) {
-				$this->plugin->diagnostics()->record_txn_refusal( self::PROVIDER, $run, $order_id, $payer_key );
-			}
-		} catch ( \Throwable $e ) {
-			$this->plugin->logger()->warning( 'qersh: a refused transaction id could not be counted', array( 'error' => get_class( $e ) ) );
-		}
 	}
 
 	/**

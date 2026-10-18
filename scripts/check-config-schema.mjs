@@ -1,10 +1,14 @@
 // Checks the companion schema qersh-woocommerce.config.schema.json (docs/17 §4.2 in the Qersh repository):
 //  1. every $ref resolves: the core parts by JSON pointer into fixtures/qersh.config.schema.json
 //     (urn:qersh:receiver-config:1), the rest inside the schema itself;
-//  2. its defaults, providers and events equal Core\Config (through php scripts/config-verdicts.php);
+//  2. its defaults, wallet fields and events equal Core\Config (through php scripts/config-verdicts.php); a wallet
+//     field the schema marks deprecated (the legacy `provider`) is optional and is not a field of Config;
 //  3. the QERSH_WC_CONFIG example of README.md and the plugin's defaults are valid;
 //  4. on a list of cases the schema and Config::validate() agree (valid or not), and the cases where the schema is
-//     deliberately stricter (unknown fields, unnormalised numbers) are refused by the schema.
+//     deliberately stricter (unknown fields, unnormalised numbers) are refused by the schema;
+//  5. for every case Config accepts, the wallets it would store (Config::with_defaults()) pass the schema and have
+//     exactly Config::WALLET_FIELDS, so a legacy `provider` is dropped, never stored.
+// No wallet type exists any more: every store wallet is an 11-digit e-wallet number, whatever its operator.
 // The validator below implements the JSON Schema 2020-12 keywords the schema uses and throws on any other keyword,
 // so it cannot pass a schema it does not understand. No dependency.
 // Usage: node scripts/check-config-schema.mjs [--php <binary>]
@@ -25,7 +29,7 @@ const registry = new Map([
 const problems = [];
 
 // --- a small JSON Schema 2020-12 evaluator ----------------------------------------------------------------------
-const ANNOTATIONS = new Set(['$schema', '$id', 'title', 'description', 'default', '$defs', 'examples', '$comment']);
+const ANNOTATIONS = new Set(['$schema', '$id', 'title', 'description', 'default', '$defs', 'examples', '$comment', 'deprecated']);
 const KNOWN = new Set([...ANNOTATIONS, '$ref', 'type', 'enum', 'const', 'pattern', 'minLength', 'maxLength', 'minimum', 'maximum',
 	'minItems', 'maxItems', 'items', 'contains', 'uniqueItems', 'required', 'properties', 'additionalProperties', 'if', 'then', 'else',
 	'allOf', 'anyOf', 'oneOf', 'not']);
@@ -151,15 +155,20 @@ for (const want of ['urn:qersh:receiver-config:1#/properties/tolerance_sec', 'ur
 // 2-4. The plugin's own view.
 const cases = [];
 const add = (name, value, expect) => cases.push({ name, value, expect });
-const wallet = (over = {}) => ({ id: 'k7q2m9x4p1rz', label: 'Shop', provider: 'vodafone_cash', receive_address: '01001234567', enabled: true, ...over });
+const wallet = (over = {}) => ({ id: 'k7q2m9x4p1rz', label: 'Shop', receive_address: '01001234567', enabled: true, ...over });
+const MINIMAL = 'a wallet with its id and number only';
 const readme = readFileSync(path.join(root, 'README.md'), 'utf8').replace(/\r\n/g, '\n');
 const configSection = readme.split(/^## /m).find((s) => s.startsWith('Configuration'));
 const example = configSection && /```json\n([\s\S]*?)\n```/.exec(configSection);
 if (!example) problems.push('README.md: no ```json example under "## Configuration"');
 else add('README example', JSON.parse(example[1]), 'valid');
 add('empty object (all defaults)', {}, 'valid');
-add('instapay wallet', { wallets: [wallet({ provider: 'instapay_app', receive_address: 'shop.eg@instapay' })] }, 'valid');
-add('two wallets', { wallets: [wallet(), wallet({ id: 'a1b2c3d4e5f6', provider: 'orange_cash', receive_address: '01201234567' })] }, 'valid');
+add(MINIMAL, { wallets: [{ id: 'k7q2m9x4p1rz', receive_address: '01001234567' }] }, 'valid');
+add('two wallets', { wallets: [wallet(), wallet({ id: 'a1b2c3d4e5f6', label: '', receive_address: '01201234567', enabled: false })] }, 'valid');
+// A legacy provider (a configuration saved before wallets lost their type) is accepted and ignored, whatever it says.
+add('a legacy provider', { wallets: [wallet({ provider: 'orange_cash' })] }, 'valid');
+add('a legacy provider the plugin never listed', { wallets: [wallet({ provider: 'another_wallet' })] }, 'valid');
+add('a legacy InstaPay provider with a number', { wallets: [wallet({ provider: 'instapay_app' })] }, 'valid');
 add('limits', { store: { min_total_minor: 1000, max_total_minor: 500000, order_ttl_min: 15 } }, 'valid');
 add('events without transfer.received', { receiver: { events: ['transfer.updated', 'webhook.test'] } }, 'invalid');
 add('event the plugin does not handle', { receiver: { events: ['transfer.received', 'transfer.sent'] } }, 'invalid');
@@ -171,9 +180,15 @@ add('negative skew', { receiver: { matching: { late_window_min: 120, skew_min: -
 add('dedup of 0 days', { receiver: { dedup: { keep_days: 0 } } }, 'invalid');
 add('wallet id with capitals', { wallets: [wallet({ id: 'K7Q2M9X4P1RZ' })] }, 'invalid');
 add('wallet id too short', { wallets: [wallet({ id: 'abc' })] }, 'invalid');
-add('unknown provider', { wallets: [wallet({ provider: 'we_pay' })] }, 'invalid');
-add('instapay wallet with a number', { wallets: [wallet({ provider: 'instapay_app', receive_address: '01001234567' })] }, 'invalid');
-add('number wallet with an address', { wallets: [wallet({ receive_address: 'shop@instapay' })] }, 'invalid');
+add('wallet without a number', { wallets: [{ id: 'k7q2m9x4p1rz', label: 'Shop' }] }, 'invalid');
+add('an InstaPay address', { wallets: [wallet({ receive_address: 'shop.eg@instapay' })] }, 'invalid');
+add('an InstaPay address on a legacy InstaPay wallet', { wallets: [wallet({ provider: 'instapay_app', receive_address: 'shop.eg@instapay' })] }, 'invalid');
+add('a handle without its suffix', { wallets: [wallet({ receive_address: 'shopcairo' })] }, 'invalid');
+add('a masked number', { wallets: [wallet({ receive_address: '0100***4567' })] }, 'invalid');
+add('a number one digit short', { wallets: [wallet({ receive_address: '0100123456' })] }, 'invalid');
+add('a landline number', { wallets: [wallet({ receive_address: '0223456789' })] }, 'invalid');
+add('a number given as a JSON number', { wallets: [wallet({ receive_address: 1001234567 })] }, 'invalid');
+add('label not text', { wallets: [wallet({ label: 5 })] }, 'invalid');
 add('enabled not a boolean', { wallets: [wallet({ enabled: 'yes' })] }, 'invalid');
 add('wallets not an array', { wallets: null }, 'invalid');
 add('deadline too short', { store: { order_ttl_min: 10 } }, 'invalid');
@@ -186,7 +201,12 @@ const stricter = [];
 const strict = (name, value) => stricter.push({ name, value });
 strict('keys in the receiver', { receiver: { keys: ['qsk_aaaaaaaaaaaaaaaaaaaaaaaa'] } });
 strict('an unknown store field', { store: { order_ttl: 60 } });
+strict('an unknown wallet field', { wallets: [wallet({ type: 'e_wallet' })] });
+strict('a legacy provider that is not text', { wallets: [wallet({ provider: 7 })] });
 strict('a number in +20 form', { wallets: [wallet({ receive_address: '+20 100 123 4567' })] });
+strict('a number with spaces', { wallets: [wallet({ receive_address: '0100 123 4567' })] });
+strict('a number without its leading 0', { wallets: [wallet({ receive_address: '1001234567' })] });
+strict('a number in Arabic-Indic digits', { wallets: [wallet({ receive_address: '٠١٠٠١٢٣٤٥٦٧' })] });
 
 let php = 'php';
 const phpIndex = process.argv.indexOf('--php');
@@ -201,19 +221,30 @@ try {
 	rmSync(dir, { recursive: true, force: true });
 }
 
-// 2. Defaults, providers and events.
+// 2. Defaults, wallet fields and events.
 const d = view.defaults;
 const p = schema.properties;
 const check = (label, a, b) => {
 	if (!equal(a, b)) problems.push(`${label}: schema ${JSON.stringify(a)} != Config ${JSON.stringify(b)}`);
 };
+const walletDef = schema.$defs.wallet;
+const walletProps = Object.entries(walletDef.properties);
+check('wallets[] fields (not deprecated)', walletProps.filter(([, sub]) => !sub.deprecated).map(([k]) => k), view.wallet_fields);
+for (const [k] of walletProps.filter(([, sub]) => sub.deprecated)) {
+	if (view.wallet_fields.includes(k)) problems.push(`wallets[].${k}: deprecated in the schema, but still in Config::WALLET_FIELDS`);
+	if ((walletDef.required || []).includes(k)) problems.push(`wallets[].${k}: deprecated in the schema, but required`);
+}
+if (walletProps.some(([k]) => k === 'provider') && !walletDef.properties.provider.deprecated) problems.push('wallets[].provider: must stay deprecated (the plugin has no wallet type)');
+const minimal = cases.findIndex((c) => c.name === MINIMAL);
+const shaped = minimal >= 0 && Array.isArray(view.wallets[minimal]) ? view.wallets[minimal][0] : null;
+if (!shaped) problems.push(`case "${MINIMAL}": Config stores no wallet`);
+else for (const [k, sub] of walletProps) if ('default' in sub) check(`wallets[].${k} default`, sub.default, shaped[k]);
 check('receiver.events default', p.receiver.properties.events.default, d.receiver.events);
 check('receiver.events enum', p.receiver.properties.events.items.enum, view.events);
 check('receiver.matching default', p.receiver.properties.matching.default, d.receiver.matching);
 check('receiver.endpoint.path', p.receiver.properties.endpoint.properties.path.const, d.receiver.endpoint.path);
 check('receiver.tolerance_sec default (core)', core.properties.tolerance_sec.default, d.receiver.tolerance_sec);
 check('receiver.dedup.keep_days default (core)', core.properties.dedup.properties.keep_days.default, d.receiver.dedup.keep_days);
-check('wallets[].provider enum', schema.$defs.wallet.properties.provider.enum, view.providers);
 check('store fields', Object.keys(p.store.properties), Object.keys(d.store));
 for (const [k, sub] of Object.entries(p.store.properties)) check(`store.${k} default`, sub.default, d.store[k]);
 const defaultsErrors = errorsOf(d);
@@ -233,8 +264,21 @@ stricter.forEach((c, j) => {
 	if (verdict.length !== 0) problems.push(`stricter case "${c.name}": Config refuses it too (${verdict.map((x) => x.path).join(', ')}); move it to the shared cases`);
 });
 
+// 5. What Config stores passes the schema, with exactly Config::WALLET_FIELDS (a legacy provider never survives).
+let stored = 0;
+[...cases, ...stricter].forEach((c, i) => {
+	if (view.verdicts[i].length !== 0) return;
+	const wallets = view.wallets[i];
+	const e = errorsOf({ wallets });
+	if (e.length) problems.push(`case "${c.name}": the schema refuses the wallets Config would store (${e.join('; ')})`);
+	(Array.isArray(wallets) ? wallets : []).forEach((w, j) => {
+		stored++;
+		if (!equal(Object.keys(w), view.wallet_fields)) problems.push(`case "${c.name}": Config would store wallets[${j}] with ${Object.keys(w).join(', ')}, not ${view.wallet_fields.join(', ')}`);
+	});
+});
+
 if (problems.length) {
 	console.error(`check-config-schema: ${problems.length} problem(s)\n` + problems.join('\n'));
 	process.exit(1);
 }
-console.log(`check-config-schema: ok (${refs.length} $ref, ${cases.length} shared cases agree with Config::validate, ${stricter.length} stricter cases)`);
+console.log(`check-config-schema: ok (${refs.length} $ref, ${cases.length} shared cases agree with Config::validate, ${stricter.length} stricter cases, ${stored} stored wallets pass the schema)`);

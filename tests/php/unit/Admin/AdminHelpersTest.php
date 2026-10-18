@@ -1,7 +1,8 @@
 <?php
 /**
- * Tests of the pure helpers of the admin (package E): which reason a transfer row shows, the wallet a pasted link
- * names, the suggestions of Orders, the settings' amounts, and whether uninstall removes data.
+ * Tests of the pure helpers of the admin (package E): which reason a transfer row shows (whatever the wallet type
+ * the row's opaque `provider` column holds), the wallet a pasted link names, the suggestions of Orders, the
+ * settings' amounts, and whether uninstall removes data.
  *
  * @package QershPay\WooCommerce\Tests
  */
@@ -94,61 +95,121 @@ final class AdminHelpersTest extends TestCase {
 		$this->assertSame( '', Reasons::pick( $this->row( array( 'outcome' => 'matched' ) ) )['code'] );
 	}
 
-	/** balance_unavailable reads differently on the InstaPay notification channel and on a text message. */
-	public function test_pick_balance_unavailable(): void {
-		$sms = Reasons::pick(
-			$this->row(
-				array(
-					'provider'     => 'bank_cib',
-					'risk_reasons' => array( 'balance_unavailable' ),
-				)
-			)
-		);
-		$this->assertSame( array( 'balance_unavailable', 'sms' ), array( $sms['code'], $sms['variant'] ) );
-		$ipn = Reasons::pick(
-			$this->row(
-				array(
-					'provider'     => 'instapay_app',
-					'risk_reasons' => array( 'balance_unavailable' ),
-				)
-			)
-		);
-		$this->assertSame( 'notification', $ipn['variant'] );
-		$both = Reasons::pick(
-			$this->row(
-				array(
-					'provider'     => 'bank_nbe',
-					'risk_reasons' => array( 'balance_unavailable', 'notification_only' ),
-				)
-			)
-		);
-		$this->assertSame( 'notification_only', $both['code'] );
+	/**
+	 * Values the opaque `provider` column of a row may hold: the operators the app names, one it may add later,
+	 * and nothing (a row written before the column had a default).
+	 *
+	 * @return string[]
+	 */
+	private function providers(): array {
+		return array( 'vodafone_cash', 'orange_cash', 'etisalat_cash', 'instapay_app', 'bank_cib', 'some_new_wallet', '' );
 	}
 
-	/** no_payer: Orange's own sentence, and a failed evaluation of a customer's id shown instead. */
+	/**
+	 * pick() for one row with each provider() value in its `provider` column.
+	 *
+	 * @param array $fields Fields.
+	 * @return array[] One pick per provider value.
+	 */
+	private function picks_by_provider( array $fields ): array {
+		$out = array();
+		foreach ( $this->providers() as $provider ) {
+			$out[ $provider ] = Reasons::pick( $this->row( array( 'provider' => $provider ) + $fields ) );
+		}
+		return $out;
+	}
+
+	/** balance_unavailable reads as a notification alone only when the app's risk reasons say so, never by the wallet. */
+	public function test_pick_balance_unavailable(): void {
+		foreach ( $this->picks_by_provider( array( 'risk_reasons' => array( 'balance_unavailable' ) ) ) as $provider => $sms ) {
+			$this->assertSame( array( 'balance_unavailable', 'sms' ), array( $sms['code'], $sms['variant'] ), 'provider ' . $provider . ' changes nothing' );
+		}
+		foreach ( $this->picks_by_provider( array( 'risk_reasons' => array( 'balance_unavailable', 'notification_only' ) ) ) as $provider => $both ) {
+			$this->assertSame( 'notification_only', $both['code'], 'provider ' . $provider . ' changes nothing' );
+		}
+	}
+
+	/** no_payer: the transaction-id sentence for any transfer that carries an id, and a failed evaluation of a customer's id shown instead. */
 	public function test_pick_no_payer(): void {
-		$this->assertSame( '', Reasons::pick( $this->row( array( 'reason' => 'no_payer' ) ) )['variant'] );
+		foreach ( $this->picks_by_provider( array( 'reason' => 'no_payer' ) ) as $provider => $plain ) {
+			$this->assertSame( array( 'no_payer', '' ), array( $plain['code'], $plain['variant'] ), 'no transaction id, provider ' . $provider );
+		}
+		foreach ( $this->picks_by_provider(
+			array(
+				'reason'          => 'no_payer',
+				'provider_txn_id' => '250046173830512',
+			)
+		) as $provider => $txn ) {
+			$this->assertSame( array( 'no_payer', 'txn' ), array( $txn['code'], $txn['variant'] ), 'a transaction id, provider ' . $provider );
+		}
+		// An id no customer could enter (no canonical form, so rule 4a never compares it) is no id to wait for.
+		foreach ( array(
+			''         => 'an empty id is no id',
+			'ABCDEFGH' => 'no digit',
+			'12345'    => 'shorter than TxnId::MIN_ID',
+		) as $stored => $label ) {
+			$this->assertSame(
+				'',
+				Reasons::pick(
+					$this->row(
+						array(
+							'reason'          => 'no_payer',
+							'provider_txn_id' => (string) $stored,
+						)
+					)
+				)['variant'],
+				$label
+			);
+		}
 		$this->assertSame(
-			'orange',
+			'txn',
 			Reasons::pick(
 				$this->row(
 					array(
-						'reason'   => 'no_payer',
-						'provider' => 'orange_cash',
+						'reason'          => 'no_payer',
+						'provider_txn_id' => 'AB913372004518',
 					)
 				)
-			)['variant']
+			)['variant'],
+			'letters and digits, as the canonical form keeps them'
 		);
-		$eval = Reasons::pick(
-			$this->row(
+		foreach ( array( 'no_payer', 'masked' ) as $reason ) {
+			foreach ( $this->picks_by_provider(
 				array(
-					'reason'     => 'no_payer',
-					'provider'   => 'orange_cash',
-					'claim_eval' => 'txn_amount',
+					'reason'          => $reason,
+					'provider_txn_id' => '913372004518',
+					'claim_eval'      => 'txn_amount',
 				)
-			)
+			) as $provider => $eval ) {
+				$this->assertSame( array( 'txn_amount', 'claim_eval' ), array( $eval['code'], $eval['variant'] ), $reason . ', provider ' . $provider );
+			}
+		}
+		$this->assertSame(
+			array( 'masked', '' ),
+			array_values(
+				array_intersect_key(
+					Reasons::pick(
+						$this->row(
+							array(
+								'reason'          => 'masked',
+								'provider_txn_id' => '913372004518',
+							)
+						)
+					),
+					array_flip( array( 'code', 'variant' ) )
+				)
+			),
+			'a masked payer keeps its own sentence until a customer\'s id is evaluated'
 		);
-		$this->assertSame( array( 'txn_amount', 'claim_eval' ), array( $eval['code'], $eval['variant'] ) );
+	}
+
+	/** The no_payer sentence names the missing id only while customers are asked for it and none entered it. */
+	public function test_no_payer_variant(): void {
+		$this->assertSame( 'txn', Reasons::no_payer_variant( 'txn', true, 0 ) );
+		$this->assertSame( '', Reasons::no_payer_variant( 'txn', false, 0 ), 'store.txn_entry off' );
+		$this->assertSame( '', Reasons::no_payer_variant( 'txn', true, 1 ), 'a customer entered it' );
+		$this->assertSame( '', Reasons::no_payer_variant( '', true, 0 ), 'no transaction id' );
+		$this->assertSame( '', Reasons::no_payer_variant( 'orange', true, 0 ), 'the old variant name is gone' );
 	}
 
 	/** Unknown codes, and known risk reasons without a sentence. */

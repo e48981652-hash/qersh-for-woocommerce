@@ -1,8 +1,9 @@
 <?php
 /**
  * WordPress Playground (SQLite, 32-bit PHP-WASM) setup of the nightly job, run by blueprint.json after WooCommerce
- * and the plugin are active: EGP, the method on, and one Vodafone Cash wallet `nightly0001a` whose key is the
- * vectors' own test secret (fixtures/test-vectors.json), so deliver.mjs can sign for it from the runner.
+ * and the plugin are active: EGP, the method on, and one test e-wallet `nightly0001a` (a number and a label: a
+ * wallet has no type) whose key is the vectors' own test secret (fixtures/test-vectors.json), so deliver.mjs can sign
+ * for it from the runner.
  *
  * @package QershPay\WooCommerce\Tests
  */
@@ -25,7 +26,6 @@ $qersh_pg_config['wallets'] = array(
 	array(
 		'id'              => 'nightly0001a',
 		'label'           => 'Nightly',
-		'provider'        => 'vodafone_cash',
 		'receive_address' => '01001234567',
 		'enabled'         => true,
 	),

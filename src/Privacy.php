@@ -12,9 +12,9 @@ defined( 'ABSPATH' ) || exit;
 
 /**
  * What the plugin keeps about a customer:
- * - on the order (meta `_qersh_payer_key`, `_qersh_claim_txn`, and its qersh_orders row): the number or InstaPay
- *   address they transfer from and the transaction id they entered, in its canonical form only;
- * - in qersh_transfers: the payer's number or address and name as the wallet's message printed them.
+ * - on the order (meta `_qersh_payer_key`, `_qersh_claim_txn`, and its qersh_orders row): the wallet number they
+ *   transfer from and the transaction id they entered, in its canonical form only;
+ * - in qersh_transfers: the payer's number and name as the wallet's message printed them.
  *
  * WooCommerce's own exporter and eraser handle orders; our hooks add the order's Qersh data to them, the transfers
  * that paid the order included. Our exporter and eraser cover the transfers that paid none of the customer's orders,
@@ -94,8 +94,8 @@ final class Privacy {
 		}
 		$days       = self::retention_days();
 		$paragraphs = array(
-			__( 'When you pay by wallet transfer, we ask for the wallet number or InstaPay address you transfer from, so we can recognize your transfer. We store it with your order.', 'qersh-for-woocommerce' ),
-			__( 'Our store\'s phone, running the Qersh app, reads the confirmation message of each transfer it receives and sends us directly the amount, the payer\'s number or InstaPay address and name as the message prints them, the operator\'s transaction id and the time. If you enter the transaction id of your transfer on your order page, we keep that id only, never the text you pasted. All of this is stored in our own database only: it does not pass through Qersh or any other outside service.', 'qersh-for-woocommerce' ),
+			__( 'When you pay by wallet transfer, we ask for the wallet number you transfer from, so we can recognize your transfer. We store it with your order.', 'qersh-for-woocommerce' ),
+			__( 'Our store\'s phone, running the Qersh app, reads the confirmation message of each transfer it receives and sends us directly the amount, the payer\'s number and name as the message prints them, the operator\'s transaction id and the time. If you enter the transaction id of your transfer on your order page, we keep that id only, never the text you pasted. All of this is stored in our own database only: it does not pass through Qersh or any other outside service.', 'qersh-for-woocommerce' ),
 			sprintf(
 				/* translators: %d: number of days. */
 				_n(
@@ -106,7 +106,7 @@ final class Privacy {
 				),
 				$days
 			),
-			__( 'When you ask for your personal data, it includes the wallet data of your orders, and the transfers that paid none of your orders but came from a number or InstaPay address that paid one of them. When you ask us to erase your personal data, we erase the payer\'s number and name of those transfers, except a transfer we still have to settle, such as money we may need to return, whose data is erased at the end of the period above. The wallet data of an order is erased with the order\'s personal data.', 'qersh-for-woocommerce' ),
+			__( 'When you ask for your personal data, it includes the wallet data of your orders, and the transfers that paid none of your orders but came from a wallet number that paid one of them. When you ask us to erase your personal data, we erase the payer\'s number and name of those transfers, except a transfer we still have to settle, such as money we may need to return, whose data is erased at the end of the period above. The wallet data of an order is erased with the order\'s personal data.', 'qersh-for-woocommerce' ),
 		);
 
 		wp_add_privacy_policy_content( 'Qersh for WooCommerce', wp_kses_post( self::policy_html( __( 'Suggested text for the wallet transfer part of your privacy policy. The retention period shows the plugin\'s setting at the time you copy it, so edit the text if you change the setting later.', 'qersh-for-woocommerce' ), $paragraphs ) ) );
@@ -352,7 +352,7 @@ final class Privacy {
 				$items[] = array(
 					'group_id'          => 'qersh-transfers',
 					'group_label'       => __( 'Wallet transfers', 'qersh-for-woocommerce' ),
-					'group_description' => __( 'Transfers the store\'s phone received that paid none of your orders, from a wallet number or InstaPay address that paid one of them.', 'qersh-for-woocommerce' ),
+					'group_description' => __( 'Transfers the store\'s phone received that paid none of your orders, from a wallet number that paid one of them.', 'qersh-for-woocommerce' ),
 					'item_id'           => 'qersh-transfer-' . (string) $row['id'],
 					'data'              => self::transfer_data( $row ),
 				);
@@ -482,7 +482,7 @@ final class Privacy {
 		}
 		if ( '' !== $payer ) {
 			$data[] = array(
-				'name'  => __( 'Wallet number or InstaPay address you transfer from', 'qersh-for-woocommerce' ),
+				'name'  => __( 'Wallet number you transfer from', 'qersh-for-woocommerce' ),
 				'value' => $payer,
 			);
 		}
@@ -561,7 +561,7 @@ final class Privacy {
 		}
 		if ( ! empty( $row['payer_key'] ) ) {
 			$out[] = array(
-				'name'  => __( 'Payer number or InstaPay address', 'qersh-for-woocommerce' ),
+				'name'  => __( 'Payer number', 'qersh-for-woocommerce' ),
 				'value' => (string) $row['payer_key'],
 			);
 		}

@@ -54,10 +54,10 @@ do_action( 'woocommerce_email_header', $email_heading, $email ); // phpcs:ignore
 				echo '<br />';
 				if ( $box['paid_minor'] > 0 ) {
 					/* translators: 1: what remains of the order, with piasters, 2: the same rounded up to the pound. */
-					$qersh_wc_text = esc_html__( 'The rest of your order is %1$s, rounded up to %2$s because *9# transfers carry no piasters.', 'qersh-for-woocommerce' );
+					$qersh_wc_text = esc_html__( 'The rest of your order is %1$s, rounded up to %2$s because wallet transfers made by code accept whole pounds only.', 'qersh-for-woocommerce' );
 				} else {
 					/* translators: 1: order total with piasters, 2: the total rounded up to the pound. */
-					$qersh_wc_text = esc_html__( 'Your order total is %1$s, rounded up to %2$s because *9# transfers carry no piasters.', 'qersh-for-woocommerce' );
+					$qersh_wc_text = esc_html__( 'Your order total is %1$s, rounded up to %2$s because wallet transfers made by code accept whole pounds only.', 'qersh-for-woocommerce' );
 				}
 				echo wp_kses( sprintf( $qersh_wc_text, Format::price( $box['exact_minor'], $qersh_wc_ctx, $box['currency'] ), Format::price( $box['due_minor'], $qersh_wc_ctx, $box['currency'] ) ), $qersh_wc_allowed );
 			}
@@ -66,13 +66,12 @@ do_action( 'woocommerce_email_header', $email_heading, $email ); // phpcs:ignore
 		<?php if ( '' !== $box['address'] ) : ?>
 			<li>
 				<?php
-				$qersh_wc_where = '' !== $box['wallet_label'] && '' !== $box['provider_name'] ? $box['provider_name'] . ' · ' . $box['wallet_label'] : $box['provider_name'] . $box['wallet_label'];
-				$qersh_wc_to    = '<strong>' . Format::ltr( Format::number( $box['address'] ), $qersh_wc_ctx ) . '</strong>';
-				if ( '' !== $qersh_wc_where ) {
-					/* translators: 1: the store's wallet number or InstaPay address, 2: wallet type and name. */
-					$qersh_wc_line = sprintf( esc_html__( 'Send to: %1$s (%2$s)', 'qersh-for-woocommerce' ), $qersh_wc_to, esc_html( $qersh_wc_where ) );
+				$qersh_wc_to = '<strong>' . Format::ltr( Format::number( $box['address'] ), $qersh_wc_ctx ) . '</strong>';
+				if ( '' !== $box['wallet_label'] ) {
+					/* translators: 1: the store's wallet number, 2: the name the store gave that wallet. */
+					$qersh_wc_line = sprintf( esc_html__( 'Send to: %1$s (%2$s)', 'qersh-for-woocommerce' ), $qersh_wc_to, esc_html( $box['wallet_label'] ) );
 				} else {
-					/* translators: %s: the store's wallet number or InstaPay address. */
+					/* translators: %s: the store's wallet number. */
 					$qersh_wc_line = sprintf( esc_html__( 'Send to: %s', 'qersh-for-woocommerce' ), $qersh_wc_to );
 				}
 				echo wp_kses( $qersh_wc_line, $qersh_wc_allowed );
@@ -82,14 +81,8 @@ do_action( 'woocommerce_email_header', $email_heading, $email ); // phpcs:ignore
 		<?php if ( '' !== $box['payer'] ) : ?>
 			<li>
 				<?php
-				$qersh_wc_from = '<strong>' . Format::ltr( Format::number( $box['payer'] ), $qersh_wc_ctx ) . '</strong>';
-				if ( $box['payer_handle'] ) {
-					/* translators: %s: the customer's InstaPay address. */
-					$qersh_wc_line = sprintf( esc_html__( 'From your address: %s', 'qersh-for-woocommerce' ), $qersh_wc_from );
-				} else {
-					/* translators: %s: the customer's wallet number. */
-					$qersh_wc_line = sprintf( esc_html__( 'From your number: %s', 'qersh-for-woocommerce' ), $qersh_wc_from );
-				}
+				/* translators: %s: the customer's wallet number. */
+				$qersh_wc_line = sprintf( esc_html__( 'From your number: %s', 'qersh-for-woocommerce' ), '<strong>' . Format::ltr( Format::number( $box['payer'] ), $qersh_wc_ctx ) . '</strong>' );
 				echo wp_kses( $qersh_wc_line, $qersh_wc_allowed );
 				?>
 			</li>
@@ -108,13 +101,14 @@ do_action( 'woocommerce_email_header', $email_heading, $email ); // phpcs:ignore
 	<p><?php echo esc_html( $box['confirm'] ); ?></p>
 
 	<?php if ( $box['txn_open'] ) : ?>
+		<?php // The link to the id box: the id is optional (the confirm line above says when it helps), never an order. ?>
 		<p>
 			<?php
 			$qersh_wc_url = Checkout::txn_page_url( $order );
 			echo wp_kses(
 				sprintf(
 					/* translators: %s: link to the order page. */
-					esc_html__( 'After you transfer, enter the transaction id from your transfer message on your order page: %s', 'qersh-for-woocommerce' ),
+					esc_html__( 'If the store cannot see the number you transferred from, you can enter the transaction id on your order page: %s', 'qersh-for-woocommerce' ),
 					'<a href="' . esc_url( $qersh_wc_url ) . '">' . esc_html__( 'open your order page', 'qersh-for-woocommerce' ) . '</a>'
 				),
 				$qersh_wc_allowed

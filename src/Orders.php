@@ -484,7 +484,9 @@ final class Orders {
 	 */
 
 	/**
-	 * A transfer.received after the claim: the locked transaction, the decision, the stored reply.
+	 * A transfer.received after the claim: the locked transaction, the decision, the stored reply. The decision never
+	 * depends on the type of the wallet: the envelope's wallet.provider is only copied into the transfer's row, as
+	 * information (provider_of()).
 	 *
 	 * @param array  $envelope    The parsed envelope.
 	 * @param array  $wallet_cfg  The wallet's configuration entry.
@@ -498,8 +500,8 @@ final class Orders {
 	public function handle_received( array $envelope, array $wallet_cfg, string $delivery_id, string $token, int $now ): array {
 		$data     = isset( $envelope['data'] ) && is_array( $envelope['data'] ) ? $envelope['data'] : array();
 		$wallet   = isset( $wallet_cfg['id'] ) ? (string) $wallet_cfg['id'] : '';
-		$provider = isset( $wallet_cfg['provider'] ) ? (string) $wallet_cfg['provider'] : '';
-		$t        = MatchPolicy::read_transfer( $data, $wallet, $provider, $now );
+		$provider = self::provider_of( $envelope );
+		$t        = MatchPolicy::read_transfer( $data, $wallet, $now );
 		$opts     = MatchPolicy::options( $this->plugin->config() );
 		$db       = $this->plugin->db();
 		for ( $attempt = 0; $attempt < 2; $attempt++ ) {
@@ -507,7 +509,7 @@ final class Orders {
 			try {
 				$out = null === $t
 					? $this->received_unreadable( $delivery_id, $token, $now )
-					: $this->received_once( $t, $opts, $delivery_id, $token, $now, $effects );
+					: $this->received_once( $t, $provider, $opts, $delivery_id, $token, $now, $effects );
 			} catch ( LockTimeout $e ) {
 				$db->rollback();
 				continue;
@@ -986,7 +988,8 @@ final class Orders {
 
 	/**
 	 * The warnings the merchant must confirm before attaching (docs/17 §4.6): a transaction id that already paid
-	 * another order, and a transfer that arrived before the order was created.
+	 * another order (on any wallet of the store, as rule 2 reads it), and a transfer that arrived before the order
+	 * was created.
 	 *
 	 * @param array $transfer_row Typed qersh_transfers row.
 	 * @param int   $order_id     The target order.
@@ -996,7 +999,7 @@ final class Orders {
 		$out    = array();
 		$stored = isset( $transfer_row['provider_txn_id'] ) ? (string) $transfer_row['provider_txn_id'] : '';
 		if ( '' !== $stored ) {
-			foreach ( $this->plugin->transfers()->find_by_txn( (string) $transfer_row['provider'], $stored ) as $other ) {
+			foreach ( $this->plugin->transfers()->find_by_txn( $stored ) as $other ) {
 				if ( (string) $other['transfer_id'] === (string) $transfer_row['transfer_id'] || null === $other['order_id'] || ! in_array( $other['outcome'], MatchPolicy::PAYING_OUTCOMES, true ) ) {
 					continue;
 				}
@@ -1039,11 +1042,13 @@ final class Orders {
 		if ( '' === $reason ) {
 			return $note;
 		}
+		$opts = MatchPolicy::options( $this->plugin->config() );
+		$txn  = isset( $transfer_row['provider_txn_id'] ) ? TxnId::canonical_stored( $transfer_row['provider_txn_id'] ) : null;
 		return MatchPolicy::reason_text(
 			$reason,
 			array(
-				'N'      => isset( $transfer_row['order_id'] ) ? $transfer_row['order_id'] : null,
-				'orange' => in_array( (string) $transfer_row['provider'], TxnId::CLAIM_PROVIDERS, true ),
+				'N'   => isset( $transfer_row['order_id'] ) ? $transfer_row['order_id'] : null,
+				'txn' => ! empty( $opts['txn_entry'] ) && null !== $txn,
 			)
 		);
 	}
@@ -1092,44 +1097,14 @@ final class Orders {
 	}
 
 	/**
-	 * The claimants of a transaction id, each with `provider` (of its wallet; deleted wallets from their snapshot).
+	 * The claimants of a transaction id: every order whose customer typed it, on any wallet (gate 1 of rule 4a
+	 * refuses one whose order chose another wallet than the one the money reached).
 	 *
 	 * @param string $txn Canonical id.
 	 * @return array[]
 	 */
 	public function claimants( string $txn ): array {
-		$providers = $this->wallet_providers();
-		$out       = array();
-		foreach ( $this->plugin->orders_index()->claimants( $txn ) as $row ) {
-			$row['provider'] = isset( $providers[ $row['wallet'] ] ) ? $providers[ $row['wallet'] ] : '';
-			$out[]           = $row;
-		}
-		return $out;
-	}
-
-	/**
-	 * Wallet id => provider, from the configuration, and the snapshots of deleted wallets.
-	 *
-	 * @return array<string, string>
-	 */
-	public function wallet_providers(): array {
-		$out = array();
-		try {
-			foreach ( $this->plugin->wallets()->all() as $id => $row ) {
-				if ( isset( $row['snapshot']['provider'] ) && is_string( $row['snapshot']['provider'] ) ) {
-					$out[ (string) $id ] = $row['snapshot']['provider'];
-				}
-			}
-		} catch ( \Throwable $e ) {
-			unset( $e );
-		}
-		$config = $this->plugin->config();
-		foreach ( isset( $config['wallets'] ) && is_array( $config['wallets'] ) ? $config['wallets'] : array() as $wallet ) {
-			if ( isset( $wallet['id'], $wallet['provider'] ) ) {
-				$out[ (string) $wallet['id'] ] = (string) $wallet['provider'];
-			}
-		}
-		return $out;
+		return $this->plugin->orders_index()->claimants( $txn );
 	}
 
 	/**
@@ -1156,7 +1131,7 @@ final class Orders {
 			'claimants'   => array(),
 		);
 		if ( ! $advice && null !== $t['txn_stored'] && '' !== $t['txn_stored'] ) {
-			$ctx['duplicates'] = $this->plugin->transfers()->find_by_txn( (string) $t['provider'], (string) $t['txn_stored'] );
+			$ctx['duplicates'] = $this->plugin->transfers()->find_by_txn( (string) $t['txn_stored'] ); // Rule 2, store-wide.
 		}
 		if ( null !== $t['payer_key'] && '' !== $t['payer_key'] ) {
 			foreach ( $index->for_payer( (string) $t['payer_key'], $at - 2 * $late, ( $advice ? max( $now, $at ) : $at ) + $skew ) as $row ) {
@@ -1197,7 +1172,7 @@ final class Orders {
 		$index     = $this->plugin->orders_index();
 		$fields    = array(
 			'reason' => $d['reason'],
-			'note'   => self::note_of( $t, $d ),
+			'note'   => self::note_of( $d ),
 		);
 		if ( null !== $d['flag'] ) {
 			$fields['flag'] = $d['flag'];
@@ -1248,25 +1223,15 @@ final class Orders {
 	}
 
 	/**
-	 * After COMMIT of a decision: the Orange wallet's `auto_seen`, the order notes, the expiry action removed and the
-	 * completion requested for a paid decision. Never throws.
+	 * After COMMIT of a decision: the order notes, the expiry action removed and the completion requested for a paid
+	 * decision (the wallet's `auto_seen` is Diagnostics' own, written for every delivery). Never throws.
 	 *
 	 * @param array $effects From write_decision().
 	 * @param int   $now     UTC seconds.
 	 */
 	public function after_commit( array $effects, int $now ): void {
-		$t = $effects['t'];
-		$d = $effects['d'];
-		try {
-			if ( ! empty( $t['auto_confirm_ok'] ) && in_array( $t['provider'], TxnId::CLAIM_PROVIDERS, true ) ) {
-				$state = $this->plugin->wallets()->get( (string) $t['wallet'] );
-				if ( null !== $state && 1 !== (int) $state['auto_seen'] ) {
-					$this->plugin->wallets()->touch( (string) $t['wallet'], array( 'auto_seen' => 1 ) );
-				}
-			}
-		} catch ( \Throwable $e ) {
-			$this->log( 'auto_seen', $e );
-		}
+		$t  = $effects['t'];
+		$d  = $effects['d'];
 		$id = null !== $d['order_id'] ? (int) $d['order_id'] : 0;
 		try {
 			if ( $id > 0 && in_array( $d['outcome'], array( 'matched', 'overpaid', 'partial' ), true ) ) {
@@ -1282,7 +1247,7 @@ final class Orders {
 							/* translators: 1: the payer, 2: why the transfer needs a decision. */
 							__( 'A wallet transfer from %1$s may be for this order and needs your decision: %2$s', 'qersh-for-woocommerce' ),
 							$this->payer_text( $t ),
-							esc_html( (string) self::note_of( $t, $d ) )
+							esc_html( (string) self::note_of( $d ) )
 						);
 					} else {
 						$text = sprintf(
@@ -1290,7 +1255,7 @@ final class Orders {
 							__( 'A wallet transfer of %1$s from %2$s may be for this order and needs your decision: %3$s', 'qersh-for-woocommerce' ),
 							$this->money( (int) $t['amount_minor'], $order ),
 							$this->payer_text( $t ),
-							esc_html( (string) self::note_of( $t, $d ) )
+							esc_html( (string) self::note_of( $d ) )
 						);
 					}
 					$order->add_order_note( $text );
@@ -1346,15 +1311,14 @@ final class Orders {
 		$txn    = null !== $t['txn_stored'] && '' !== $t['txn_stored'] ? self::ltr( (string) $t['txn_stored'] ) : '—';
 		$time   = self::ltr( self::time_text( (int) $t['money_at'], $now ) );
 		if ( 'partial' === $d['outcome'] ) {
-			$this->customer_partial_note( $order, (string) $t['provider'], $paid, $price, $now );
+			$this->customer_partial_note( $order, self::payerless( $t ), $paid, $price, $now );
 			return;
 		}
 		if ( $d['by_claim'] ) {
 			$order->add_order_note(
 				sprintf(
-					/* translators: 1: wallet type, 2: amount, 3: the payer, 4: transaction id, 5: when the money arrived. */
-					__( 'A %1$s transfer of %2$s from %3$s matched this order by the transaction id the customer entered (%4$s, money arrived %5$s).', 'qersh-for-woocommerce' ),
-					esc_html( self::provider_name( (string) $t['provider'] ) ),
+					/* translators: 1: amount, 2: the payer, 3: transaction id, 4: when the money arrived. */
+					__( 'A wallet transfer of %1$s from %2$s matched this order by the transaction id the customer entered (%3$s, money arrived %4$s).', 'qersh-for-woocommerce' ),
 					$amount,
 					$this->payer_text( $t ),
 					$txn,
@@ -1388,16 +1352,17 @@ final class Orders {
 
 	/**
 	 * The customer's note (an email) of an order that received part of its amount (docs/17 §4.6 "partial"): what
-	 * arrived, the total, the rest rounded up to the pound and the deadline; for an Orange order, the line about the
-	 * new transaction id.
+	 * arrived, the total, the rest rounded up to the pound and the deadline; when the transfer that paid it named no
+	 * payer and the order page takes a transaction id (Checkout::txn_entry_open()), the line about the id of the new
+	 * transfer, which then has no payer either.
 	 *
-	 * @param \WC_Order $order    Order.
-	 * @param string    $provider Provider of the transfer.
-	 * @param int       $paid     paid_minor now.
-	 * @param int       $price    Order total.
-	 * @param int       $now      UTC seconds.
+	 * @param \WC_Order $order     Order.
+	 * @param bool      $payerless The paying transfer had no payer key (payerless()).
+	 * @param int       $paid      paid_minor now.
+	 * @param int       $price     Order total.
+	 * @param int       $now       UTC seconds.
 	 */
-	public function customer_partial_note( \WC_Order $order, string $provider, int $paid, int $price, int $now ): void {
+	public function customer_partial_note( \WC_Order $order, bool $payerless, int $paid, int $price, int $now ): void {
 		$opts     = MatchPolicy::options( $this->plugin->config() );
 		$left     = max( 0, $price - $paid );
 		$left     = $opts['round_up_to_pound'] ? Money::round_up_pound( $left ) : $left;
@@ -1410,10 +1375,37 @@ final class Orders {
 			$this->money( $left, $order ),
 			self::ltr( self::time_text( $deadline > 0 ? $deadline : $now, $now ) )
 		);
-		if ( in_array( $provider, TxnId::CLAIM_PROVIDERS, true ) || $this->order_is_orange( $order ) ) {
+		if ( $payerless && $this->txn_box_open( $order ) ) {
 			$note .= ' ' . __( 'Then enter the transaction id of the new transfer on your order page.', 'qersh-for-woocommerce' );
 		}
 		$order->add_order_note( $note, 1 );
+	}
+
+	/**
+	 * Whether a transfer (normalised, or a typed qersh_transfers row) came without a payer key: a name only, a masked
+	 * number, or nothing. Pure.
+	 *
+	 * @param array $t Normalised transfer or row.
+	 * @return bool
+	 */
+	public static function payerless( array $t ): bool {
+		return ! isset( $t['payer_key'] ) || '' === (string) $t['payer_key'];
+	}
+
+	/**
+	 * Whether the order page of an order takes a transaction id (Checkout::txn_entry_open() on the order's wallet).
+	 * False when it cannot be read.
+	 *
+	 * @param \WC_Order $order Order.
+	 * @return bool
+	 */
+	private function txn_box_open( \WC_Order $order ): bool {
+		try {
+			$row = Checkout::order_row( $this->plugin, (int) $order->get_id() );
+			return Checkout::txn_entry_open( $this->plugin, $this->plugin->wallet( Checkout::order_wallet_id( $order, $row ) ) );
+		} catch ( \Throwable $e ) {
+			return false;
+		}
 	}
 
 	/**
@@ -1603,6 +1595,21 @@ final class Orders {
 	}
 
 	/**
+	 * The provider column of a new transfer: the envelope's wallet.provider as the phone sent it, ASCII letters,
+	 * digits and punctuation only (no white space), cut to the column's 32 characters, '' when it has none.
+	 * Information for the merchant only: no rule of the plugin reads it, so an unknown or missing value changes
+	 * nothing. Pure.
+	 *
+	 * @param array $envelope The parsed envelope.
+	 * @return string
+	 */
+	public static function provider_of( array $envelope ): string {
+		$wallet = isset( $envelope['wallet'] ) && is_array( $envelope['wallet'] ) ? $envelope['wallet'] : array();
+		$value  = isset( $wallet['provider'] ) && is_string( $wallet['provider'] ) ? $wallet['provider'] : '';
+		return substr( (string) preg_replace( '/[^\x21-\x7E]/', '', $value ), 0, 32 );
+	}
+
+	/**
 	 * What attaching a transfer to an order means (docs/17 §4.6, §4.7). Pure.
 	 *
 	 * - `new`: the transfer counts toward no order (needs a decision, without a match, personal, or dismissed, even
@@ -1752,29 +1759,6 @@ final class Orders {
 		return sprintf( __( '%s Cairo time', 'qersh-for-woocommerce' ), (string) wp_date( 'Y-m-d H:i', $timestamp, new \DateTimeZone( 'Africa/Cairo' ) ) );
 	}
 
-	/**
-	 * The name of a wallet type (Checkout::provider_name(), package C).
-	 *
-	 * @param string $provider Provider id.
-	 * @return string
-	 */
-	public static function provider_name( string $provider ): string {
-		$name = Checkout::provider_name( $provider );
-		return '' !== $name ? $name : $provider;
-	}
-
-	/**
-	 * Whether an order's wallet is an Orange Cash wallet (a claim provider).
-	 *
-	 * @param \WC_Order $order Order.
-	 * @return bool
-	 */
-	public function order_is_orange( \WC_Order $order ): bool {
-		$wallet    = (string) $order->get_meta( '_qersh_wallet', true );
-		$providers = $this->wallet_providers();
-		return isset( $providers[ $wallet ] ) && in_array( $providers[ $wallet ], TxnId::CLAIM_PROVIDERS, true );
-	}
-
 	/*
 	 * ------------------------------------------------------------------------------------------------------------
 	 * Internals.
@@ -1785,6 +1769,7 @@ final class Orders {
 	 * One try of a transfer.received: null to try again (rolled back already).
 	 *
 	 * @param array      $t           Normalised transfer.
+	 * @param string     $provider    The envelope's wallet.provider (provider_of()), stored as information only.
 	 * @param array      $opts        Options.
 	 * @param string     $delivery_id Delivery id.
 	 * @param string     $token       Claim token.
@@ -1793,7 +1778,7 @@ final class Orders {
 	 * @return array|null
 	 * @throws LockTimeout On a lock wait or a deadlock.
 	 */
-	private function received_once( array $t, array $opts, string $delivery_id, string $token, int $now, &$effects ): ?array {
+	private function received_once( array $t, string $provider, array $opts, string $delivery_id, string $token, int $now, &$effects ): ?array {
 		$db        = $this->plugin->db();
 		$transfers = $this->plugin->transfers();
 		$claim     = ( null === $t['payer_key'] || '' === $t['payer_key'] ) && null !== $t['txn'] && ! empty( $opts['txn_entry'] );
@@ -1822,7 +1807,7 @@ final class Orders {
 			}
 		}
 		if ( null === $existing ) {
-			$transfers->insert( $this->transfer_row( $t, $delivery_id, $now ) );
+			$transfers->insert( $this->transfer_row( $t, $provider, $delivery_id, $now ) );
 		}
 		$ctx      = $this->context( $t, $opts, $now, $claimants );
 		$decision = MatchPolicy::decide( $t, $ctx );
@@ -2000,19 +1985,21 @@ final class Orders {
 	}
 
 	/**
-	 * The qersh_transfers row of a new transfer (no verdict yet).
+	 * The qersh_transfers row of a new transfer (no verdict yet). Its `provider` column is a copy of the envelope's
+	 * wallet.provider, kept for the merchant's information: nothing reads it to decide.
 	 *
 	 * @param array  $t           Normalised transfer.
+	 * @param string $provider    provider_of() the envelope ('' when it has none).
 	 * @param string $delivery_id Delivery id.
 	 * @param int    $now         UTC seconds.
 	 * @return array
 	 */
-	private function transfer_row( array $t, string $delivery_id, int $now ): array {
+	private function transfer_row( array $t, string $provider, string $delivery_id, int $now ): array {
 		$reasons = self::stored_reasons( $t['risk_reasons'] );
 		return array(
 			'transfer_id'     => (string) $t['transfer_id'],
 			'wallet'          => (string) $t['wallet'],
-			'provider'        => '' === (string) $t['provider'] ? 'unknown' : (string) $t['provider'],
+			'provider'        => $provider,
 			'delivery_id'     => $delivery_id,
 			'amount_minor'    => $t['amount_minor'],
 			'currency'        => (string) $t['currency'],
@@ -2032,20 +2019,16 @@ final class Orders {
 	}
 
 	/**
-	 * The note column of a decision: the reason line of a review, then its hints (plain text, at most 255).
+	 * The note column of a decision: the reason line of a review, then its hints (plain text, at most 255). A
+	 * no_payer review of MatchPolicy carries its `txn` variant in its arguments already.
 	 *
-	 * @param array $t Normalised transfer.
 	 * @param array $d Decision.
 	 * @return string|null
 	 */
-	private static function note_of( array $t, array $d ): ?string {
+	private static function note_of( array $d ): ?string {
 		$lines = array();
 		if ( 'review' === $d['outcome'] && null !== $d['reason'] ) {
-			$args = $d['args'];
-			if ( 'no_payer' === $d['reason'] && ! isset( $args['orange'] ) ) {
-				$args['orange'] = in_array( $t['provider'], TxnId::CLAIM_PROVIDERS, true );
-			}
-			$lines[] = MatchPolicy::reason_text( (string) $d['reason'], $args );
+			$lines[] = MatchPolicy::reason_text( (string) $d['reason'], $d['args'] );
 		}
 		foreach ( $d['hints'] as $hint ) {
 			$lines[] = MatchPolicy::hint_text( (string) $hint[0], (array) $hint[1] );
@@ -2055,7 +2038,7 @@ final class Orders {
 	}
 
 	/**
-	 * The payer as an order note shows it: the number (or InstaPay address) isolated, or the name the message gives.
+	 * The payer as an order note shows it: the wallet number isolated, or the name the message gives.
 	 *
 	 * @param array $t Normalised transfer.
 	 * @return string Safe HTML.
@@ -2188,7 +2171,7 @@ final class Orders {
 	 * @param int        $user_id The admin.
 	 * @param int        $now     UTC seconds.
 	 * @return array|\WP_Error `[ 'paid' => bool, 'partial' => bool, 'new_row' => bool, 'deadline' => int, 'total' => int,
-	 *                         'price' => int, 'provider' => string ]`
+	 *                         'price' => int, 'payerless' => bool ]`
 	 */
 	private function attach_locked( string $mode, array $tr, \WC_Order $order, ?array $row, string $payer, int $user_id, int $now ) {
 		$transfers = $this->plugin->transfers();
@@ -2198,13 +2181,13 @@ final class Orders {
 		$amount    = (int) $tr['amount_minor'];
 		$price     = self::total_minor( $order );
 		$effects   = array(
-			'paid'     => false,
-			'partial'  => false,
-			'new_row'  => null === $row,
-			'deadline' => 0,
-			'total'    => 0,
-			'price'    => $price,
-			'provider' => (string) $tr['provider'],
+			'paid'      => false,
+			'partial'   => false,
+			'new_row'   => null === $row,
+			'deadline'  => 0,
+			'total'     => 0,
+			'price'     => $price,
+			'payerless' => self::payerless( $tr ),
 		);
 		if ( 'confirm' === $mode ) {
 			$transfers->update(
@@ -2388,7 +2371,7 @@ final class Orders {
 		try {
 			$order = wc_get_order( $order_id );
 			if ( $order instanceof \WC_Order ) {
-				$this->customer_partial_note( $order, (string) $effects['provider'], (int) $effects['total'], (int) $effects['price'], $now );
+				$this->customer_partial_note( $order, ! empty( $effects['payerless'] ), (int) $effects['total'], (int) $effects['price'], $now );
 			}
 		} catch ( \Throwable $e ) {
 			$this->log( 'attach notes', $e );

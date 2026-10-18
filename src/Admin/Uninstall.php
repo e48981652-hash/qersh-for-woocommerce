@@ -24,7 +24,9 @@ defined( 'ABSPATH' ) || exit;
 final class Uninstall {
 
 	/**
-	 * Options of the plugin.
+	 * Options of the plugin. `qersh_wc_txn_drift` and `qersh_wc_txn_long` are no longer written
+	 * (Schema::OBSOLETE_OPTIONS, deleted by the upgrade to schema 2); they stay listed so a store whose upgrade never
+	 * ran loses them too.
 	 */
 	const OPTIONS = array(
 		'qersh_wc_config',

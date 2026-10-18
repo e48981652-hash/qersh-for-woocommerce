@@ -5,11 +5,12 @@
  *   wp eval-file wp-content/plugins/qersh-for-woocommerce/tests/e2e/setup/wallets.php
  *   php tests/e2e/setup/wallets.php   (a local test site, through tests/local/lib/bootstrap.php)
  *
- * Replaces the plugin's wallets with two test wallets, Vodafone Cash (the store number 01001234567 that the RTL test
- * reads) and Orange Cash, each with a fresh test key from the plugin's own Config::new_key(), turns the
- * transaction-id box on and enables the method. Prints one line `QERSH_JSON={…}` with the ids, numbers, test keys
- * and both webhook addresses (REST and the ?wc-api= fallback). The keys exist only in this test site and the
- * Playwright state file of the job (tests/e2e/.auth/, never committed).
+ * Replaces the plugin's wallets with two test e-wallets told apart by their label: `main` (the store number
+ * 01001234567 that the RTL test reads) and `second` (01201234567). A wallet has no type: the plugin never asks which
+ * operator is behind a number. Each gets a fresh test key from the plugin's own Config::new_key(); the script turns
+ * the transaction-id box on and enables the method. Prints one line `QERSH_JSON={…}` with the ids, labels, numbers,
+ * test keys and both webhook addresses (REST and the ?wc-api= fallback). The keys exist only in this test site and
+ * the Playwright state file of the job (tests/e2e/.auth/, never committed).
  *
  * @package QershPay\WooCommerce\Tests
  */
@@ -25,13 +26,11 @@ $qersh_e2e_plugin = \QershPay\WooCommerce\Plugin::instance();
 $qersh_e2e_config = $qersh_e2e_plugin->config_store()->get();
 $qersh_e2e_want   = array(
 	array(
-		'label'           => 'Vodafone e2e',
-		'provider'        => 'vodafone_cash',
+		'label'           => 'main',
 		'receive_address' => '01001234567',
 	),
 	array(
-		'label'           => 'Orange e2e',
-		'provider'        => 'orange_cash',
+		'label'           => 'second',
 		'receive_address' => '01201234567',
 	),
 );
@@ -45,7 +44,6 @@ foreach ( $qersh_e2e_want as $qersh_e2e_w ) {
 	$qersh_e2e_config['wallets'][] = array(
 		'id'              => $qersh_e2e_id,
 		'label'           => $qersh_e2e_w['label'],
-		'provider'        => $qersh_e2e_w['provider'],
 		'receive_address' => $qersh_e2e_w['receive_address'],
 		'enabled'         => true,
 	);
@@ -53,7 +51,6 @@ foreach ( $qersh_e2e_want as $qersh_e2e_w ) {
 	$qersh_e2e_out['wallets'][]    = array(
 		'id'              => $qersh_e2e_id,
 		'label'           => $qersh_e2e_w['label'],
-		'provider'        => $qersh_e2e_w['provider'],
 		'receive_address' => $qersh_e2e_w['receive_address'],
 		'key'             => $qersh_e2e_key,
 		'url'             => rest_url( 'qersh/v1/webhook/' . $qersh_e2e_id ),

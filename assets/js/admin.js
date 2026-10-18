@@ -293,19 +293,6 @@
 	} );
 
 	/* ---------------------------------------------------------------------------------------------------------
-	 * The wallet form: the address placeholder follows the type.
-	 * ------------------------------------------------------------------------------------------------------- */
-
-	var provider = document.getElementById( 'qersh-provider' );
-	var address = document.getElementById( 'qersh-address' );
-	if ( provider && address ) {
-		provider.addEventListener( 'change', function () {
-			address.setAttribute( 'placeholder', 'instapay_app' === provider.value ? 'name@instapay' : '01001234567' );
-			address.setAttribute( 'inputmode', 'instapay_app' === provider.value ? 'email' : 'numeric' );
-		} );
-	}
-
-	/* ---------------------------------------------------------------------------------------------------------
 	 * "Generate your developer's link with the connection key".
 	 * ------------------------------------------------------------------------------------------------------- */
 

@@ -50,10 +50,11 @@ final class DbTest extends TestCase {
 	/** One txn:/trf: name first, then payer: names sorted with strcmp, each once (docs/17 §4.4 step 8). */
 	public function test_order_lock_names(): void {
 		$this->assertSame(
-			array( 'txn:orange_cash:12345678901234', 'payer:01001234567', 'payer:01112223334', 'payer:ali@instapay' ),
-			Db::order_lock_names( array( 'payer:ali@instapay', 'payer:01112223334', 'txn:orange_cash:12345678901234', 'payer:01001234567', 'payer:01112223334' ) )
+			array( 'txn:250046173830512', 'payer:01001234567', 'payer:01112223334', 'payer:01223334445' ),
+			Db::order_lock_names( array( 'payer:01223334445', 'payer:01112223334', 'txn:250046173830512', 'payer:01001234567', 'payer:01112223334' ) )
 		);
 		$this->assertSame( array( 'trf:trf_01J9ZZZZZZZZZZZZZZZZZZZZZZ' ), Db::order_lock_names( array( 'trf:trf_01J9ZZZZZZZZZZZZZZZZZZZZZZ', 'trf:trf_01J9ZZZZZZZZZZZZZZZZZZZZZZ' ) ) );
+		$this->assertSame( array( 'txn:250046173830512' ), Db::order_lock_names( array( 'txn:250046173830512', 'txn:250046173830512' ) ), 'one name per transaction id, whatever the wallet' );
 		$this->assertSame( array(), Db::order_lock_names( array() ) );
 		// strcmp order is byte order: digits before upper case before lower case.
 		$this->assertSame( array( 'payer:0', 'payer:A', 'payer:a' ), Db::order_lock_names( array( 'payer:a', 'payer:A', 'payer:0' ) ) );
@@ -62,7 +63,8 @@ final class DbTest extends TestCase {
 	/** Two different head locks, unknown kinds, empty names and non-strings are programming errors. */
 	public function test_order_lock_names_refuses(): void {
 		$bad = array(
-			array( 'txn:orange_cash:1', 'trf:trf_x' ),
+			array( 'txn:1', 'trf:trf_x' ),
+			array( 'txn:250046173830512', 'txn:913372004518' ),
 			array( 'order:12' ),
 			array( 'payer:' ),
 			array( 12 ),
@@ -80,7 +82,7 @@ final class DbTest extends TestCase {
 	/** A lock name longer than the column becomes a hash that keeps its kind. */
 	public function test_lock_row_name(): void {
 		$this->assertSame( 'payer:01001234567', Db::lock_row_name( 'payer:01001234567' ) );
-		$long = 'payer:' . str_repeat( 'a', 120 ) . '@instapay';
+		$long = 'payer:' . str_repeat( '01001234567', 11 );
 		$row  = Db::lock_row_name( $long );
 		$this->assertSame( 'payer:#' . hash( 'sha256', $long ), $row );
 		$this->assertLessThanOrEqual( 100, strlen( $row ) );
@@ -226,7 +228,7 @@ final class DbTest extends TestCase {
 		$db = new Db();
 		$db->begin();
 		$this->assertTrue( $db->in_transaction() );
-		$db->lock( array( 'payer:01112223334', 'txn:orange_cash:12345678901234', 'payer:01001234567' ) );
+		$db->lock( array( 'payer:01112223334', 'txn:250046173830512', 'payer:01001234567' ) );
 		$db->commit();
 		$this->assertFalse( $db->in_transaction() );
 
@@ -234,7 +236,7 @@ final class DbTest extends TestCase {
 		$this->assertSame( 'START TRANSACTION', $q[0] );
 		$this->assertSame( 'SELECT @@innodb_lock_wait_timeout', $q[1] );
 		$this->assertSame( 'SET SESSION innodb_lock_wait_timeout = 5', $q[2] );
-		$this->assertMatchesRegularExpression( "/^INSERT INTO `wp_qersh_locks` \\(name, created_at\\) VALUES \\('txn:orange_cash:12345678901234', \\d+\\) ON DUPLICATE KEY UPDATE created_at = \\d+$/", $q[3] );
+		$this->assertMatchesRegularExpression( "/^INSERT INTO `wp_qersh_locks` \\(name, created_at\\) VALUES \\('txn:250046173830512', \\d+\\) ON DUPLICATE KEY UPDATE created_at = \\d+$/", $q[3] );
 		$this->assertStringContainsString( "'payer:01001234567'", $q[4] );
 		$this->assertStringContainsString( "'payer:01112223334'", $q[5] );
 		$this->assertSame( 'COMMIT', $q[6] );
@@ -321,17 +323,17 @@ final class DbTest extends TestCase {
 		$this->wpdb->on( '/^SELECT @@innodb_lock_wait_timeout$/', '5', '', true );
 		$db = new Db();
 		$db->begin();
-		$db->lock( array( 'txn:orange_cash:12345678901234' ) );
+		$db->lock( array( 'txn:250046173830512' ) );
 		$db->lock( array( 'payer:01112223334' ) );
-		$db->lock( array( 'payer:01112223334', 'payer:01223334445', 'txn:orange_cash:12345678901234' ) );
-		$this->assertSame( array( 'txn:orange_cash:12345678901234', 'payer:01112223334', 'payer:01223334445' ), $db->held_locks() );
+		$db->lock( array( 'payer:01112223334', 'payer:01223334445', 'txn:250046173830512' ) );
+		$this->assertSame( array( 'txn:250046173830512', 'payer:01112223334', 'payer:01223334445' ), $db->held_locks() );
 		$this->assertCount( 3, $this->wpdb->matching( '/^INSERT INTO `wp_qersh_locks`/' ) );
 
 		$refused = array(
 			array( 'payer:01001234567' ),
 			array( 'payer:01001234567', 'payer:01999999999' ),
 			array( 'trf:trf_01J9Z8Y7X6W5V4T3S2R1Q0P9N8' ),
-			array( 'txn:orange_cash:99999999999999' ),
+			array( 'txn:913372004518' ),
 		);
 		foreach ( $refused as $names ) {
 			try {
@@ -348,7 +350,7 @@ final class DbTest extends TestCase {
 		$db->begin();
 		$db->lock( array( 'payer:01001234567' ) );
 		try {
-			$db->lock( array( 'txn:orange_cash:12345678901234' ) );
+			$db->lock( array( 'txn:250046173830512' ) );
 			$this->fail( 'a head lock after a payer lock' );
 		} catch ( \LogicException $e ) {
 			$this->assertSame( array( 'payer:01001234567' ), $db->held_locks() );

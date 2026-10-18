@@ -14,9 +14,10 @@ defined( 'ABSPATH' ) || exit;
 /**
  * The same input serves the classic checkout, "Pay for order" and (through checkout-blocks.js) the Blocks checkout
  * (docs/17 §4.1, §6.1):
- * - a choice of the receiving wallet when more than one is enabled ("Which wallet will you transfer to?");
- * - the field "Wallet number you will transfer from" (numeric keypad, dir="ltr", Arabic digits and +20 accepted),
- *   with a "Wallet number / InstaPay address" switch that only exists while an InstaPay wallet is enabled;
+ * - a choice of the receiving wallet when more than one is enabled ("Which wallet will you transfer to?"), each
+ *   shown by the merchant's label and its number, never by a wallet type;
+ * - the field "Wallet number you will transfer from" (numeric keypad, dir="ltr", Arabic digits and +20 accepted):
+ *   an Egyptian e-wallet number of 11 digits starting with 01, the same for every wallet;
  * - no `value` attribute on the classic checkout, and fixed ids, because WooCommerce restores the payment box
  *   inputs by id after every checkout refresh; payer-field.js fills it from the billing phone only while it is
  *   empty and untouched. On "Pay for order" (no refresh there) PHP fills it with the payer the order already has,
@@ -26,20 +27,20 @@ defined( 'ABSPATH' ) || exit;
  */
 final class PayerField {
 
-	/** The $_POST key (and input id) of the payer number or address. */
+	/** The $_POST key (and input id) of the payer number. */
 	const PAYER = 'qersh_payer';
 
 	/** The $_POST key of the chosen wallet. */
 	const WALLET = 'qersh_wallet';
 
-	/** The name of the number / InstaPay address switch (not needed by the server). */
-	const KIND = 'qersh_payer_kind';
-
 	/** The id of the wallet choice group (the classic template's radio group, where its error is shown). */
 	const WALLETS = 'qersh_wallets';
 
-	/** Longest value read; a wallet number or an InstaPay address is far shorter. */
+	/** Longest value read; a wallet number, in any spelling, is far shorter. */
 	const MAX_LENGTH = 200;
+
+	/** A normalised Egyptian e-wallet number (Core\Payer::normalize()), the only payer the field takes. */
+	const NUMBER = '/^01[0-9]{9}$/D';
 
 	/**
 	 * The enabled wallet entries of the configuration, in order. Pure.
@@ -58,18 +59,16 @@ final class PayerField {
 	}
 
 	/**
-	 * Whether an InstaPay wallet is among these. Pure.
+	 * The payer number of a value: its normalised form when it is an e-wallet number (`01XXXXXXXXX`, from any
+	 * spelling Core\Payer reads), else null. An address or a bare name, which Core\Payer reads as a handle, is no
+	 * payer here. Pure (Core\Payer only).
 	 *
-	 * @param array $wallets Wallet entries.
-	 * @return bool
+	 * @param mixed $raw Any value.
+	 * @return string|null
 	 */
-	public static function has_instapay( array $wallets ): bool {
-		foreach ( $wallets as $wallet ) {
-			if ( is_array( $wallet ) && isset( $wallet['provider'] ) && 'instapay_app' === $wallet['provider'] ) {
-				return true;
-			}
-		}
-		return false;
+	public static function number_of( $raw ): ?string {
+		$payer = Payer::normalize( $raw );
+		return null !== $payer && 1 === preg_match( self::NUMBER, $payer ) ? $payer : null;
 	}
 
 	/**
@@ -106,8 +105,8 @@ final class PayerField {
 		if ( strlen( $text ) > self::MAX_LENGTH * 4 ) {
 			return self::error( 'payer_invalid' );
 		}
-		$payer = Payer::normalize( $text );
-		if ( null === $payer || ( false !== strpos( $payer, '@' ) && ! self::has_instapay( $enabled ) ) ) {
+		$payer = self::number_of( $text );
+		if ( null === $payer ) {
 			return self::error( 'payer_invalid' );
 		}
 		if ( self::is_store_number( $payer, $wallets ) ) {
@@ -121,30 +120,23 @@ final class PayerField {
 	}
 
 	/**
-	 * Whether a normalised payer is one of the store's own wallets: the same last nine digits as a wallet number,
-	 * or the same InstaPay address. Pure.
+	 * Whether a payer number is one of the store's own wallet numbers: the same last nine digits (as the phone
+	 * compares them). Anything that is not a number (number_of()), on either side, is never a store number. Pure.
 	 *
-	 * @param string $payer   Normalised payer (Payer::normalize()).
+	 * @param string $payer   Normalised payer number (number_of()).
 	 * @param array  $wallets Wallet entries.
 	 * @return bool
 	 */
 	public static function is_store_number( string $payer, array $wallets ): bool {
-		$is_handle = false !== strpos( $payer, '@' );
+		if ( 1 !== preg_match( self::NUMBER, $payer ) ) {
+			return false;
+		}
 		foreach ( $wallets as $wallet ) {
 			if ( ! is_array( $wallet ) || ! isset( $wallet['receive_address'] ) ) {
 				continue;
 			}
-			$own = Payer::normalize( $wallet['receive_address'] );
-			if ( null === $own ) {
-				continue;
-			}
-			if ( $is_handle ) {
-				if ( $own === $payer ) {
-					return true;
-				}
-				continue;
-			}
-			if ( false === strpos( $own, '@' ) && substr( $own, -9 ) === substr( $payer, -9 ) ) {
+			$own = self::number_of( $wallet['receive_address'] );
+			if ( null !== $own && substr( $own, -9 ) === substr( $payer, -9 ) ) {
 				return true;
 			}
 		}
@@ -152,7 +144,7 @@ final class PayerField {
 	}
 
 	/**
-	 * The store's own receive addresses (for the scripts' check). Pure.
+	 * The store's own wallet numbers, as configured (for the scripts' check). Pure.
 	 *
 	 * @param array $wallets Wallet entries.
 	 * @return string[]
@@ -168,7 +160,7 @@ final class PayerField {
 	}
 
 	/**
-	 * The receive addresses a page may carry for its scripts' check: the enabled wallets only, so a wallet the
+	 * The wallet numbers a page may carry for its scripts' check: the enabled wallets only, so a wallet the
 	 * merchant turned off (often a personal line) never reaches the page source; plus, on the order page, the
 	 * order's own wallet, whose number that page shows anyway. The server keeps checking against every wallet
 	 * (check(), Claims::submit()), so a turned-off wallet's number is still refused, with the server's message. Pure.
@@ -191,13 +183,12 @@ final class PayerField {
 	}
 
 	/**
-	 * The message of an error code (docs/17 §6.1, §7).
+	 * The message of an error code (docs/17 §6.1, §7). checkout-blocks.js holds the same texts.
 	 *
-	 * @param string $code     Code from check().
-	 * @param bool   $instapay Whether the InstaPay switch is shown.
+	 * @param string $code Code from check().
 	 * @return string
 	 */
-	public static function message( string $code, bool $instapay ): string {
+	public static function message( string $code ): string {
 		switch ( $code ) {
 			case 'wallet_choice':
 				return __( 'Choose the wallet you will transfer to.', 'qersh-for-woocommerce' );
@@ -206,9 +197,7 @@ final class PayerField {
 			case 'no_wallet':
 				return __( 'This store has no wallet to transfer to right now. Choose another way to pay.', 'qersh-for-woocommerce' );
 			default:
-				return $instapay
-					? __( 'Enter an Egyptian wallet number of 11 digits starting with 01, or an InstaPay address like name@instapay.', 'qersh-for-woocommerce' )
-					: __( 'Enter an Egyptian wallet number of 11 digits starting with 01.', 'qersh-for-woocommerce' );
+				return __( 'Enter an Egyptian wallet number of 11 digits starting with 01.', 'qersh-for-woocommerce' );
 		}
 	}
 
@@ -260,23 +249,11 @@ final class PayerField {
 		if ( 1 === count( $views ) ) {
 			$checked = $views[0]['id'];
 		}
-		$instapay = false;
-		$on_insta = false;
-		foreach ( $views as $view ) {
-			if ( $view['instapay'] ) {
-				$instapay = true;
-				$on_insta = $on_insta || $view['id'] === $checked;
-			}
-		}
-		$fill = array(
-			'value' => '',
-			'kind'  => $on_insta ? 'instapay' : 'number',
-			'kept'  => false,
-		);
+		$value = '';
 		if ( $order instanceof \WC_Order ) {
 			$row    = Checkout::order_row( $plugin, $order->get_id() );
 			$stored = null !== $row && isset( $row['payer_key'] ) && '' !== (string) $row['payer_key'] ? (string) $row['payer_key'] : (string) $order->get_meta( '_qersh_payer_key' );
-			$fill   = self::order_prefill( $stored, (string) $order->get_billing_phone(), $all, $on_insta );
+			$value  = self::order_prefill( $stored, (string) $order->get_billing_phone(), $all )['value'];
 		}
 
 		wc_get_template(
@@ -284,15 +261,12 @@ final class PayerField {
 			array(
 				'views'         => $views,
 				'checked'       => $checked,
-				'value'         => $fill['value'],
-				'instapay'      => $instapay,
-				'kind'          => $fill['kind'],
-				'kept'          => $fill['kept'],
+				'value'         => $value,
 				'store_numbers' => self::browser_numbers( $all ),
 				'messages'      => array(
-					'invalid' => self::message( 'payer_invalid', $instapay ),
-					'store'   => self::message( 'payer_store', $instapay ),
-					'choice'  => self::message( 'wallet_choice', $instapay ),
+					'invalid' => self::message( 'payer_invalid' ),
+					'store'   => self::message( 'payer_store' ),
+					'choice'  => self::message( 'wallet_choice' ),
 				),
 			),
 			'qersh-for-woocommerce/',
@@ -303,41 +277,26 @@ final class PayerField {
 	/**
 	 * What "Pay for order" puts in the field (docs/17 §6.4: the same field, which the customer may change): the
 	 * payer the order already has, so a customer who only came to switch wallets keeps the number their transfer
-	 * is matched by; else the order's billing phone, as at checkout. A stored InstaPay address is kept only while
-	 * an InstaPay wallet is enabled (the field takes no address otherwise), and a value that is now one of the
-	 * store's own wallets is never filled in. Without a kept payer, an InstaPay wallet starts the field empty on
-	 * the address switch, as at checkout. Pure (Core\Payer only).
+	 * is matched by; else the order's billing phone, as at checkout. Only a number is filled in (an address an
+	 * older order may carry is no payer the field takes), and never one of the store's own wallets. Pure
+	 * (Core\Payer only).
 	 *
-	 * @param string $stored           The order's payer (its qersh_orders row, else `_qersh_payer_key`), or ''.
-	 * @param string $billing_phone    The order's billing phone.
-	 * @param array  $wallets          Every wallet entry of the configuration.
-	 * @param bool   $instapay_checked Whether the wallet checked in the field is an InstaPay one.
-	 * @return array{value: string, kind: string, kept: bool} `kept` when the value is the stored payer.
+	 * @param string $stored        The order's payer (its qersh_orders row, else `_qersh_payer_key`), or ''.
+	 * @param string $billing_phone The order's billing phone.
+	 * @param array  $wallets       Every wallet entry of the configuration.
+	 * @return array{value: string, kept: bool} `kept` when the value is the stored payer.
 	 */
-	public static function order_prefill( string $stored, string $billing_phone, array $wallets, bool $instapay_checked ): array {
-		$payer = '' === trim( $stored ) ? null : Payer::normalize( $stored );
+	public static function order_prefill( string $stored, string $billing_phone, array $wallets ): array {
+		$payer = '' === trim( $stored ) ? null : self::number_of( $stored );
 		if ( null !== $payer && ! self::is_store_number( $payer, $wallets ) ) {
-			$handle = false !== strpos( $payer, '@' );
-			if ( ! $handle || self::has_instapay( self::enabled_wallets( $wallets ) ) ) {
-				return array(
-					'value' => $payer,
-					'kind'  => $handle ? 'instapay' : 'number',
-					'kept'  => true,
-				);
-			}
-		}
-		if ( $instapay_checked ) {
 			return array(
-				'value' => '',
-				'kind'  => 'instapay',
-				'kept'  => false,
+				'value' => $payer,
+				'kept'  => true,
 			);
 		}
-		$phone = Payer::normalize( $billing_phone );
-		$fill  = null !== $phone && false === strpos( $phone, '@' ) && ! self::is_store_number( $phone, $wallets );
+		$phone = self::number_of( $billing_phone );
 		return array(
-			'value' => $fill ? $phone : '',
-			'kind'  => 'number',
+			'value' => null !== $phone && ! self::is_store_number( $phone, $wallets ) ? $phone : '',
 			'kept'  => false,
 		);
 	}

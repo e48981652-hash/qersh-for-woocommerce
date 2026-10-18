@@ -5,7 +5,8 @@
 //
 // Identity:   --transfer-id <id> (default: a fresh trf_…)   --delivery-id <uuid> (default: fresh)
 //             --repeat N [--concurrent]   send the same delivery N times (same delivery id and signature)
-// Transfer:   --amount 140 | --amount-minor 13950   --payer <number|handle>   --no-payer   --provider orange_cash
+// Transfer:   --amount 140 | --amount-minor 13950   --payer <number|handle>   --no-payer
+//             --provider <string> (the envelope's wallet.provider, which the store only keeps as information)
 //             --txn <provider txn id>   --sms-at <iso>   --late <hours>   --held <minutes>
 //             --reasons a,b   --auto-ok true|false   --risk low|medium|high   --channel sms|notification
 // Events:     --event transfer.received|transfer.updated|webhook.test|device.heartbeat   --forgery (sends a
@@ -75,7 +76,7 @@ function shapeTransfer(data) {
 		data.counterparty = p.includes('@') || /[a-z]/i.test(p) ? { ...data.counterparty, number: null, handle: p } : { ...data.counterparty, number: p, handle: null };
 	}
 	// Every real transfer has its own operator transaction id: a fixed one from the vector would make every run a
-	// "duplicate transaction id" (rule 2). --txn sets it, --no-txn leaves it out (e& money has none).
+	// "duplicate transaction id" (rule 2, store-wide). --txn sets it, --no-txn leaves it out (a message without one).
 	if (flag('--txn') !== null) data.provider_txn_id = flag('--txn');
 	else if (has('--no-txn')) data.provider_txn_id = null;
 	else data.provider_txn_id = String(Number('0x' + randomBytes(5).toString('hex'))).padStart(12, '0').slice(-12);

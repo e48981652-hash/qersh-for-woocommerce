@@ -20,7 +20,7 @@ class ProcessPaymentTest extends TestCase {
 	 * instructions email; the order stays pending.
 	 */
 	public function test_process_payment_writes_the_row_meta_and_deadline(): void {
-		$wallet = $this->vodafone_wallet();
+		$wallet = $this->wallet();
 		$order  = $this->order( $this->product( '140' ) );
 		$before = time();
 		$result = $this->pay( $order, '01123456789', $wallet['id'], false );
@@ -67,7 +67,7 @@ class ProcessPaymentTest extends TestCase {
 	 * Arabic-Indic digits and +20 are stored as the normalised 11-digit number.
 	 */
 	public function test_arabic_digits_and_country_code_are_normalised(): void {
-		$wallet = $this->vodafone_wallet();
+		$wallet = $this->wallet();
 
 		$first = $this->order( $this->product( '100' ) );
 		$this->assertSame( 'success', $this->pay( $first, "\u{0660}\u{0661}\u{0661}\u{0662}\u{0663}\u{0664}\u{0665}\u{0666}\u{0667}\u{0668}\u{0669}", $wallet['id'] )['result'] );
@@ -82,7 +82,7 @@ class ProcessPaymentTest extends TestCase {
 	 * The store's own wallet number is refused: no row, no meta, the order stays as it was.
 	 */
 	public function test_the_store_number_is_refused(): void {
-		$wallet = $this->vodafone_wallet();
+		$wallet = $this->wallet();
 		$order  = $this->order( $this->product( '100' ) );
 
 		$this->with_session(
@@ -104,7 +104,7 @@ class ProcessPaymentTest extends TestCase {
 	 * change: process_payment() moves it back to pending, so the exact transfer matches it.
 	 */
 	public function test_a_resumed_failed_order_goes_back_to_pending_and_matches(): void {
-		$wallet = $this->vodafone_wallet();
+		$wallet = $this->wallet();
 		$order  = $this->order( $this->product( '140' ) );
 		$order->set_payment_method( 'cod' );
 		$order->save();
@@ -135,7 +135,7 @@ class ProcessPaymentTest extends TestCase {
 	 * matches instead of going to review as "arrived after the order was closed".
 	 */
 	public function test_pay_for_order_of_a_failed_order_reopens_its_row(): void {
-		$wallet = $this->vodafone_wallet();
+		$wallet = $this->wallet();
 		$order  = $this->order( $this->product( '140' ) );
 		$this->assertSame( 'success', $this->pay( $order, '01122334499', $wallet['id'] )['result'] );
 		$this->fresh( $order->get_id() )->update_status( 'failed' );
@@ -165,7 +165,7 @@ class ProcessPaymentTest extends TestCase {
 	 * A refused field leaves a failed order failed (nothing else is touched).
 	 */
 	public function test_a_refused_field_leaves_a_failed_order_failed(): void {
-		$wallet = $this->vodafone_wallet();
+		$wallet = $this->wallet();
 		$order  = $this->order( $this->product( '100' ) );
 		$order->update_status( 'failed' );
 

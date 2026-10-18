@@ -59,7 +59,7 @@ final class BlocksIntegration extends AbstractPaymentMethodType {
 			Checkout::H_BLOCKS,
 			QERSH_WC_URL . 'assets/js/checkout-blocks.js',
 			array( 'wc-blocks-registry', 'wc-settings', 'wp-element', 'wp-html-entities', 'wp-i18n', Checkout::H_NORMALIZE ),
-			QERSH_WC_VERSION,
+			Plugin::asset_version( 'assets/js/checkout-blocks.js' ),
 			true
 		);
 		wp_set_script_translations( Checkout::H_BLOCKS, 'qersh-for-woocommerce' );
@@ -67,7 +67,8 @@ final class BlocksIntegration extends AbstractPaymentMethodType {
 	}
 
 	/**
-	 * The data of getSetting( 'qersh_data' ).
+	 * The data of getSetting( 'qersh_data' ). Each wallet is `{ id, label, address, display, confirm }`: what the
+	 * page shows, and nothing about the wallet type.
 	 *
 	 * @return array
 	 */
@@ -82,20 +83,16 @@ final class BlocksIntegration extends AbstractPaymentMethodType {
 		$wallets = array();
 		foreach ( $views as $view ) {
 			$wallets[] = array(
-				'id'       => $view['id'],
-				'label'    => $view['label'],
-				'provider' => $view['provider'],
-				'name'     => $view['provider_name'],
-				'address'  => $view['address'],
-				'display'  => $view['address_display'],
-				'instapay' => $view['instapay'],
-				'confirm'  => $view['confirm'],
-				'decision' => $view['decision'],
+				'id'      => $view['id'],
+				'label'   => $view['label'],
+				'address' => $view['address'],
+				'display' => $view['address_display'],
+				'confirm' => $view['confirm'],
 			);
 		}
 
 		return array(
-			'title'           => null !== $gateway ? $gateway->get_title() : Gateway::default_title( PayerField::has_instapay( PayerField::enabled_wallets( $all ) ) ),
+			'title'           => null !== $gateway ? $gateway->get_title() : Gateway::default_title(),
 			'description'     => null !== $gateway ? $gateway->get_description() : (string) $this->get_setting( 'description', '' ),
 			'supports'        => $this->get_supported_features(),
 			'ready'           => $plugin->tables_ready(),
@@ -103,7 +100,6 @@ final class BlocksIntegration extends AbstractPaymentMethodType {
 			'min_total_minor' => Checkout::int_or_null( $store, 'min_total_minor' ),
 			'max_total_minor' => Checkout::int_or_null( $store, 'max_total_minor' ),
 			'wallets'         => $wallets,
-			'instapay'        => PayerField::has_instapay( PayerField::enabled_wallets( $all ) ),
 			'store_numbers'   => PayerField::browser_numbers( $all ),
 		);
 	}

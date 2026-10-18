@@ -7,6 +7,8 @@
 
 namespace QershPay\WooCommerce\Store;
 
+use QershPay\WooCommerce\Core\TxnId;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -47,6 +49,35 @@ final class Schema {
 	const TABLES = array( 'deliveries', 'transfers', 'orders', 'wallets', 'locks' );
 
 	/**
+	 * The schema version this code installs when QERSH_WC_DB_VERSION is not defined (the main plugin file defines it
+	 * with the same value). Version 2: `transfers.provider` is an opaque copy of the envelope's `wallet.provider`
+	 * with a default of '', and transaction ids are looked up by `provider_txn_id` alone, on any wallet (the plugin
+	 * never asks which kind of e-wallet a transfer came from).
+	 */
+	const VERSION = 2;
+
+	/**
+	 * Options written by schema 1 that this code no longer reads: the transaction-id format drift record and the
+	 * count of refused long ids (the plugin no longer knows the shape of any operator's ids). The upgrade to schema 2
+	 * deletes them; Admin\Uninstall::OPTIONS still lists both names, for a store whose upgrade never ran.
+	 */
+	const OBSOLETE_OPTIONS = array( 'qersh_wc_txn_drift', 'qersh_wc_txn_long' );
+
+	/**
+	 * Indexes of schema 1 that the CREATE statements no longer hold, by table: dbDelta adds a missing index but never
+	 * drops one, so the upgrade to schema 2 drops `transfers.provider_txn` (wallet type and transaction id) itself,
+	 * after dbDelta added `provider_txn_id` in its place.
+	 */
+	const OBSOLETE_INDEXES = array(
+		'transfers' => array( 'provider_txn' ),
+	);
+
+	/**
+	 * Transfer rows read at a time by the upgrade to schema 2 when it rewrites their transaction ids.
+	 */
+	const TXN_BATCH = 500;
+
+	/**
 	 * Every column of every table and how the plugin writes it.
 	 *
 	 * `int`, `key:N` (a string that must fit N characters and is refused, never cut, when longer: it identifies or
@@ -54,6 +85,9 @@ final class Schema {
 	 * when it fits N characters, otherwise stored as NULL, never cut, so two different long values never become
 	 * equal; an empty string is NULL too), `str:N` (a display string cut to N characters), `text` (up to 65535
 	 * bytes), `json` and `json:N` (an array stored as JSON, read back as an array). A trailing `?` allows NULL.
+	 *
+	 * `transfers.provider` and `wallets.last_test_provider` keep the envelope's `wallet.provider` as information
+	 * only: nothing in the plugin decides by them.
 	 */
 	const COLUMNS = array(
 		'deliveries' => array(
@@ -160,13 +194,19 @@ final class Schema {
 
 	/**
 	 * Creates or upgrades the five tables, then records the schema version, but only once every table exists, so
-	 * Plugin::tables_ready() stays false (and the routes answer 503) while they are missing.
+	 * Plugin::tables_ready() stays false (and the routes answer 503) while they are missing. The steps of upgrade()
+	 * run between the two, so a store is never marked upgraded before them.
+	 *
+	 * On a store of schema 1, dbDelta gives `transfers.provider` its default of '' (ALTER COLUMN … SET DEFAULT) and
+	 * adds the key `provider_txn_id`; the rows stay as they are. The SQLite drop-in adds the key but leaves the
+	 * column without a default, so Transfers::insert() always writes the column and nothing relies on the default.
 	 */
 	public static function install(): void {
 		global $wpdb;
 		if ( ! function_exists( 'dbDelta' ) ) {
 			require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		}
+		$from     = (int) get_option( self::VERSION_OPTION, 0 );
 		$suppress = $wpdb->suppress_errors( true );
 		dbDelta( self::sql( $wpdb->prefix, $wpdb->get_charset_collate() ) );
 		$wpdb->suppress_errors( $suppress );
@@ -176,6 +216,7 @@ final class Schema {
 			self::log( 'warning', 'The Qersh tables could not be created. Check that the database user may CREATE and ALTER tables.' );
 			return;
 		}
+		self::upgrade( $from );
 		delete_transient( self::RETRY_TRANSIENT );
 		update_option( self::VERSION_OPTION, self::target_version(), true );
 		unset( self::$lost[ (string) $wpdb->prefix ] );
@@ -184,6 +225,87 @@ final class Schema {
 		if ( ! empty( $other ) ) {
 			self::log( 'warning', 'Some Qersh tables do not use InnoDB, so the locks that keep two deliveries apart do not work: ' . implode( ', ', $other ) );
 		}
+	}
+
+	/**
+	 * The upgrade steps dbDelta cannot do, each for a store recorded below its schema version. A store with no
+	 * version recorded (a new one, or one whose tables were found missing) runs them all: they find nothing to change
+	 * there. Runs once the tables exist. Never fails the install: a step the database refuses leaves something unused
+	 * behind, nothing the plugin reads.
+	 *
+	 * Schema 2: deletes OBSOLETE_OPTIONS, drops OBSOLETE_INDEXES and rewrites the stored transaction ids in their
+	 * canonical form (canonicalize_txn_ids()).
+	 *
+	 * @param int $from The schema version recorded before this install.
+	 */
+	private static function upgrade( int $from ): void {
+		if ( $from >= 2 ) {
+			return;
+		}
+		foreach ( self::OBSOLETE_OPTIONS as $option ) {
+			delete_option( $option );
+		}
+		self::drop_obsolete_indexes();
+		self::canonicalize_txn_ids();
+	}
+
+	/**
+	 * Rewrites each stored `transfers.provider_txn_id` in the canonical form of Core\TxnId::canonical_stored(),
+	 * which schema 2 stores for every new transfer and compares by exact equality (a repeated id, rule 2, and the id
+	 * a customer types). Schema 1 kept the id of most wallets as the phone sent it («2500517294 4183»,
+	 * «ft-2412305»), which would never equal the same id delivered again. In batches of TXN_BATCH by row id; a
+	 * value without a canonical form stays as it is (it equals no canonical id), and a canonical one is not
+	 * written, so running it again changes nothing. Errors are suppressed, as in drop_obsolete_indexes().
+	 */
+	private static function canonicalize_txn_ids(): void {
+		global $wpdb;
+		$table    = $wpdb->prefix . 'qersh_transfers';
+		$last     = 0;
+		$suppress = $wpdb->suppress_errors( true );
+		do {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom table, read once per upgrade
+			$rows = $wpdb->get_results( $wpdb->prepare( 'SELECT id, provider_txn_id FROM %i WHERE id > %d AND provider_txn_id IS NOT NULL ORDER BY id ASC LIMIT %d', $table, $last, self::TXN_BATCH ), 'ARRAY_A' );
+			$rows = is_array( $rows ) ? $rows : array();
+			$full = count( $rows ) === self::TXN_BATCH;
+			foreach ( $rows as $row ) {
+				$last  = (int) $row['id'];
+				$value = (string) $row['provider_txn_id'];
+				$canon = TxnId::canonical_stored( $value );
+				if ( null !== $canon && $canon !== $value ) {
+					// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom table, written once per upgrade
+					$wpdb->query( $wpdb->prepare( 'UPDATE %i SET provider_txn_id = %s WHERE id = %d', $table, $canon, $last ) );
+				}
+			}
+		} while ( $full );
+		$wpdb->suppress_errors( $suppress );
+	}
+
+	/**
+	 * Drops the indexes of OBSOLETE_INDEXES that a table still has, by the names SHOW INDEX gives (the statement
+	 * dbDelta itself reads, also on the SQLite drop-in). Errors are suppressed: two requests upgrading at once may
+	 * both try, and the second one's drop simply fails.
+	 */
+	private static function drop_obsolete_indexes(): void {
+		global $wpdb;
+		$suppress = $wpdb->suppress_errors( true );
+		foreach ( self::OBSOLETE_INDEXES as $short => $indexes ) {
+			$table = $wpdb->prefix . 'qersh_' . $short;
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- custom table, read once per upgrade
+			$rows  = $wpdb->get_results( $wpdb->prepare( 'SHOW INDEX FROM %i', $table ), 'ARRAY_A' );
+			$found = array();
+			foreach ( is_array( $rows ) ? $rows : array() as $row ) {
+				if ( is_array( $row ) && isset( $row['Key_name'] ) && is_string( $row['Key_name'] ) ) {
+					$found[ strtolower( $row['Key_name'] ) ] = true;
+				}
+			}
+			foreach ( $indexes as $index ) {
+				if ( isset( $found[ $index ] ) ) {
+					// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange -- an index of our own table that no code uses any more
+					$wpdb->query( $wpdb->prepare( 'ALTER TABLE %i DROP INDEX %i', $table, $index ) );
+				}
+			}
+		}
+		$wpdb->suppress_errors( $suppress );
 	}
 
 	/**
@@ -218,7 +340,7 @@ KEY claimed_at (claimed_at)
 id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
 transfer_id VARCHAR(40) NOT NULL,
 wallet VARCHAR(32) NOT NULL,
-provider VARCHAR(32) NOT NULL,
+provider VARCHAR(32) NOT NULL DEFAULT '',
 delivery_id CHAR(36) NOT NULL,
 amount_minor BIGINT(20) NULL,
 currency VARCHAR(8) NOT NULL,
@@ -245,7 +367,7 @@ created_at BIGINT(20) UNSIGNED NOT NULL,
 updated_at BIGINT(20) UNSIGNED NOT NULL,
 PRIMARY KEY  (id),
 UNIQUE KEY transfer_id (transfer_id),
-KEY provider_txn (provider,provider_txn_id),
+KEY provider_txn_id (provider_txn_id),
 KEY outcome_created (outcome,created_at),
 KEY order_id (order_id),
 KEY payer_key (payer_key),
@@ -449,7 +571,7 @@ PRIMARY KEY  (name)
 	 * @return int
 	 */
 	private static function target_version(): int {
-		return defined( 'QERSH_WC_DB_VERSION' ) ? (int) QERSH_WC_DB_VERSION : 1;
+		return defined( 'QERSH_WC_DB_VERSION' ) ? (int) QERSH_WC_DB_VERSION : self::VERSION;
 	}
 
 	/**

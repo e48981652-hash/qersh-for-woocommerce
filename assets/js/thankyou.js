@@ -15,11 +15,11 @@
  *   its first strong letter when the page's language writes it with Arabic words, else left to right. The server's
  *   "(within 2 hours)" is dropped once that duration would read differently.
  * - Copy buttons copy the raw value of their data- attribute; "Copied" is also said in a polite live region.
- * - The transaction-id form (Orange Cash): read with the same normaliser as the server, sent as the id alone. When
- *   what the field holds is not the id itself (a pasted message, spaces, Arabic-Indic digits), the id that will be
- *   sent shows under the field before sending ("We will send: …", docs/17 §14.1). A refused text that holds a number
- *   one or two digits longer than the id is still sent, that number alone, so the server counts the refusal (the
- *   transaction-id drift alert, docs/17 §4.9); the page shows the server's answer.
+ * - The transaction-id form (any wallet, while the store takes transaction ids: cfg.txn_box): read with the same
+ *   reader as the server (canonicalTyped(), Core\TxnId::canonical_typed()), sent as the id alone. When what the
+ *   field holds is not the id itself (a pasted message, spaces, Arabic-Indic digits), the id that will be sent shows
+ *   under the field before sending ("We will send: …", docs/17 §14.1). A text the reader refuses stays on the page
+ *   with its message and is never sent: nothing the customer pasted reaches the server but the id.
  * Plain ES5, no build step.
  */
 ( function ( win, doc ) {
@@ -129,13 +129,11 @@
 		return ended && PENDING[ status ] ? 'expired' : status;
 	}
 
+	// Checkout::status_line_key(): one waiting line for every wallet, the saved line once an id is saved.
 	function lineKey() {
 		var s = shown();
 		if ( s === 'waiting' ) {
-			if ( claim ) {
-				return 'saved';
-			}
-			return cfg.decision ? 'waiting_decision' : 'waiting';
+			return claim ? 'saved' : 'waiting';
 		}
 		return lines[ s ] ? s : 'waiting';
 	}
@@ -173,7 +171,7 @@
 			}
 		}
 		// As the server draws the box: the transfer lines only while waiting or partial; the transaction-id section
-		// by Claims::accepts() (an Orange order our expiry cancelled still takes an id, one under review does not).
+		// by Claims::accepts() (an order our expiry cancelled still takes an id, one under review does not).
 		each( box.querySelectorAll( '[data-qersh-pending]' ), function ( node ) {
 			node.hidden = ! PENDING[ s ];
 		} );
@@ -188,12 +186,12 @@
 		if ( ! el ) {
 			return;
 		}
-		// Checkout::nudge_key(): the Orange reminder replaces the base line only while the field is there and no id
-		// was entered (it points at the field "above").
+		// Checkout::nudge_key(): the transaction-id reminder replaces the base line only while the field is there and
+		// no id was entered (it points at the field "above").
 		var waiting = shown() === 'waiting';
 		var text = '';
 		if ( waiting && now() >= cfg.nudge_at ) {
-			if ( cfg.orange && cfg.txn_open ) {
+			if ( cfg.txn_box && cfg.txn_open ) {
 				text = claim ? '' : strings.nudge_txn || '';
 			} else {
 				text = strings.nudge_other || '';
@@ -463,18 +461,10 @@
 			return errors[ code ] || errors.other || '';
 		}
 
+		// Core\TxnId::canonical_typed(): the order's payer and the store's numbers are never read as the id.
 		function read() {
 			var txn = cfg.txn || {};
-			return N.canonicalTyped( txn.provider, input.value, txn.payer_key || null, txn.store_numbers || [], txn.shapes );
-		}
-
-		// After a refusal of what was read: the number one or two digits longer than the id, if the field holds one.
-		function longRun( res ) {
-			var txn = cfg.txn || {};
-			if ( res.error !== 'qersh_txn_format' && res.error !== 'qersh_txn_wallet_number' ) {
-				return null;
-			}
-			return N.longRun ? N.longRun( txn.provider, input.value, txn.shapes ) : null;
+			return N.canonicalTyped( input.value, txn.payer_key || '', txn.store_numbers || [] );
 		}
 
 		// "We will send: <id>", the id isolated left to right, when the field holds more than the id itself (a pasted
@@ -522,14 +512,16 @@
 
 		function send() {
 			var res = read();
-			// A refused id one or two digits longer than the shape still goes to the server, alone (nothing else of
-			// what the customer pasted): its refusals tell the store that the operator lengthened its ids
-			// (Diagnostics::record_txn_refusal(), docs/17 §4.9). The server answers with the refusal.
-			var value = res.ok ? res.txn : longRun( res );
-			// What the page says when the server cannot be asked, or answers without a code.
-			var fallback = res.ok ? 'other' : res.error;
-			if ( value === null || ! win.fetch ) {
-				say( errorText( fallback ), true );
+			// A refusal stays here: the server would refuse the same text with the same code, and what the customer
+			// pasted never leaves the page unless it is read as the id.
+			if ( ! res.ok ) {
+				say( errorText( res.error ), true );
+				return;
+			}
+			var value = res.txn;
+			// `other`: what the page says when the server cannot be asked, or answers without a code.
+			if ( ! win.fetch ) {
+				say( errorText( 'other' ), true );
 				return;
 			}
 			if ( button ) {
@@ -549,12 +541,12 @@
 					renderNudge();
 					return;
 				}
-				say( errorText( ( r.json && r.json.code ) || fallback ), true );
+				say( errorText( ( r.json && r.json.code ) || 'other' ), true );
 			}, function () {
 				if ( button ) {
 					button.disabled = false;
 				}
-				say( errorText( fallback ), true );
+				say( errorText( 'other' ), true );
 			} );
 		}
 

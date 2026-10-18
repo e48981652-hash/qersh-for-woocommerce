@@ -14,7 +14,7 @@ define( 'QERSH_WC_VERSION', '0.1.0' );
 define( 'QERSH_WC_FILE', '/wp-content/plugins/qersh-for-woocommerce/qersh-for-woocommerce.php' );
 define( 'QERSH_WC_DIR', '/wp-content/plugins/qersh-for-woocommerce/' );
 define( 'QERSH_WC_URL', 'https://example.org/wp-content/plugins/qersh-for-woocommerce/' );
-define( 'QERSH_WC_DB_VERSION', 1 );
+define( 'QERSH_WC_DB_VERSION', 2 );
 define( 'QERSH_WC_MIN_WC', '11.0' );
 
 // wp-config.php, optional (dynamic in phpstan.neon).

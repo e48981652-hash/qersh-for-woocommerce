@@ -149,14 +149,14 @@ final class TransfersTable extends \WP_List_Table {
 	}
 
 	/**
-	 * When the money arrived, and the wallet type.
+	 * When the money arrived. The Wallet column names the wallet; the list never shows or filters by a wallet type
+	 * (the row's `provider` is an opaque copy of the delivery's wallet.provider).
 	 *
 	 * @param array $item Row.
 	 * @return string
 	 */
 	protected function column_received( $item ) {
-		$html = View::ltr( View::time( (int) $item['money_at'] ) );
-		return View::kses( $html . '<br><span class="qersh-wc-muted">' . esc_html( View::provider_label( $item['provider'] ) ) . '</span>' );
+		return View::kses( View::ltr( View::time( (int) $item['money_at'] ) ) );
 	}
 
 	/**
@@ -170,7 +170,7 @@ final class TransfersTable extends \WP_List_Table {
 	}
 
 	/**
-	 * Payer number or address, and name.
+	 * Payer number and name.
 	 *
 	 * @param array $item Row.
 	 * @return string

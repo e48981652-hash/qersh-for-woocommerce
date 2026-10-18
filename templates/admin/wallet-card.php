@@ -17,7 +17,10 @@ $qersh_wc_id = $args['id'];
 <section class="qersh-wc-card" id="qersh-wallet-<?php echo esc_attr( $qersh_wc_id ); ?>" data-qersh-wallet="<?php echo esc_attr( $qersh_wc_id ); ?>">
 	<header class="qersh-wc-card-head">
 		<h2><?php echo esc_html( $args['label'] ); ?></h2>
-		<span class="qersh-wc-muted"><?php echo esc_html( $args['provider_label'] ); ?> · <?php echo wp_kses( View::ltr( $args['address'] ), View::allowed_html() ); ?></span>
+		<?php // The name and the number customers transfer to; the plugin knows no wallet type. A wallet without a name is called by its number, shown once. ?>
+		<?php if ( $args['named'] ) : ?>
+			<span class="qersh-wc-muted"><?php echo wp_kses( View::ltr( $args['address'] ), View::allowed_html() ); ?></span>
+		<?php endif; ?>
 		<?php if ( ! $args['enabled'] ) : ?>
 			<mark class="qersh-wc-badge"><?php esc_html_e( 'Off at checkout', 'qersh-for-woocommerce' ); ?></mark>
 		<?php endif; ?>

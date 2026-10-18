@@ -2,8 +2,8 @@
 /**
  * Tests of the pure rules behind the review fixes of the admin area: which payer numbers the personal data tools
  * may follow and which transfers the eraser may blank, the policy text's markup, the self-test's response headers
- * and the address the phone last used, the second transaction id drift trigger, attaching to an order created in
- * the admin, and apostrophes in plain-text emails.
+ * and the address the phone last used, the options of the old transaction-id drift, attaching to an order created
+ * in the admin, and apostrophes in plain-text emails.
  *
  * @package QershPay\WooCommerce\Tests
  */
@@ -18,6 +18,7 @@ use QershPay\WooCommerce\Admin\Uninstall;
 use QershPay\WooCommerce\Admin\View;
 use QershPay\WooCommerce\Diagnostics;
 use QershPay\WooCommerce\Privacy;
+use QershPay\WooCommerce\Store\Schema;
 use Yoast\PHPUnitPolyfills\TestCases\TestCase;
 
 defined( 'ABSPATH' ) || exit;
@@ -28,8 +29,6 @@ defined( 'ABSPATH' ) || exit;
 final class ReviewFindingsFixesTest extends TestCase {
 
 	const WALLET = 'k7q2m9x4p1rz';
-
-	const NOW = 1792000000;
 
 	/**
 	 * A transfer row.
@@ -359,88 +358,28 @@ final class ReviewFindingsFixesTest extends TestCase {
 	}
 
 	/*
-	 * Diagnostics: the second transaction id drift trigger.
+	 * Diagnostics: the transaction-id drift of 0.1.0 is gone.
 	 */
 
-	/** Only a run one or two digits longer than the Orange Cash shape counts. */
-	public function test_long_run_ok(): void {
-		$this->assertTrue( Diagnostics::long_run_ok( 'orange_cash', str_repeat( '1', 15 ) ) );
-		$this->assertTrue( Diagnostics::long_run_ok( 'orange_cash', str_repeat( '2', 16 ) ) );
-		foreach ( array( 10, 11, 13, 14, 17, 20 ) as $length ) {
-			$this->assertFalse( Diagnostics::long_run_ok( 'orange_cash', str_repeat( '3', $length ) ), (string) $length );
+	/**
+	 * Nothing counts refused transaction ids any more (the reading no longer depends on a wallet type), but the two
+	 * options 0.1.0 wrote stay in the uninstall list, so an uninstall still removes them from an older store, and the
+	 * upgrade to schema 2 deletes the same two.
+	 */
+	public function test_uninstall_removes_the_old_drift_options(): void {
+		foreach ( array( 'qersh_wc_txn_long', 'qersh_wc_txn_drift' ) as $option ) {
+			$this->assertContains( $option, Uninstall::OPTIONS );
+			$this->assertContains( $option, Schema::OBSOLETE_OPTIONS );
 		}
-		$this->assertFalse( Diagnostics::long_run_ok( 'orange_cash', '25005172944183a' ) );
-		$this->assertFalse( Diagnostics::long_run_ok( 'orange_cash', "250051729441831\n" ) );
-		$this->assertFalse( Diagnostics::long_run_ok( 'vodafone_cash', str_repeat( '1', 15 ) ) );
-	}
-
-	/** Three orders of three payers within a day record the drift; one customer retrying never does. */
-	public function test_txn_long_tally(): void {
-		$v   = '0.1.0';
-		$one = Diagnostics::txn_long_tally( null, 11, 'p1', self::NOW, $v );
-		$this->assertFalse( $one['drift'] );
-		$this->assertSame(
-			array(
-				'version' => $v,
-				'orders'  => array(
-					11 => array(
-						'at'    => self::NOW,
-						'payer' => 'p1',
-					),
-				),
-			),
-			$one['option']
-		);
-
-		$again = Diagnostics::txn_long_tally( $one['option'], 11, 'p1', self::NOW + 5, $v );
-		$again = Diagnostics::txn_long_tally( $again['option'], 11, 'p1', self::NOW + 9, $v );
-		$this->assertFalse( $again['drift'], 'the same order retried' );
-		$this->assertCount( 1, $again['option']['orders'] );
-
-		$same = Diagnostics::txn_long_tally( $one['option'], 12, 'p1', self::NOW + 10, $v );
-		$same = Diagnostics::txn_long_tally( $same['option'], 13, 'p1', self::NOW + 20, $v );
-		$this->assertFalse( $same['drift'], 'one payer on three orders' );
-
-		$two   = Diagnostics::txn_long_tally( $one['option'], 12, 'p2', self::NOW + 10, $v );
-		$three = Diagnostics::txn_long_tally( $two['option'], 13, 'p3', self::NOW + 20, $v );
-		$this->assertTrue( $three['drift'] );
-
-		$late = Diagnostics::txn_long_tally( $two['option'], 13, 'p3', self::NOW + Diagnostics::TXN_LONG_WINDOW + 1, $v );
-		$this->assertFalse( $late['drift'], 'the first refusal left the window' );
-		$this->assertSame( array( 12, 13 ), array_keys( $late['option']['orders'] ) );
-
-		$update = Diagnostics::txn_long_tally( $two['option'], 13, 'p3', self::NOW + 20, '0.1.1' );
-		$this->assertFalse( $update['drift'], 'a record of another version is dropped' );
-		$this->assertSame( array( 13 ), array_keys( $update['option']['orders'] ) );
-
-		$many = array();
-		for ( $i = 1; $i <= 15; $i++ ) {
-			$many = Diagnostics::txn_long_tally( $many['option'] ?? null, 100 + $i, 'p' . $i, self::NOW + $i, $v );
+		foreach ( Schema::OBSOLETE_OPTIONS as $option ) {
+			$this->assertContains( $option, Uninstall::OPTIONS, 'an option the upgrade deletes is still removed by an uninstall' );
 		}
-		$this->assertTrue( $many['drift'] );
-		$this->assertCount( Diagnostics::TXN_LONG_KEEP, $many['option']['orders'] );
-		$this->assertSame( range( 106, 115 ), array_keys( $many['option']['orders'] ), 'the most recent orders are kept' );
-
-		$junk = Diagnostics::txn_long_tally(
-			array(
-				'version' => $v,
-				'orders'  => array(
-					'x' => 1,
-					0   => array( 'at' => self::NOW ),
-				),
-			),
-			20,
-			'p1',
-			self::NOW,
-			$v
-		);
-		$this->assertSame( array( 20 ), array_keys( $junk['option']['orders'] ) );
-	}
-
-	/** Uninstall removes the refusal counter with the other options. */
-	public function test_uninstall_removes_the_refusal_counter(): void {
-		$this->assertContains( Diagnostics::TXN_LONG_OPTION, Uninstall::OPTIONS );
-		$this->assertContains( Diagnostics::DRIFT_OPTION, Uninstall::OPTIONS );
+		foreach ( array( 'TXN_LONG_OPTION', 'DRIFT_OPTION' ) as $constant ) {
+			$this->assertFalse( defined( Diagnostics::class . '::' . $constant ), $constant );
+		}
+		foreach ( array( 'long_run_ok', 'txn_long_tally', 'record_txn_refusal' ) as $method ) {
+			$this->assertFalse( method_exists( Diagnostics::class, $method ), $method );
+		}
 	}
 
 	/*

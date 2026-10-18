@@ -3,7 +3,8 @@
  * The webhook route's answers (docs/17 §4.4, §4.5): 404 for an unknown wallet, 404 then 410 for a deleted one
  * around the 72 hours, 401 for a bad signature and for a wallet without a key, 413 for a body above 64 KB, 400 for
  * a body that is not a qersh.v1 envelope, 429 while the same delivery is being processed, 200 matched, and the
- * stored reply for a repeated delivery.
+ * stored reply for a repeated delivery. The transfer's row keeps the envelope's wallet.provider as information; a
+ * sender named by a handle only is no payer.
  *
  * @package QershPay\WooCommerce\Tests
  */
@@ -21,7 +22,7 @@ class WebhookRouteTest extends TestCase {
 	 * A wallet the store never had: 404 qersh_unknown_wallet, before any signature check.
 	 */
 	public function test_unknown_wallet_is_404(): void {
-		$this->vodafone_wallet();
+		$this->wallet();
 		$response = $this->post_webhook( 'aaaaaaaaaaaa', '{}', null );
 		$this->assertSame( 404, $response->get_status() );
 		$this->assertSame( 'qersh_unknown_wallet', $response->get_data()['code'] );
@@ -31,8 +32,8 @@ class WebhookRouteTest extends TestCase {
 	 * A deleted wallet answers 404 qersh_wallet_deleted until gone_at, then 410 qersh_wallet_gone, without a write.
 	 */
 	public function test_deleted_wallet_is_404_then_410(): void {
-		$kept    = $this->vodafone_wallet();
-		$deleted = $this->orange_wallet();
+		$kept    = $this->wallet( 'Main wallet' );
+		$deleted = $this->wallet( 'Second wallet', '01000000102' );
 
 		$config            = $this->plugin->config_store()->get();
 		$config['wallets'] = array_values(
@@ -69,7 +70,7 @@ class WebhookRouteTest extends TestCase {
 	 * A signature made with another key: 401 qersh_invalid_signature, reason bad_signature.
 	 */
 	public function test_bad_signature_is_401(): void {
-		$wallet = $this->vodafone_wallet();
+		$wallet = $this->wallet();
 		$env    = $this->envelope( 'transfer.received', $wallet, array( 'amount_minor' => 100 ) );
 		$body   = (string) wp_json_encode( $env );
 		$other  = \QershPay\WooCommerce\Core\Config::new_key();
@@ -85,7 +86,7 @@ class WebhookRouteTest extends TestCase {
 	 * A wallet with no usable key: 401 with the reason no_key.
 	 */
 	public function test_wallet_without_a_key_is_401_no_key(): void {
-		$wallet = $this->vodafone_wallet();
+		$wallet = $this->wallet();
 		$key    = $this->keys[ $wallet['id'] ];
 		$this->plugin->secrets()->erase( $wallet['id'] );
 
@@ -100,7 +101,7 @@ class WebhookRouteTest extends TestCase {
 	 * A body above 64 KB: 413 qersh_too_large before the signature is read.
 	 */
 	public function test_body_above_64_kb_is_413(): void {
-		$wallet   = $this->vodafone_wallet();
+		$wallet   = $this->wallet();
 		$body     = '{"pad":"' . str_repeat( 'x', 66000 ) . '"}';
 		$response = $this->post_webhook( $wallet['id'], $body, $this->sign( $body, $wallet['id'] ) );
 		$this->assertSame( 413, $response->get_status() );
@@ -112,7 +113,7 @@ class WebhookRouteTest extends TestCase {
 	 * (rest_invalid_json) before the route runs; the status is the same 400 the phone treats as final.
 	 */
 	public function test_signed_body_that_is_not_json_is_400(): void {
-		$wallet   = $this->vodafone_wallet();
+		$wallet   = $this->wallet();
 		$body     = 'this is not json {';
 		$response = $this->post_webhook( $wallet['id'], $body, $this->sign( $body, $wallet['id'] ) );
 		$this->assertSame( 400, $response->get_status() );
@@ -123,7 +124,7 @@ class WebhookRouteTest extends TestCase {
 	 * Signed JSON that is not a qersh.v1 envelope: 400 qersh_invalid_envelope with the reason.
 	 */
 	public function test_signed_json_that_is_not_an_envelope_is_400(): void {
-		$wallet   = $this->vodafone_wallet();
+		$wallet   = $this->wallet();
 		$body     = '{"schema":"other.v9","event":"transfer.received"}';
 		$response = $this->post_webhook( $wallet['id'], $body, $this->sign( $body, $wallet['id'] ) );
 		$this->assertSame( 400, $response->get_status() );
@@ -136,7 +137,7 @@ class WebhookRouteTest extends TestCase {
 	 * The same delivery while another request still processes it: 429 qersh_busy with Retry-After 30.
 	 */
 	public function test_same_delivery_in_progress_is_429(): void {
-		$wallet = $this->vodafone_wallet();
+		$wallet = $this->wallet();
 		$id     = wp_generate_uuid4();
 		$claim  = $this->plugin->deliveries()->claim( $id, $wallet['id'], 'transfer.received', null, time() );
 		$this->assertSame( 'claimed', $claim['state'] );
@@ -159,7 +160,7 @@ class WebhookRouteTest extends TestCase {
 	 * gets the stored reply and changes nothing.
 	 */
 	public function test_matching_transfer_is_200_matched_and_a_repeat_gets_the_stored_reply(): void {
-		$wallet = $this->vodafone_wallet();
+		$wallet = $this->wallet();
 		$order  = $this->order( $this->product( '140' ) );
 		$this->assertSame( 'success', $this->pay( $order, '01122334455', $wallet['id'] )['result'] );
 
@@ -183,6 +184,7 @@ class WebhookRouteTest extends TestCase {
 		$transfer = $this->plugin->transfers()->get( $sent['envelope']['data']['transfer_id'] );
 		$this->assertSame( 'matched', (string) $transfer['outcome'] );
 		$this->assertSame( $order->get_id(), (int) $transfer['order_id'] );
+		$this->assertSame( (string) $sent['envelope']['wallet']['provider'], (string) $transfer['provider'], 'the envelope\'s wallet type, as information' );
 
 		$again = $this->post_webhook( $wallet['id'], $sent['body'], $this->sign( $sent['body'], $wallet['id'] ) );
 		$this->assertSame( 200, $again->get_status() );
@@ -191,10 +193,39 @@ class WebhookRouteTest extends TestCase {
 	}
 
 	/**
+	 * A sender named by a handle only (no number): no payer key, whatever the handle, so the transfer is payerless.
+	 * With an order of the wallet that fits the amount and no typed id, it waits for the merchant (no_payer), and
+	 * the order keeps waiting.
+	 */
+	public function test_a_sender_named_by_a_handle_only_is_payerless(): void {
+		$wallet = $this->wallet();
+		$order  = $this->order( $this->product( '140' ) );
+		$this->assertSame( 'success', $this->pay( $order, '01122334411', $wallet['id'] )['result'] );
+
+		$sent = $this->deliver(
+			'transfer.received',
+			$wallet,
+			array(
+				'handle'       => 'test.buyer',
+				'amount_minor' => 14000,
+			)
+		);
+		$this->assertSame( 200, $sent['response']->get_status() );
+		$this->assertSame( 'review', $sent['response']->get_data()['status'] );
+		$transfer = $this->plugin->transfers()->get( $sent['envelope']['data']['transfer_id'] );
+		$this->assertSame( 'review', (string) $transfer['outcome'] );
+		$this->assertSame( 'no_payer', (string) $transfer['reason'] );
+		$this->assertNull( $transfer['payer_key'], 'a handle is never a payer key' );
+		$this->assertNotEmpty( $transfer['payer_name'], 'the message still names the sender' );
+		$this->assertNull( $transfer['order_id'] );
+		$this->assertSame( 'open', (string) $this->row( $order->get_id() )['state'] );
+	}
+
+	/**
 	 * GET is not a route: WordPress's own 404 rest_no_route.
 	 */
 	public function test_get_is_not_a_route(): void {
-		$wallet   = $this->vodafone_wallet();
+		$wallet   = $this->wallet();
 		$response = $this->server->dispatch( new \WP_REST_Request( 'GET', '/qersh/v1/webhook/' . $wallet['id'] ) );
 		$this->assertSame( 404, $response->get_status() );
 		$this->assertSame( 'rest_no_route', $response->get_data()['code'] );

@@ -20,7 +20,7 @@ class CompletionTest extends TestCase {
 	 * stock reduction.
 	 */
 	public function test_a_matched_transfer_completes_the_order_once(): void {
-		$wallet  = $this->vodafone_wallet();
+		$wallet  = $this->wallet();
 		$product = $this->product( '140', 10 );
 		$order   = $this->order( $product );
 		$this->assertSame( 'success', $this->pay( $order, '01122334466', $wallet['id'] )['result'] );
@@ -60,7 +60,7 @@ class CompletionTest extends TestCase {
 	 * A repeat of the same delivery after the completion changes nothing.
 	 */
 	public function test_a_repeated_delivery_after_completion_changes_nothing(): void {
-		$wallet  = $this->vodafone_wallet();
+		$wallet  = $this->wallet();
 		$product = $this->product( '100', 5 );
 		$order   = $this->order( $product );
 		$this->assertSame( 'success', $this->pay( $order, '01122334477', $wallet['id'] )['result'] );

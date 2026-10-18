@@ -53,7 +53,7 @@ const TITLES = [
 	'Connect a wallet',
 	'Webhook URL',
 	'Response codes',
-	'Transaction id route (Orange Cash)',
+	'Transaction id route',
 	'Matching',
 	'Order states and deadline',
 	'Configuration',

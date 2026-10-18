@@ -30,7 +30,7 @@ async function leaks(page, secret) {
 }
 
 test('the key link window never puts the key into the page', async ({ page }) => {
-	const w = wallet('vodafone_cash');
+	const w = wallet('main');
 	await page.goto('/wp-admin/admin.php?page=qersh&tab=wallets');
 	const button = page.locator(`[data-qersh-keylink="${w.id}"]`);
 	await expect(button).toBeVisible();

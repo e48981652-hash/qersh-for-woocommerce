@@ -10,7 +10,7 @@ namespace QershPay\WooCommerce;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Every wallet number, InstaPay address, transaction id, masked number or time shown inside Arabic text is isolated
+ * Every wallet number, payer address, transaction id, masked number or time shown inside Arabic text is isolated
  * here first, or the bidi algorithm reverses its groups ("0100 123 4567" would read "4567 123 0100" and a customer
  * would transfer to a wrong number). One function, by context:
  * - `html` (our storefront and admin templates): `<bdi dir="ltr">`;
@@ -109,7 +109,7 @@ final class Format {
 
 	/**
 	 * The display form of a wallet number: `0100 123 4567` (4-3-4, with no-break spaces) for an 11-digit number;
-	 * anything else (an InstaPay address, a transaction id) as it is. Isolate the result. Pure.
+	 * anything else (a transaction id, an address an older row may hold) as it is. Isolate the result. Pure.
 	 *
 	 * @param string $value Normalised number or address.
 	 * @return string
@@ -122,8 +122,8 @@ final class Format {
 	}
 
 	/**
-	 * A masked number: the first four and the last three digits (`0111•••445`); an InstaPay address keeps its first
-	 * two characters and its domain (`ah•••@instapay`). Isolate the result. Pure.
+	 * A masked number: the first four and the last three digits (`0111•••445`); an address (`name@domain`, which an
+	 * older row may hold) keeps its first two characters and its domain (`ah•••@domain`). Isolate the result. Pure.
 	 *
 	 * @param string $value Normalised number or address.
 	 * @return string
@@ -154,7 +154,8 @@ final class Format {
 	}
 
 	/**
-	 * An amount through wc_price(), without decimals when it is whole pounds, as a *9# transfer carries none.
+	 * An amount through wc_price(), without decimals when it is whole pounds, as a wallet transfer made by code
+	 * carries none.
 	 * - `html`: as wc_price() gives it, isolated by its own `<bdi>` (our templates allow it).
 	 * - `note` and `email_html`: that HTML inside the isolating span of isolate(), because wp_kses_post() drops the
 	 *   `<bdi>` of an order note, and not every mail client knows it.

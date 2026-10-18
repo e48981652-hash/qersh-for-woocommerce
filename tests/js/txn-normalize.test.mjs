@@ -1,6 +1,6 @@
 // The JavaScript normaliser of the order page (assets/js/txn-normalize.js) against the vectors Core\TxnId reads
-// (tests/vectors/txn-normalize.json: canonicalTyped() and longRun() against each vector's `expect` and `long_run`), the
-// shapes of fixtures/txn-patterns.json, and the core's normalizePayer.
+// (tests/vectors/txn-normalize.json: canonicalTyped() against each vector's `expect`; no wallet type goes in, so the
+// same reading serves every e-wallet), the cases TxnIdTest reads outside the vectors, and the core's normalizePayer.
 // Then hasRtl() (Format::has_rtl(); FormatTest checks that both tables hold the same code points), and the two places
 // of the order page (assets/js/thankyou.js) that use the normaliser for display, in a small stand-in for the DOM: the
 // deadline's direction, and the "We will send: …" preview of the transaction id. Then the live box of thankyou.js
@@ -26,45 +26,120 @@ test('the vector file is not empty', () => {
 
 for (const v of vectors) {
 	test(`canonicalTyped: ${v.name}`, () => {
-		assert.deepEqual(N.canonicalTyped(v.provider, v.raw, v.payer_key, v.store_numbers), v.expect);
-	});
-	test(`longRun: ${v.name}`, () => {
-		assert.equal(N.longRun(v.provider, v.raw), v.long_run);
+		assert.deepEqual(N.canonicalTyped(v.raw, v.payer_key, v.store_numbers), v.expect);
 	});
 }
 
-test('canonicalTyped and longRun give the same answers with the shapes the page passes from the server', () => {
-	const shapes = {};
-	for (const [provider, spec] of Object.entries(read('../../fixtures/txn-patterns.json').providers)) {
-		shapes[provider] = { pattern: spec.pattern, lengths: spec.lengths, cls: spec.class };
-	}
+test('the vectors carry no wallet type, and one name each', () => {
 	for (const v of vectors) {
-		assert.deepEqual(N.canonicalTyped(v.provider, v.raw, v.payer_key, v.store_numbers, shapes), v.expect, v.name);
-		assert.equal(N.longRun(v.provider, v.raw, shapes), v.long_run, v.name);
+		assert.deepEqual(Object.keys(v), ['name', 'raw', 'payer_key', 'store_numbers', 'expect'], v.name);
+		assert.equal(typeof v.payer_key, 'string', v.name);
+	}
+	assert.equal(new Set(vectors.map((v) => v.name)).size, vectors.length);
+});
+
+test('the exports: one reader for every wallet, no shape table, no long-run reader', () => {
+	for (const name of ['normalizeText', 'normalizePayer', 'numberOf', 'isStoreNumber', 'checkPayer', 'hasRtl', 'canonicalTyped']) {
+		assert.equal(typeof N[name], 'function', name);
+	}
+	assert.equal(N.longRun, undefined);
+	assert.equal(N.SHAPES, undefined);
+	assert.equal(N.canonicalTyped.length, 3, 'canonicalTyped( raw, payerKey, storeNumbers )');
+	assert.deepEqual([N.MIN_ID, N.MAX_ID, N.MAX_LENGTH], [6, 40, 400], 'Core\\TxnId::MIN_ID, MAX_ID, MAX_LENGTH');
+});
+
+const ok = (txn) => ({ ok: true, txn });
+const no = (error) => ({ ok: false, error });
+const ARGS = ['01001234567', ['01212345678']];
+
+test('canonicalTyped never reads a part of a split id, as TxnIdTest reads it', () => {
+	const texts = [
+		'25005172944183',
+		'رقم المعاملة 25005172944183',
+		'2500517294 4183',
+		'رقم المعاملة 2500517294 4183',
+		'رقم المعاملة 2500517294-4183',
+		'رقم المعاملة 2500517294.4183',
+		'رقم المعاملة #2500517294#4183',
+		'رقم المعاملة 2500517294:4183',
+		'رقم المعاملة 2500517294 4183',
+		'رقم المعاملة 2500517294\t4183',
+		'رقم المعاملة 2500517294–4183',
+		'رقم المعاملة ‏2500517294 4183‏.',
+		'رقم المعاملة ٢٥٠٠٥١٧٢٩٤ ٤١٨٣',
+		'رقم المعاملة 2500 5172 9441 83',
+		'رقم المعاملة 2500-5172944183',
+		'رقم المعاملة 2500517 2944183',
+		'Transaction ID: 2500517294 4183.',
+	];
+	for (const text of texts) {
+		assert.deepEqual(N.canonicalTyped(text, ...ARGS), ok('25005172944183'), text);
 	}
 });
 
-test('longRun outside the vectors, as TxnIdTest reads them', () => {
-	assert.equal(N.longRun('orange_cash', null), null);
-	assert.equal(N.longRun('orange_cash', 250072940674051), null, 'a JSON number is never read');
-	assert.equal(N.longRun('orange_cash', ''), null);
-	assert.equal(N.longRun('orange_cash', ' '.repeat(386) + '250072940674051'), null, '401 characters');
-	assert.equal(N.longRun('orange_cash', ' '.repeat(385) + '250072940674051'), '250072940674051');
-	assert.equal(N.longRun('orange_cash', '25007294067405'), null, 'the shape itself');
-	assert.equal(N.longRun('orange_cash', '250072940674051 و 2500729406740512'), '250072940674051');
-	assert.equal(N.longRun('orange_cash', 'رقم 2500517294-418312'), '2500517294418312');
-	assert.equal(N.longRun('orange_cash', '100\n250072940674051'), '250072940674051');
-	assert.equal(N.longRun('orange_cash', '250072940674051-25007294067405123'), '250072940674051');
+test('canonicalTyped joins only one separator on one line, as TxnIdTest reads it', () => {
+	for (const lineBreak of ['\n', '\r\n', '\r', ' ', ' ', '\u000b', '\u000c', '\u001e']) {
+		assert.deepEqual(N.canonicalTyped(`رقم المعاملة 7700031948${lineBreak}913372004518`, ...ARGS), no('qersh_txn_several'), JSON.stringify(lineBreak));
+	}
+	for (const text of ['رقم 25007294067405  913372004518', 'رقم 25007294067405 و 913372004518', 'رقم 25007294067405, 913372004518', 'Ref 25007294067405 or 913372004518']) {
+		assert.deepEqual(N.canonicalTyped(text, ...ARGS), no('qersh_txn_several'), text);
+	}
+	assert.deepEqual(N.canonicalTyped('من 0020 1001234567 فقط', ...ARGS), no('qersh_txn_wallet_number'));
+	for (const text of ['من 121 234 5678 رقم المعاملة 25007294067405', '01001234567 25007294067405', '25007294067405 01212345678', 'من 01001234567-25007294067405']) {
+		assert.deepEqual(N.canonicalTyped(text, ...ARGS), ok('25007294067405'), text);
+	}
 });
 
-test('the built-in shapes equal fixtures/txn-patterns.json', () => {
-	const fixture = read('../../fixtures/txn-patterns.json').providers;
-	assert.deepEqual(Object.keys(N.SHAPES).sort(), Object.keys(fixture).sort());
-	for (const [provider, spec] of Object.entries(fixture)) {
-		assert.equal(N.SHAPES[provider].pattern, spec.pattern, provider);
-		assert.deepEqual(N.SHAPES[provider].lengths, spec.lengths, provider);
-		assert.equal(N.SHAPES[provider].cls, spec.class, provider);
+test('canonicalTyped never reads dates, times, amounts or links, as TxnIdTest reads them', () => {
+	const noise = [
+		'18-10-26', '18/10/2026', '2026-10-18', '14:35', '09:15:42', '150.00 جنيه', '125000.00', '125000,50', '125000 جنيه',
+		'125000 جنية', '125000 ج.م', '125000 EGP', '125000EGP', '125000 LE', 'https://short.example/Ab12Cd34',
+		'www.short.example/x9y8z7w6',
+	];
+	for (const text of noise) {
+		assert.deepEqual(N.canonicalTyped(`رسالة ${text}`, ...ARGS), no('qersh_txn_format'), text);
+		assert.deepEqual(N.canonicalTyped(`رقم العملية 913372004518 ${text}`, ...ARGS), ok('913372004518'), text);
+		assert.deepEqual(N.canonicalTyped(`${text} رقم العملية 913372004518`, ...ARGS), ok('913372004518'), text);
 	}
+	assert.deepEqual(N.canonicalTyped('Ref 913372004518 LEFT', ...ARGS), ok('913372004518'));
+});
+
+test('canonicalTyped handles odd input, as TxnIdTest reads it', () => {
+	assert.deepEqual(N.canonicalTyped(undefined), no('qersh_txn_empty'));
+	assert.deepEqual(N.canonicalTyped(['25007294067405']), no('qersh_txn_format'));
+	assert.deepEqual(N.canonicalTyped(2.5007294067405e13), no('qersh_txn_format'));
+	assert.deepEqual(N.canonicalTyped(true), no('qersh_txn_format'));
+	assert.deepEqual(N.canonicalTyped({ txn: '25007294067405' }), no('qersh_txn_format'));
+	assert.deepEqual(N.canonicalTyped('�'.repeat(401)), no('qersh_txn_too_long'));
+	assert.deepEqual(N.canonicalTyped('�25007294067405'), ok('25007294067405'));
+	// The defaults, and a null payer key as the page may pass it.
+	assert.deepEqual(N.canonicalTyped('1001234567'), ok('1001234567'));
+	assert.deepEqual(N.canonicalTyped('1001234567', null, null), ok('1001234567'));
+	assert.deepEqual(N.canonicalTyped('01001234567'), no('qersh_txn_wallet_number'));
+	assert.deepEqual(N.canonicalTyped('25007294067405', '', [null, 7, '', 'shop@instapay']), ok('25007294067405'));
+	assert.deepEqual(N.canonicalTyped('shop', 'shop@instapay', ['shop@instapay']), no('qersh_txn_format'));
+	assert.deepEqual(N.canonicalTyped('1212345678', '', ['+20 121 234 5678']), no('qersh_txn_wallet_number'));
+});
+
+test('a typed id is the canonical form the server stores, whatever the wallet', () => {
+	for (const id of ['25007294067405', '7700031948', '913372004518', '250046173830512', '0012345678', 'a1b2c3d4e5']) {
+		const stored = id.toUpperCase(); // Core\TxnId::canonical_stored() of the same id (TxnIdTest)
+		const spaced = id.match(/.{1,4}/g).join(' ');
+		for (const text of [id, ` #${id}. `, spaced, id.toUpperCase(), `رقم العملية ${id}.`, `Transaction ID: ${spaced}`]) {
+			assert.deepEqual(N.canonicalTyped(text, ...ARGS), ok(stored), text);
+		}
+	}
+});
+
+test('normalizeText: steps 2 and 3 of Core\\TxnId', () => {
+	assert.equal(N.normalizeText('٢٥٠٠۷٢٩'), '2500729');
+	assert.equal(N.normalizeText('‏25ـ007​2﻿'), '250072');
+	assert.equal(N.normalizeText('a b\tc　d'), 'a b c d');
+	assert.equal(N.normalizeText('a\r\nb c\u000bd'), 'a\n\nb\nc\nd');
+	assert.equal(N.normalizeText('1–2—3−4－5：6．7＃8٫9،'), '1-2-3-4-5:6.7#8.9,');
+	assert.equal(N.normalizeText('Ref AB12'), 'Ref AB12', 'Latin text and case stay');
+	assert.equal(N.normalizeText(null), '');
+	assert.equal(N.normalizeText(undefined), '');
 });
 
 test('normalizePayer equals the core normalizePayer', () => {
@@ -79,19 +154,26 @@ test('normalizePayer equals the core normalizePayer', () => {
 	}
 });
 
-test('checkPayer: numbers, InstaPay addresses and the store number by its last nine digits', () => {
+test('numberOf, isStoreNumber and checkPayer: wallet numbers in any spelling, the store number by its last nine digits, no address', () => {
 	const store = ['01212345678', 'shop@instapay'];
-	assert.deepEqual(N.checkPayer('٠١٠٠١٢٣٤٥٦٧', false, store), { ok: true, payer: '01001234567' });
-	assert.deepEqual(N.checkPayer('+20 100 123 4567', false, store), { ok: true, payer: '01001234567' });
-	assert.deepEqual(N.checkPayer('ahmed@instapay', false, store), { ok: false, error: 'payer_invalid' });
-	assert.deepEqual(N.checkPayer('ahmed@instapay', true, store), { ok: true, payer: 'ahmed@instapay' });
-	assert.deepEqual(N.checkPayer('shop@instapay', true, store), { ok: false, error: 'payer_store' });
-	assert.deepEqual(N.checkPayer('01212345678', false, store), { ok: false, error: 'payer_store' });
-	assert.deepEqual(N.checkPayer('+20 121 234 5678', false, store), { ok: false, error: 'payer_store' });
-	assert.deepEqual(N.checkPayer('01512345678', false, store), { ok: true, payer: '01512345678' });
-	assert.deepEqual(N.checkPayer('01001234567', false, ['1001234567']), { ok: false, error: 'payer_store' });
-	assert.deepEqual(N.checkPayer('0101234567', false, store), { ok: false, error: 'payer_invalid' });
-	assert.deepEqual(N.checkPayer('', false, store), { ok: false, error: 'payer_invalid' });
+	assert.equal(N.checkPayer.length, 2, 'checkPayer( raw, storeNumbers ): no switch for addresses');
+	assert.deepEqual(N.checkPayer('٠١٠٠١٢٣٤٥٦٧', store), { ok: true, payer: '01001234567' });
+	assert.deepEqual(N.checkPayer('+20 100 123 4567', store), { ok: true, payer: '01001234567' });
+	// An e-wallet store takes a wallet number only, never an address or a bare name, as PayerField::check().
+	for (const raw of ['ahmed@instapay', 'Ahmed@InstaPay', 'ahmed', 'shop@instapay', '0111***3445', '0101234567', '', null, undefined]) {
+		assert.deepEqual(N.checkPayer(raw, store), { ok: false, error: 'payer_invalid' }, String(raw));
+		assert.equal(N.numberOf(raw), null, String(raw));
+	}
+	assert.deepEqual(N.checkPayer('01212345678', store), { ok: false, error: 'payer_store' });
+	assert.deepEqual(N.checkPayer('+20 121 234 5678', store), { ok: false, error: 'payer_store' });
+	assert.deepEqual(N.checkPayer('01512345678', store), { ok: true, payer: '01512345678' });
+	assert.deepEqual(N.checkPayer('01001234567', ['1001234567']), { ok: false, error: 'payer_store' });
+	assert.deepEqual(N.checkPayer('01001234567'), { ok: true, payer: '01001234567' }, 'no store numbers');
+	assert.equal(N.numberOf('0020 100 123 4567'), '01001234567');
+	// A store "number" that is an address never matches, and an address is never a store number.
+	assert.equal(N.isStoreNumber('shop@instapay', store), false);
+	assert.equal(N.isStoreNumber('01212345678', ['shop@instapay', 7, null]), false);
+	assert.equal(N.isStoreNumber('01212345678', store), true);
 });
 
 // The file as a browser runs it: a plain script in a window.
@@ -189,13 +271,13 @@ function thankyouPage(lang) {
 		slow: 60,
 		fast_for: 1200,
 		status: 'waiting',
-		orange: true,
+		txn_box: true,
 		txn_open: true,
 		claim: false,
 		urls: {},
 		lines: { waiting: 'Waiting for your transfer…' },
 		strings: { will_send: 'We will send: %s', txn_errors: {} },
-		txn: { provider: 'orange_cash', payer_key: '01001234567', store_numbers: ['01212345678'] },
+		txn: { payer_key: '01001234567', store_numbers: ['01212345678'] },
 	});
 	const doc = {
 		hidden: false,
@@ -230,27 +312,41 @@ test('thankyou.js: a deadline written with Arabic words is isolated by its first
 });
 
 test('thankyou.js: a pasted message shows the id that will be sent, isolated left to right; the id as typed shows nothing', () => {
-	const message = vectors.find((v) => v.name === 'advert block before C1');
-	assert.ok(message && message.expect.ok, 'the vector of a whole message');
-	const page = thankyouPage('ar');
-	page.input.listeners.paste[0]({ clipboardData: { getData: () => message.raw }, preventDefault() {} });
-	assert.equal(page.msg.textContent, `We will send: ${message.expect.txn}`);
-	const id = page.msg.children.find((c) => c.tagName === 'BDI');
-	assert.ok(id, 'the id is in its own element');
-	assert.equal(id.getAttribute('dir'), 'ltr');
-	assert.equal(id.textContent, message.expect.txn);
+	for (const name of ['advert block before C1', 'Vodafone Cash style, English', 'e& money style, Arabic, date and time with seconds']) {
+		const message = vectors.find((v) => v.name === name);
+		assert.ok(message && message.expect.ok, `the vector of a whole message: ${name}`);
+		const page = thankyouPage('ar');
+		// The script takes over a paste with line breaks; any other paste is the browser's own, then an input event.
+		let taken = false;
+		page.input.listeners.paste[0]({ clipboardData: { getData: () => message.raw }, preventDefault() { taken = true; } });
+		if (!taken) {
+			page.input.value = message.raw;
+			page.input.listeners.input[0]();
+		}
+		assert.equal(taken, /\n/.test(message.raw), name);
+		assert.equal(page.msg.textContent, `We will send: ${message.expect.txn}`, name);
+		const id = page.msg.children.find((c) => c.tagName === 'BDI');
+		assert.ok(id, 'the id is in its own element');
+		assert.equal(id.getAttribute('dir'), 'ltr');
+		assert.equal(id.textContent, message.expect.txn);
+	}
 
-	page.input.value = message.expect.txn;
+	const page = thankyouPage('ar');
+	page.input.value = '913372004518';
 	page.input.listeners.input[0]();
 	assert.equal(page.msg.textContent, '', 'nothing to preview for the id itself');
 
-	page.input.value = '2500729406';
+	page.input.value = '9133720';
 	page.input.listeners.input[0]();
 	assert.equal(page.msg.textContent, '', 'nothing while it is typed');
 
-	page.input.value = `  ${message.expect.txn.slice(0, 4)} ${message.expect.txn.slice(4)}`;
+	page.input.value = '  9133 7200 4518';
 	page.input.listeners.input[0]();
-	assert.equal(page.msg.textContent, `We will send: ${message.expect.txn}`);
+	assert.equal(page.msg.textContent, 'We will send: 913372004518');
+
+	page.input.value = 'a1b2c3d4';
+	page.input.listeners.input[0]();
+	assert.equal(page.msg.textContent, 'We will send: A1B2C3D4', 'the id in upper case, as the server stores it');
 
 	page.input.value = 'abc';
 	page.input.listeners.input[0]();
@@ -388,8 +484,7 @@ function dom() {
 const T0 = 1792330500 - 7200;
 const LINES = {
 	waiting: 'Waiting for your transfer…',
-	waiting_decision: 'Waiting for the store to confirm that your transfer arrived…',
-	saved: 'We have your transaction id. Your order is confirmed once the store matches your transfer; do not transfer again.',
+	saved:'We have your transaction id. Your order is confirmed once the store matches your transfer; do not transfer again.',
 	paid: 'Your transfer arrived and your order is confirmed.',
 	partial: 'Part of the amount arrived. Send the rest from the same number before the deadline.',
 	review: 'We are checking your transfer and will let you know.',
@@ -422,14 +517,13 @@ function cfgOf(extra = {}) {
 		fast_for: 1200,
 		nudge_at: T0 + 900,
 		status: 'waiting',
-		decision: false,
-		orange: false,
+		txn_box: false,
 		txn_open: false,
 		claim: false,
 		urls: { status: '/status', txn: '/txn', status_fallback: '/status-fb', txn_fallback: '/txn-fb' },
 		lines: LINES,
 		strings: STRINGS,
-		txn: { provider: 'vodafone_cash', payer_key: '01112223334', store_numbers: [] },
+		txn: { payer_key: '01112223344', store_numbers: ['01001234567'] },
 		...extra,
 	};
 }
@@ -447,9 +541,9 @@ function livePage({ cfg, answers, stored = {} }) {
 	const time = el('bdi', { dir: 'ltr', 'data-qersh-time': String(cfg.deadline) }, '4:35 PM');
 	const before = el('li', { class: 'qersh-line qersh-line--before', 'data-qersh-left': '' }, 'Before: ', el('strong', {}, time), ' Cairo time (within 2 hours)');
 	const list = el('ul', { 'data-qersh-pending': '' }, amount, to, before);
-	const confirm = el('p', { class: 'qersh-confirm', 'data-qersh-pending': '' }, 'Your order is confirmed on its own when your transfer arrives, usually within minutes.');
-	const input = el('input', { id: 'qersh_txn', type: 'text' });
-	const txn = cfg.orange ? el('section', { 'data-qersh-txn': '' }, el('div', { 'data-qersh-txn-form': '', hidden: true }, input, el('button', { 'data-qersh-txn-send': '' }), el('span', { 'data-qersh-txn-msg': '' }))) : null;
+	const confirm = el('p', { class: 'qersh-confirm', 'data-qersh-pending': '' }, 'Your order is confirmed once your transfer reaches the store.');
+	const input = el('input', { id: 'qersh_txn', type: 'text', inputmode: 'text', autocapitalize: 'characters' });
+	const txn = cfg.txn_box ? el('section', { 'data-qersh-txn': '' }, el('div', { 'data-qersh-txn-form': '', hidden: true }, input, el('button', { 'data-qersh-txn-send': '' }), el('span', { 'data-qersh-txn-msg': '' }))) : null;
 	const status = el('p', { 'data-qersh-status': '' }, LINES.waiting);
 	const nudge = el('p', { 'data-qersh-nudge': '', hidden: true });
 	const said = el('span', { class: 'qersh-sr', 'data-qersh-copy-msg': '' });
@@ -541,7 +635,7 @@ test('thankyou.js: partial without a reload: the whole-order amount and its copy
 });
 
 test('thankyou.js: no reload while the customer has an unsent transaction id in the field', async () => {
-	const p = livePage({ cfg: cfgOf({ orange: true, txn_open: true }), answers: () => ({ status: 'partial', claim: false }) });
+	const p = livePage({ cfg: cfgOf({ txn_box: true, txn_open: true }), answers: () => ({ status: 'partial', claim: false }) });
 	p.input.value = '2500023';
 	await p.advance(16);
 	assert.equal(p.location.reloads, 0);
@@ -550,7 +644,7 @@ test('thankyou.js: no reload while the customer has an unsent transaction id in 
 
 test('thankyou.js: review and expired hide the transfer lines; review also hides the transaction-id section', async () => {
 	for (const [next, txnHidden] of [['review', true], ['expired', false], ['cancelled', true], ['paid', true]]) {
-		const p = livePage({ cfg: cfgOf({ orange: true, txn_open: true }), answers: () => ({ status: next, claim: false }) });
+		const p = livePage({ cfg: cfgOf({ txn_box: true, txn_open: true }), answers: () => ({ status: next, claim: false }) });
 		await p.advance(16);
 		assert.equal(p.status.textContent.replace(/ ✓$/, ''), LINES[next], next);
 		assert.equal(p.list.hidden, true, `${next}: no amount or number to send to`);
@@ -562,9 +656,9 @@ test('thankyou.js: review and expired hide the transfer lines; review also hides
 	assert.equal(p.list.hidden, false);
 });
 
-test('thankyou.js: the live region is written only when the status or the claim changes (Orange answers carry claim)', async () => {
+test('thankyou.js: the live region is written only when the status or the claim changes (answers carry claim while the transaction-id box is open)', async () => {
 	let answer = { status: 'waiting', claim: false };
-	const p = livePage({ cfg: cfgOf({ orange: true, txn_open: true }), answers: () => answer });
+	const p = livePage({ cfg: cfgOf({ txn_box: true, txn_open: true }), answers: () => answer });
 	await p.advance(15 * 5 + 1);
 	assert.ok(p.calls.length >= 4, `polled ${p.calls.length} times`);
 	assert.equal(p.status.writes, 0, 'the same answer again writes nothing');
@@ -634,18 +728,28 @@ test('thankyou.js: a copy is said in the live region, and said again on the next
 	assert.equal(button.textContent, 'Copy');
 });
 
-test('thankyou.js: a refused id one or two digits longer than the shape is sent alone, so the server counts it; other refusals stay on the page', async () => {
-	const errors = { qersh_txn_format: 'Not a transaction id', qersh_txn_wallet_number: 'A wallet number', other: 'Try again' };
+test('thankyou.js: a refused text stays on the page with its message; only an id read leaves it, alone', async () => {
+	const errors = {
+		qersh_txn_empty: 'Enter the transaction id',
+		qersh_txn_too_long: 'Paste the transaction id alone',
+		qersh_txn_format: 'Not a transaction id',
+		qersh_txn_wallet_number: 'A wallet number, not a transaction id',
+		qersh_txn_several: 'More than one transaction id',
+		other: 'Try again',
+	};
 	const flush = async () => {
 		for (let i = 0; i < 6; i++) await new Promise((r) => setImmediate(r));
 	};
 	let p = null;
-	const answers = () => (p && p.calls.at(-1).url === '/txn' ? { code: 'qersh_txn_format', message: 'm' } : { status: 'waiting', claim: false });
+	const answers = () => {
+		const last = p && p.calls.at(-1);
+		return last && last.url === '/txn' ? { status: 'saved', txn: last.body.txn } : { status: 'waiting', claim: false };
+	};
 	p = livePage({
 		cfg: cfgOf({
-			orange: true,
+			txn_box: true,
 			txn_open: true,
-			txn: { provider: 'orange_cash', payer_key: '01001234567', store_numbers: ['01212345678'] },
+			txn: { payer_key: '01001234567', store_numbers: ['01212345678'] },
 			strings: { ...STRINGS, txn_errors: errors },
 		}),
 		answers,
@@ -653,46 +757,54 @@ test('thankyou.js: a refused id one or two digits longer than the shape is sent 
 	const send = p.txn.querySelector('[data-qersh-txn-send]');
 	const msg = p.txn.querySelector('[data-qersh-txn-msg]');
 	const sent = () => p.calls.filter((c) => c.url === '/txn').map((c) => c.body);
-
-	// A pasted message whose id is 15 digits (format), and one with the sender's number (wallet number): only the
-	// long number leaves the page, and the server's refusal is shown.
-	for (const name of ['longer id: C1 with a 15-digit id', "longer id: C2 with a 15-digit id (the sender's 0020 number left out, so a wallet number)"]) {
+	const raw = (name) => {
 		const v = vectors.find((x) => x.name === name);
-		assert.ok(v && v.long_run, name);
-		p.input.value = v.raw;
+		assert.ok(v, name);
+		return v.raw;
+	};
+
+	// Every refusal of the reader, a pasted message among them: nothing of it is sent.
+	const refused = [
+		['', 'qersh_txn_empty'],
+		['x'.repeat(401), 'qersh_txn_too_long'],
+		['91337', 'qersh_txn_format'],
+		[raw('a message without an id'), 'qersh_txn_format'],
+		['01001234567', 'qersh_txn_wallet_number'],
+		[raw("order's number in a sentence"), 'qersh_txn_wallet_number'],
+		[raw('two messages pasted together'), 'qersh_txn_several'],
+	];
+	for (const [text, code] of refused) {
+		p.input.value = text;
 		send.listeners.click[0]();
 		await flush();
-		assert.deepEqual(sent().at(-1), { order_id: 9, key: 'wc_order_k', txn: v.long_run }, name);
-		assert.equal(msg.textContent, errors.qersh_txn_format, name);
+		assert.equal(sent().length, 0, code);
+		assert.equal(msg.textContent, errors[code], code);
 		assert.equal(msg.getAttribute('role'), 'alert');
+		assert.equal(p.input.getAttribute('aria-invalid'), 'true');
 		assert.equal(send.disabled, false);
 	}
-	assert.equal(sent().length, 2);
 
-	// Refusals without such a number are not sent.
-	for (const [raw, code] of [['2500729406114', 'qersh_txn_format'], ['25007294067405123', 'qersh_txn_format'], ['002001001234567', 'qersh_txn_wallet_number'], ['', 'qersh_txn_empty']]) {
-		p.input.value = raw;
-		send.listeners.click[0]();
-		await flush();
-		assert.equal(sent().length, 2, raw);
-		assert.equal(msg.textContent, errors[code] || errors.other, raw);
-	}
+	// A pasted message of any wallet: the id alone goes, never the sender's number, name or balance.
+	p.input.value = raw('Vodafone Cash style, English');
+	send.listeners.click[0]();
+	await flush();
+	assert.deepEqual(sent(), [{ order_id: 9, key: 'wc_order_k', txn: '913372004518' }]);
+	assert.equal(p.input.value, '913372004518', 'the field shows the id the server saved');
+	assert.equal(msg.textContent, '');
+	assert.equal(p.status.textContent, LINES.saved);
 });
 
-// ---- payer-field.js: the classic checkout's field, as templates/checkout/payer-field.php draws it.
+// ---- payer-field.js: the classic checkout's field, as templates/checkout/payer-field.php draws it: a wallet number
+// only, with one help line, whatever the wallets.
 
 const MSG = {
 	invalid: 'Enter an Egyptian wallet number of 11 digits starting with 01.',
 	store: "This is the store's wallet number. Enter the wallet number you will transfer from.",
 	choice: 'Choose the wallet you will transfer to.',
 };
-const HELP = {
-	auto: 'We recognize your transfer by this number, so send it from this number only.',
-	decision: 'Enter the number you will transfer from, so the store can check your transfer more easily.',
-	instapay: 'Enter the InstaPay address you will transfer from, so the store can check your transfer more easily.',
-};
+const HELP = 'Transfer from this number, so the store can match your transfer to your order.';
 
-function classicField({ value = '01112223334', instapay = false, walletError = true, kept = false, checked = '' } = {}) {
+function classicField({ value = '01112223344', walletError = true, checked = '', phone = null } = {}) {
 	const { doc, el } = dom();
 	const handlers = {};
 	const $ = (target) => ({
@@ -701,40 +813,29 @@ function classicField({ value = '01112223334', instapay = false, walletError = t
 			return this;
 		},
 	});
-	const wallets = [['aaaaaaaaaaa1', '0', '0'], ['bbbbbbbbbbb2', '1', '0']];
-	if (instapay) wallets.push(['ccccccccccc3', '1', '1']);
-	const radios = wallets.map(([id, decision, insta]) => el('input', { type: 'radio', class: 'input-radio', name: 'qersh_wallet', id: `qersh_wallet_${id}`, value: id, 'data-decision': decision, 'data-instapay': insta, checked: id === checked }));
+	const radios = ['aaaaaaaaaaa1', 'bbbbbbbbbbb2'].map((id) => el('input', { type: 'radio', class: 'input-radio', name: 'qersh_wallet', id: `qersh_wallet_${id}`, value: id, checked: id === checked }));
 	const group = el('fieldset', { class: 'qersh-wallets', id: 'qersh_wallets', role: 'radiogroup', 'aria-required': 'true' }, ...radios.map((r) => el('div', { class: 'qersh-wallet' }, r)));
 	if (walletError) group.appendChild(el('span', { class: 'qersh-error', id: 'qersh_wallet_error', role: 'alert', hidden: true }));
-	const kindNumber = el('input', { type: 'radio', name: 'qersh_payer_kind', id: 'qersh_payer_kind_number', value: 'number', checked: true });
-	const kindInsta = el('input', { type: 'radio', name: 'qersh_payer_kind', id: 'qersh_payer_kind_instapay', value: 'instapay' });
-	const payer = el('input', { type: 'text', class: 'input-text', id: 'qersh_payer', name: 'qersh_payer', value });
-	const help = el('span', { class: 'qersh-help', id: 'qersh_payer_help' }, HELP.auto);
+	const payer = el('input', { type: 'text', class: 'input-text', id: 'qersh_payer', name: 'qersh_payer', dir: 'ltr', inputmode: 'numeric', autocomplete: 'tel', value });
+	const help = el('span', { class: 'qersh-help', id: 'qersh_payer_help' }, HELP);
 	const error = el('span', { class: 'qersh-error', id: 'qersh_payer_error', role: 'alert', hidden: true });
-	const row = el('p', { class: 'form-row form-row-wide qersh-payer__row' }, el('span', { 'data-qersh-payer-label': '' }, 'Wallet number you will transfer from'), payer, help, error);
-	const rootAttrs = {
+	const row = el('p', { class: 'form-row form-row-wide qersh-payer__row' }, el('label', { for: 'qersh_payer' }, 'Wallet number you will transfer from'), payer, help, error);
+	const root = el('div', {
+		class: 'qersh-payer',
 		'data-qersh-payer': '',
-		'data-instapay': instapay ? '1' : '0',
-		'data-all-decision': '0',
 		'data-store-numbers': JSON.stringify(['01001234567', '01201234567']),
 		'data-msg-invalid': MSG.invalid,
 		'data-msg-store': MSG.store,
 		'data-msg-choice': MSG.choice,
-		'data-label-number': 'Wallet number you will transfer from',
-		'data-label-instapay': 'InstaPay address you will transfer from',
-		'data-help-auto': HELP.auto,
-		'data-help-decision': HELP.decision,
-		'data-help-instapay': HELP.instapay,
-	};
-	if (kept) rootAttrs['data-kind-chosen'] = '1';
-	const root = el('div', { class: 'qersh-payer', ...rootAttrs }, group, ...(instapay ? [el('fieldset', { class: 'qersh-kind' }, kindNumber, kindInsta)] : []), row);
+	}, group, row);
+	if (phone !== null) doc.body.appendChild(el('input', { type: 'tel', id: 'billing_phone', value: phone }));
 	doc.body.appendChild(root);
 
 	const ctx = vm.createContext({ document: doc, qershWcNormalize: N, jQuery: $ });
 	ctx.window = ctx;
 	vm.runInContext(readFileSync(new URL('../../assets/js/payer-field.js', import.meta.url), 'utf8'), ctx);
 	return {
-		doc, group, radios, payer, help, error, row, kindNumber, kindInsta,
+		doc, group, radios, payer, help, error, row,
 		walletError: doc.getElementById('qersh_wallet_error'),
 		place: () => handlers['form.checkout|checkout_place_order_qersh'](),
 		choose(i) {
@@ -784,24 +885,35 @@ test('payer-field.js: a theme copy without the wallet error place shows it under
 	assert.equal(f.error.hidden, true);
 });
 
-test('payer-field.js: the help line follows the InstaPay switch', () => {
-	const f = classicField({ value: '', instapay: true });
-	assert.equal(f.help.textContent, HELP.auto, 'no wallet chosen: the line of all the wallets (one confirms on its own)');
-	f.choose(0);
-	assert.equal(f.help.textContent, HELP.auto);
-	f.choose(2);
-	assert.equal(f.kindInsta.checked, true, 'the switch follows the InstaPay wallet');
-	assert.equal(f.help.textContent, HELP.instapay);
-	f.kindNumber.checked = true;
-	f.kindInsta.checked = false;
-	f.doc.fire('change', { target: f.kindNumber });
-	assert.equal(f.help.textContent, HELP.decision, 'a number to an InstaPay wallet waits for the store');
+test('payer-field.js: one help line and a number field whatever the wallet; an address or a name is refused', () => {
+	const f = classicField({ value: '' });
+	assert.equal(f.help.textContent, HELP, 'no wallet chosen');
+	for (const i of [0, 1, 0]) {
+		f.choose(i);
+		assert.equal(f.help.textContent, HELP, `wallet ${i}`);
+		assert.equal(f.payer.getAttribute('inputmode'), 'numeric', `wallet ${i}`);
+	}
+	for (const value of ['ahmed@instapay', 'ahmed', '0111****344']) {
+		f.payer.value = value;
+		assert.equal(f.place(), false, value);
+		assert.equal(f.error.textContent, MSG.invalid, value);
+		assert.equal(f.payer.getAttribute('aria-invalid'), 'true', value);
+	}
+	f.payer.value = '0120 123 4567';
+	assert.equal(f.place(), false);
+	assert.equal(f.error.textContent, MSG.store, "the store's own number");
+	f.payer.value = '+20 111 222 3344';
+	assert.equal(f.place(), true);
+	assert.equal(f.payer.value, '01112223344', 'normalised before it is sent');
+	assert.equal(f.error.hidden, true);
 });
 
-test('payer-field.js: "Pay for order" with the payer the order has keeps the switch where the server put it', () => {
-	const f = classicField({ value: '01112223334', instapay: true, kept: true, checked: 'ccccccccccc3' });
-	assert.equal(f.kindNumber.checked, true, 'a kept number on an InstaPay wallet stays a number');
-	assert.equal(f.payer.value, '01112223334');
-	const g = classicField({ value: '', instapay: true, checked: 'ccccccccccc3' });
-	assert.equal(g.kindInsta.checked, true, 'without a kept payer the switch follows the wallet');
+test('payer-field.js: the billing phone fills an empty field with a wallet number only; a payer the order has stays', () => {
+	assert.equal(classicField({ value: '', phone: '+20 111 222 3344' }).payer.value, '01112223344');
+	assert.equal(classicField({ value: '', phone: '0100 123 4567' }).payer.value, '', 'a store number is never filled in');
+	assert.equal(classicField({ value: '', phone: 'ahmed@instapay' }).payer.value, '', 'nor an address');
+	const kept = classicField({ value: '01112223344', phone: '01551234567', checked: 'bbbbbbbbbbb2' });
+	assert.equal(kept.payer.value, '01112223344', '"Pay for order" with the payer the order has');
+	kept.choose(0);
+	assert.equal(kept.payer.value, '01112223344', 'another wallet keeps it');
 });

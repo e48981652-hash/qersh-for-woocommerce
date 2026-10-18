@@ -62,7 +62,7 @@ final class TransfersTest extends TestCase {
 			'amount_minor'    => 15000,
 			'currency'        => 'EGP',
 			'payer_key'       => null,
-			'provider_txn_id' => '12345678901234',
+			'provider_txn_id' => '250046173830512',
 			'money_at'        => self::NOW - 30,
 			'risk_reasons'    => array(),
 			'auto_confirm_ok' => true,
@@ -70,14 +70,61 @@ final class TransfersTest extends TestCase {
 		);
 	}
 
-	/** INSERT IGNORE: true for a new row, false for one that exists. */
+	/**
+	 * The column => value pairs of an INSERT the fake recorded (the values of row() hold no comma).
+	 *
+	 * @param string $sql The prepared INSERT.
+	 * @return array<string, string> Each value as written in the SQL.
+	 */
+	private static function inserted( string $sql ): array {
+		self::assertSame( 1, preg_match( '/^INSERT IGNORE INTO `wp_qersh_transfers` \(([^)]*)\) VALUES \((.*)\)$/s', $sql, $m ), $sql );
+		$columns = explode( ', ', $m[1] );
+		$values  = explode( ', ', $m[2] );
+		self::assertCount( count( $columns ), $values, $sql );
+		return array_combine( $columns, $values );
+	}
+
+	/** INSERT IGNORE: true for a new row, false for one that exists. The envelope's wallet type is stored as it came. */
 	public function test_insert(): void {
 		$this->wpdb->on( '/^INSERT IGNORE INTO `wp_qersh_transfers`/', 1 );
 		$this->wpdb->on( '/^INSERT IGNORE INTO `wp_qersh_transfers`/', 0 );
 		$store = new Transfers();
 		$this->assertTrue( $store->insert( $this->row() ) );
 		$this->assertFalse( $store->insert( $this->row() ) );
-		$this->assertStringContainsString( "payer_key, provider_txn_id, money_at, risk_reasons, auto_confirm_ok, created_at, updated_at) VALUES ('" . self::TRF . "', 'k7q2m9x4p1rz', 'orange_cash', '0b9a4c1e-7d3f-4c2a-9e1b-5f6a7b8c9d0e', 15000, 'EGP', NULL, '12345678901234', " . ( self::NOW - 30 ) . ", '[]', 1, " . self::NOW . ', ' . self::NOW . ')', $this->wpdb->queries[0] );
+		$this->assertStringContainsString( "payer_key, provider_txn_id, money_at, risk_reasons, auto_confirm_ok, created_at, updated_at) VALUES ('" . self::TRF . "', 'k7q2m9x4p1rz', 'orange_cash', '0b9a4c1e-7d3f-4c2a-9e1b-5f6a7b8c9d0e', 15000, 'EGP', NULL, '250046173830512', " . ( self::NOW - 30 ) . ", '[]', 1, " . self::NOW . ', ' . self::NOW . ')', $this->wpdb->queries[0] );
+	}
+
+	/**
+	 * The wallet type is not required (schema 2): a row without it is inserted with '' written out, never left to
+	 * the column's default (a store upgraded from schema 1 on the SQLite drop-in keeps the column without one, and
+	 * INSERT IGNORE would skip the row there), and an empty or unknown value is stored as it is.
+	 */
+	public function test_insert_without_provider(): void {
+		$this->assertNotContains( 'provider', Transfers::REQUIRED );
+		$this->wpdb->on( '/^INSERT IGNORE/', 1, '', true );
+
+		foreach ( array( 'left out', 'null' ) as $i => $how ) {
+			$row = $this->row();
+			if ( 'null' === $how ) {
+				$row['provider'] = null;
+			} else {
+				unset( $row['provider'] );
+			}
+			$this->assertTrue( ( new Transfers() )->insert( $row ), $how );
+			$this->assertSame( "''", self::inserted( $this->wpdb->queries[ $i ] )['provider'] ?? 'missing', $how );
+		}
+
+		$stored = array(
+			array( '', '' ),
+			array( 'a_new_wallet_type', 'a_new_wallet_type' ),
+			array( 'a_wallet_type_longer_than_its_column_holds', 'a_wallet_type_longer_than_its_co' ), // Cut, never refused.
+		);
+		foreach ( $stored as $i => $case ) {
+			$row             = $this->row();
+			$row['provider'] = $case[0];
+			$this->assertTrue( ( new Transfers() )->insert( $row ) );
+			$this->assertStringContainsString( "VALUES ('" . self::TRF . "', 'k7q2m9x4p1rz', '" . $case[1] . "', '0b9a4c1e-7d3f-4c2a-9e1b-5f6a7b8c9d0e', ", $this->wpdb->queries[ $i + 2 ] );
+		}
 	}
 
 	/** A database error is never read as "already there". */
@@ -95,14 +142,57 @@ final class TransfersTest extends TestCase {
 		( new Transfers() )->insert( $row );
 	}
 
-	/** The first fence of rule 4a, with its exact conditions. */
+	/**
+	 * The first fence of rule 4a, with its exact conditions: any payerless transfer waiting in review, the one with
+	 * no payer and the one whose payer's number arrived masked alike; false when someone else decided it first.
+	 */
 	public function test_fence_match(): void {
 		$this->wpdb->on( '/^UPDATE/', 1 );
+		$this->wpdb->on( '/^UPDATE/', 0 );
 		$this->assertTrue( ( new Transfers() )->fence_match( self::TRF, 42 ) );
 		$this->assertMatchesRegularExpression(
-			"/^UPDATE `wp_qersh_transfers` SET outcome = 'matched', order_id = 42, updated_at = \\d+ WHERE transfer_id = '" . self::TRF . "' AND order_id IS NULL AND \\( outcome IS NULL OR \\( outcome = 'review' AND reason = 'no_payer' \\) \\)$/",
+			"/^UPDATE `wp_qersh_transfers` SET outcome = 'matched', order_id = 42, updated_at = \\d+ WHERE transfer_id = '" . self::TRF . "' AND order_id IS NULL AND \\( outcome IS NULL OR \\( outcome = 'review' AND reason IN \\('no_payer','masked'\\) \\) \\)$/",
 			$this->wpdb->queries[0]
 		);
+		$this->assertFalse( ( new Transfers() )->fence_match( self::TRF, 43 ) );
+	}
+
+	/** The fence's clause itself, run on an in-memory SQLite table. */
+	public function test_fence_match_rule(): void {
+		if ( ! extension_loaded( 'pdo_sqlite' ) ) {
+			$this->markTestSkipped( 'pdo_sqlite is not available.' );
+		}
+		$cases = array(
+			// Name => outcome, reason, order id, fenced.
+			'processing'    => array( null, null, null, true ),
+			'no_payer'      => array( 'review', 'no_payer', null, true ),
+			'masked'        => array( 'review', 'masked', null, true ),
+			'claimed'       => array( 'review', 'no_payer', 7, false ),
+			'other_review'  => array( 'review', 'txn_duplicate', null, false ),
+			'unmatched'     => array( 'unmatched', null, null, false ),
+			'matched'       => array( 'matched', null, null, false ),
+			'dismissed'     => array( 'dismissed', 'masked', null, false ),
+			'claim_overdue' => array( 'review', 'claim_overdue', null, false ),
+		);
+		$this->wpdb->on( '/^UPDATE/', 1 );
+		( new Transfers() )->fence_match( self::TRF, 42 );
+		preg_match( '/ WHERE transfer_id = \'[^\']+\' AND (.+)$/', $this->wpdb->queries[0], $m );
+
+		// phpcs:disable WordPress.DB.RestrictedClasses.mysql__PDO -- unit test without WordPress: the clause runs on an in-memory SQLite database.
+		$pdo = new \PDO( 'sqlite::memory:' );
+		$pdo->setAttribute( \PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION );
+		$pdo->exec( 'CREATE TABLE t ( name TEXT NOT NULL, outcome TEXT NULL, reason TEXT NULL, order_id INTEGER NULL )' );
+		$insert   = $pdo->prepare( 'INSERT INTO t ( name, outcome, reason, order_id ) VALUES ( ?, ?, ?, ? )' );
+		$expected = array();
+		foreach ( $cases as $name => $case ) {
+			$insert->execute( array( $name, $case[0], $case[1], $case[2] ) );
+			if ( $case[3] ) {
+				$expected[] = $name;
+			}
+		}
+		$found = $pdo->query( 'SELECT name FROM t WHERE ' . $m[1] . ' ORDER BY rowid' )->fetchAll( \PDO::FETCH_COLUMN );
+		// phpcs:enable WordPress.DB.RestrictedClasses.mysql__PDO
+		$this->assertSame( $expected, $found );
 	}
 
 	/** Three replies or seven days; the CASE reads the counter before it is raised. */
@@ -119,19 +209,51 @@ final class TransfersTest extends TestCase {
 	/** An over-long raw transaction id is stored as NULL (never cut), so it never equals another row. */
 	public function test_long_txn_never_matches(): void {
 		$row                    = $this->row();
-		$row['provider']        = 'vodafone_cash';
 		$row['provider_txn_id'] = str_repeat( '1', 40 ) . '23456';
 		$this->wpdb->on( '/^INSERT IGNORE/', 1 );
 		$this->assertTrue( ( new Transfers() )->insert( $row ) );
 		$this->assertStringContainsString( "'EGP', NULL, NULL, ", $this->wpdb->queries[0] );
 		$this->assertStringNotContainsString( str_repeat( '1', 40 ), $this->wpdb->queries[0] );
 
-		$this->assertSame( array(), ( new Transfers() )->find_by_txn( 'vodafone_cash', str_repeat( '1', 40 ) . '99999' ) );
-		$this->assertSame( array(), ( new Transfers() )->find_by_txn( 'vodafone_cash', '' ) );
+		$this->assertSame( array(), ( new Transfers() )->find_by_txn( str_repeat( '1', 40 ) . '99999' ) );
+		$this->assertSame( array(), ( new Transfers() )->find_by_txn( '' ) );
 		$this->assertCount( 1, $this->wpdb->queries, 'no query for an id that is never stored' );
+	}
 
-		( new Transfers() )->find_by_txn( 'orange_cash', '12345678901234' );
-		$this->assertSame( "SELECT * FROM `wp_qersh_transfers` WHERE provider = 'orange_cash' AND provider_txn_id = '12345678901234' ORDER BY id ASC", $this->wpdb->queries[1] );
+	/**
+	 * A transaction id is looked up by itself, store-wide (docs/17 §4.6 rule 2): the rows of every wallet come back,
+	 * oldest first and typed, whatever wallet type each recorded; the caller keeps one wallet's rows when it needs to.
+	 */
+	public function test_find_by_txn_is_store_wide(): void {
+		$this->wpdb->on(
+			'/^SELECT \* FROM `wp_qersh_transfers` WHERE provider_txn_id = /',
+			array(
+				array(
+					'id'              => '3',
+					'transfer_id'     => self::TRF,
+					'wallet'          => 'k7q2m9x4p1rz',
+					'provider'        => 'orange_cash',
+					'provider_txn_id' => '250046173830512',
+					'amount_minor'    => '15000',
+				),
+				array(
+					'id'              => '8',
+					'transfer_id'     => 'trf_01J9Z8Y7X6W5V4T3S2R1Q0P9N9',
+					'wallet'          => 'a1b2c3d4e5f6',
+					'provider'        => '',
+					'provider_txn_id' => '250046173830512',
+					'amount_minor'    => '15000',
+				),
+			)
+		);
+		$rows = ( new Transfers() )->find_by_txn( '250046173830512' );
+		$this->assertSame( "SELECT * FROM `wp_qersh_transfers` WHERE provider_txn_id = '250046173830512' ORDER BY id ASC", $this->wpdb->queries[0] );
+		$this->assertSame( array( 3, 8 ), array_column( $rows, 'id' ) );
+		$this->assertSame( array( 'k7q2m9x4p1rz', 'a1b2c3d4e5f6' ), array_column( $rows, 'wallet' ) );
+		$this->assertSame( 15000, $rows[1]['amount_minor'] );
+
+		( new Transfers() )->find_by_txn( '000913372004518' );
+		$this->assertSame( "SELECT * FROM `wp_qersh_transfers` WHERE provider_txn_id = '000913372004518' ORDER BY id ASC", $this->wpdb->queries[1], 'compared as text: leading zeros kept' );
 	}
 
 	/**
@@ -214,7 +336,7 @@ final class TransfersTest extends TestCase {
 		$this->assertSame( $expected, $found );
 	}
 
-	/** The admin list: filter, count and page. */
+	/** The admin list: filter, count and page. There is no filter by wallet type. */
 	public function test_list_page(): void {
 		$this->wpdb->on( '/^SELECT COUNT/', '3' );
 		$this->wpdb->on(
@@ -228,15 +350,18 @@ final class TransfersTest extends TestCase {
 		);
 		$page = ( new Transfers() )->list_page(
 			array(
-				'view'   => 'personal',
-				'wallet' => 'k7q2m9x4p1rz',
-				'search' => '+20 100 123 4567',
+				'view'     => 'personal',
+				'wallet'   => 'k7q2m9x4p1rz',
+				'provider' => 'orange_cash',
+				'search'   => '+20 100 123 4567',
 			),
 			2,
 			20
 		);
 		$this->assertSame( 3, $page['total'] );
 		$this->assertSame( 9, $page['rows'][0]['id'] );
+		$this->assertStringNotContainsString( 'provider =', $this->wpdb->queries[0] );
+		$this->assertStringNotContainsString( 'orange_cash', $this->wpdb->queries[1] );
 		$this->assertStringContainsString( "WHERE outcome = 'unmatched' AND reason = 'personal' AND wallet = 'k7q2m9x4p1rz' AND ( transfer_id = '+20 100 123 4567' OR provider_txn_id = '+20 100 123 4567' OR payer_key = '01001234567' OR payer_name LIKE '%+20 100 123 4567%' )", $this->wpdb->queries[0] );
 		$this->assertStringEndsWith( 'ORDER BY created_at DESC, id DESC LIMIT 20 OFFSET 20', $this->wpdb->queries[1] );
 	}

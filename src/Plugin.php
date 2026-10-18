@@ -147,6 +147,21 @@ final class Plugin {
 	}
 
 	/**
+	 * The `ver` of one of the plugin's own scripts or styles: QERSH_WC_VERSION and the file's modification time, so
+	 * that a browser or a page cache holding a copy from another build of the same version (a test store updated to
+	 * a newer build of 0.1.0) fetches the file again instead of mixing two builds' scripts. QERSH_WC_VERSION alone
+	 * when the file cannot be read.
+	 *
+	 * @param string $path Path inside the plugin folder, such as `assets/js/thankyou.js`.
+	 * @return string
+	 */
+	public static function asset_version( string $path ): string {
+		$file  = QERSH_WC_DIR . ltrim( $path, '/' );
+		$mtime = is_file( $file ) ? filemtime( $file ) : false;
+		return false === $mtime ? QERSH_WC_VERSION : QERSH_WC_VERSION . '.' . $mtime;
+	}
+
+	/**
 	 * Adds email deferral for our webhook requests when the host cannot finish the response early. Never removes a
 	 * deferral someone else switched on. WooCommerce reads this once, at init (docs/17 §4.7).
 	 *
@@ -362,7 +377,7 @@ final class Plugin {
 	}
 
 	/**
-	 * The Orange Cash transaction ids customers type on the order page (docs/17 §4.10).
+	 * The transaction ids customers type on the order page, on any e-wallet (docs/17 §4.10).
 	 *
 	 * @return Claims
 	 */

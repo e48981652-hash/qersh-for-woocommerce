@@ -21,6 +21,6 @@ const fs = require('fs');
 const store = JSON.parse(fs.readFileSync('tests/e2e/.auth/fpm-store.json', 'utf8'));
 const wallets = JSON.parse(fs.readFileSync('tests/e2e/.auth/fpm-wallets.json', 'utf8'));
 fs.writeFileSync('tests/e2e/.auth/fpm.json', JSON.stringify({ ...store, ...wallets }, null, '\t'));
-console.log('fpm store:', store.versions, 'products', store.products, 'wallets', wallets.wallets.map((w) => w.provider + ' ' + w.id).join(', '));
+console.log('fpm store:', store.versions, 'products', store.products, 'wallets', wallets.wallets.map((w) => w.label + ' ' + w.id).join(', '));
 "
 wp eval 'echo "fastcgi_finish_request: " . ( function_exists( "fastcgi_finish_request" ) ? "CLI has it" : "CLI has none (expected; the FPM container has it)" ) . "\n";'

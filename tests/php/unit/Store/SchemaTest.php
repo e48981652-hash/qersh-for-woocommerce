@@ -47,7 +47,7 @@ final class SchemaTest extends TestCase {
 			$this->assertSame( 1, preg_match_all( '/^PRIMARY KEY  \([a-z_]+\),?$/m', $statement ), $short );
 			$this->assertDoesNotMatchRegularExpression( '/PRIMARY KEY \(/', $statement, $short );
 			foreach ( array_slice( explode( "\n", $statement ), 1, -1 ) as $line ) {
-				$this->assertSame( 1, preg_match( '/^(?:[a-z_]+ [A-Z]+(?:\(\d+\))?(?: UNSIGNED)?(?: NOT NULL| NULL)(?: AUTO_INCREMENT| DEFAULT (?:\d+|\'[a-z]+\'))?|PRIMARY KEY  \([a-z_]+\)|(?:UNIQUE )?KEY [a-z_]+ \([a-z_,]+\)),?$/', $line ), $short . ': ' . $line );
+				$this->assertSame( 1, preg_match( '/^(?:[a-z_]+ [A-Z]+(?:\(\d+\))?(?: UNSIGNED)?(?: NOT NULL| NULL)(?: AUTO_INCREMENT| DEFAULT (?:\d+|\'[a-z]*\'))?|PRIMARY KEY  \([a-z_]+\)|(?:UNIQUE )?KEY [a-z_]+ \([a-z_,]+\)),?$/', $line ), $short . ': ' . $line );
 			}
 		}
 	}
@@ -109,6 +109,29 @@ final class SchemaTest extends TestCase {
 			}
 		}
 		$this->assertSame( 'nul:40?', Schema::COLUMNS['transfers']['provider_txn_id'], 'a transaction id is never cut' );
+	}
+
+	/**
+	 * Schema 2: the wallet type of a transfer is information only (a default of '', no index on it), and a
+	 * transaction id is looked up by itself, on any wallet.
+	 */
+	public function test_transfers_never_key_on_the_wallet_type(): void {
+		$sql = $this->sql()['transfers'];
+		$this->assertStringContainsString( "\nprovider VARCHAR(32) NOT NULL DEFAULT '',\n", $sql );
+		$this->assertStringContainsString( "\nKEY provider_txn_id (provider_txn_id),\n", $sql );
+		$this->assertDoesNotMatchRegularExpression( '/KEY [a-z_]+ \((?:[a-z_]+,)*provider(?:,[a-z_]+)*\)/', $sql, 'no index holds the wallet type' );
+		$this->assertStringNotContainsString( 'KEY provider_txn ', $sql, 'the index of schema 1 is gone' );
+		$this->assertSame( 'str:32', Schema::COLUMNS['transfers']['provider'], 'a display string, cut and never refused' );
+		$this->assertSame( array( 'transfers' => array( 'provider_txn' ) ), Schema::OBSOLETE_INDEXES );
+		$this->assertSame( array( 'qersh_wc_txn_drift', 'qersh_wc_txn_long' ), Schema::OBSOLETE_OPTIONS );
+	}
+
+	/** The main plugin file defines the schema version this code installs. */
+	public function test_main_file_version(): void {
+		$main = (string) file_get_contents( QERSH_WC_TESTS_ROOT . '/qersh-for-woocommerce.php' );
+		$this->assertSame( 1, preg_match( "/^define\\( 'QERSH_WC_DB_VERSION', (\\d+) \\);$/m", $main, $m ) );
+		$this->assertSame( (string) Schema::VERSION, $m[1] );
+		$this->assertSame( 2, Schema::VERSION );
 	}
 
 	/**
@@ -180,15 +203,166 @@ final class SchemaTest extends TestCase {
 		Schema::maybe_upgrade();
 		$this->assertCount( 1, $GLOBALS['qersh_wc_fake_dbdelta'], 'paused' );
 
-		$this->show_tables_wpdb( 'WP_' );
+		$wpdb = $this->show_tables_wpdb( 'WP_' );
 		Schema::table_missing();
 		Schema::install();
-		$this->assertSame( 1, $GLOBALS['qersh_wc_fake_options'][ Schema::VERSION_OPTION ] );
+		$this->assertSame( Schema::VERSION, $GLOBALS['qersh_wc_fake_options'][ Schema::VERSION_OPTION ] );
 		$this->assertArrayNotHasKey( Schema::RETRY_TRANSIENT, $GLOBALS['qersh_wc_fake_transients'] );
 		$this->assertFalse( Schema::lost(), 'the tables are back' );
+		$this->assertSame( array( 'SHOW INDEX FROM `WP_qersh_transfers`' ), $wpdb->matching( '/^SHOW INDEX/' ), 'a new store has no index of schema 1' );
+		$this->assertSame( array(), $wpdb->matching( '/^ALTER/' ) );
 
 		Schema::maybe_upgrade();
 		$this->assertCount( 2, $GLOBALS['qersh_wc_fake_dbdelta'], 'nothing to do at the current version' );
+	}
+
+	/**
+	 * A store of schema 1 (0.1.0) upgrades on the next request: dbDelta runs (it gives `provider` its default and
+	 * adds the key `provider_txn_id`), the two transaction-id drift options are deleted while the other options stay,
+	 * the index `provider_txn` is dropped, and only then is version 2 recorded. A second request does nothing.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_upgrade_from_schema_1(): void {
+		require_once __DIR__ . '/FakeWpOptions.php';
+		$wpdb = $this->show_tables_wpdb( 'wp_' );
+		$wpdb->on(
+			'/^SHOW INDEX FROM `wp_qersh_transfers`$/',
+			array(
+				array(
+					'Key_name'    => 'PRIMARY',
+					'Column_name' => 'id',
+				),
+				array(
+					'Key_name'    => 'provider_txn',
+					'Column_name' => 'provider',
+				),
+				array(
+					'Key_name'    => 'provider_txn',
+					'Column_name' => 'provider_txn_id',
+				),
+				array(
+					'Key_name'    => 'provider_txn_id',
+					'Column_name' => 'provider_txn_id',
+				),
+			)
+		);
+		$GLOBALS['qersh_wc_fake_options'] = array(
+			Schema::VERSION_OPTION => 1,
+			'qersh_wc_txn_drift'   => array(
+				'orange_cash' => array(
+					'tail'    => '512',
+					'at'      => 1760000000,
+					'version' => '0.1.0',
+				),
+			),
+			'qersh_wc_txn_long'    => array(
+				'version' => '0.1.0',
+				'orders'  => array(),
+			),
+			'qersh_wc_config'      => array( 'version' => 1 ),
+		);
+
+		Schema::maybe_upgrade();
+		$this->assertCount( 1, $GLOBALS['qersh_wc_fake_dbdelta'] );
+		$this->assertStringContainsString( "provider VARCHAR(32) NOT NULL DEFAULT '',", $GLOBALS['qersh_wc_fake_dbdelta'][0]['transfers'] );
+		$this->assertSame(
+			array(
+				Schema::VERSION_OPTION => 2,
+				'qersh_wc_config'      => array( 'version' => 1 ),
+			),
+			$GLOBALS['qersh_wc_fake_options']
+		);
+		$this->assertSame( array( 'ALTER TABLE `wp_qersh_transfers` DROP INDEX `provider_txn`' ), $wpdb->matching( '/^ALTER/' ) );
+		$this->assertFalse( $wpdb->suppressed, 'error suppression is put back' );
+
+		$before = count( $wpdb->queries );
+		Schema::maybe_upgrade();
+		Schema::install(); // A reactivation at schema 2: dbDelta again, no upgrade step.
+		$this->assertCount( 2, $GLOBALS['qersh_wc_fake_dbdelta'] );
+		$this->assertSame( array(), preg_grep( '/^(?:SHOW INDEX|ALTER)/', array_slice( $wpdb->queries, $before ) ) );
+	}
+
+	/**
+	 * The upgrade to schema 2 rewrites the transaction ids schema 1 stored as the phone sent them in the canonical
+	 * form schema 2 compares by exact equality, a batch of rows at a time by row id: «2500517294 4183» becomes
+	 * 25005172944183 and «ft-2412305» FT2412305; a canonical id is not written, and a value with no canonical form
+	 * stays. A second request does nothing.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_upgrade_rewrites_txn_ids_in_their_canonical_form(): void {
+		require_once __DIR__ . '/FakeWpOptions.php';
+		$wpdb  = $this->show_tables_wpdb( 'wp_' );
+		$first = array();
+		for ( $id = 1; $id <= Schema::TXN_BATCH; $id++ ) {
+			$first[] = array(
+				'id'              => (string) $id,
+				'provider_txn_id' => (string) ( 913372004000 + $id ),
+			);
+		}
+		$first[0]['provider_txn_id'] = '2500517294 4183';
+		$first[1]['provider_txn_id'] = '12 34';
+		$wpdb->on( '/^SELECT id, provider_txn_id FROM `wp_qersh_transfers` WHERE id > 0 AND provider_txn_id IS NOT NULL ORDER BY id ASC LIMIT 500$/', $first );
+		$wpdb->on(
+			'/^SELECT id, provider_txn_id FROM `wp_qersh_transfers` WHERE id > 500 /',
+			array(
+				array(
+					'id'              => '501',
+					'provider_txn_id' => 'ft-2412305',
+				),
+				array(
+					'id'              => '502',
+					'provider_txn_id' => 'FT2412305',
+				),
+			)
+		);
+		$GLOBALS['qersh_wc_fake_options'][ Schema::VERSION_OPTION ] = 1;
+
+		Schema::maybe_upgrade();
+		$this->assertCount( 2, $wpdb->matching( '/^SELECT id, provider_txn_id /' ), 'a full batch, then the rest' );
+		$this->assertSame(
+			array(
+				"UPDATE `wp_qersh_transfers` SET provider_txn_id = '25005172944183' WHERE id = 1",
+				"UPDATE `wp_qersh_transfers` SET provider_txn_id = 'FT2412305' WHERE id = 501",
+			),
+			$wpdb->matching( '/^UPDATE /' )
+		);
+		$this->assertSame( 2, $GLOBALS['qersh_wc_fake_options'][ Schema::VERSION_OPTION ] );
+		$this->assertFalse( $wpdb->suppressed, 'error suppression is put back' );
+
+		$before = count( $wpdb->queries );
+		Schema::maybe_upgrade();
+		$this->assertSame( array(), preg_grep( '/^(?:SELECT id, provider_txn_id|UPDATE)/', array_slice( $wpdb->queries, $before ) ), 'nothing at schema 2' );
+	}
+
+	/**
+	 * A failed index drop (another request dropped it a moment earlier) never stops the upgrade.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_upgrade_survives_a_refused_drop(): void {
+		require_once __DIR__ . '/FakeWpOptions.php';
+		$wpdb = $this->show_tables_wpdb( 'wp_' );
+		$wpdb->on(
+			'/^SHOW INDEX FROM /',
+			array(
+				array(
+					'Key_name'    => 'PROVIDER_TXN',
+					'Column_name' => 'provider',
+				),
+			)
+		);
+		$wpdb->on( '/^ALTER TABLE /', false, "Can't DROP 'provider_txn'; check that column/key exists" );
+		$GLOBALS['qersh_wc_fake_options'][ Schema::VERSION_OPTION ] = 1;
+
+		Schema::maybe_upgrade();
+		$this->assertCount( 1, $wpdb->matching( '/^ALTER TABLE `wp_qersh_transfers` DROP INDEX `provider_txn`$/' ), 'the name is compared without case' );
+		$this->assertSame( 2, $GLOBALS['qersh_wc_fake_options'][ Schema::VERSION_OPTION ] );
+		$this->assertFalse( $wpdb->suppressed );
 	}
 
 	/**
@@ -241,7 +415,7 @@ final class SchemaTest extends TestCase {
 
 		Schema::maybe_upgrade();
 		$this->assertCount( 1, $GLOBALS['qersh_wc_fake_dbdelta'], 'the next request installs again' );
-		$this->assertSame( 1, $GLOBALS['qersh_wc_fake_options'][ Schema::VERSION_OPTION ] );
+		$this->assertSame( Schema::VERSION, $GLOBALS['qersh_wc_fake_options'][ Schema::VERSION_OPTION ] );
 
 		Schema::forget_version();
 		$this->assertSame( 1, $GLOBALS['qersh_wc_fake_transients'][ Schema::RETRY_TRANSIENT ], 'lost again within ten minutes' );

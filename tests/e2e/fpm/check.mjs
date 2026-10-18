@@ -11,7 +11,9 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const BASE = 'http://localhost:8080';
 const state = JSON.parse(readFileSync(path.join(ROOT, 'tests/e2e/.auth/fpm.json'), 'utf8'));
-const w = state.wallets.find((x) => x.provider === 'vodafone_cash');
+// The wallets of tests/e2e/setup/wallets.php are told apart by their label (a wallet has no type).
+const w = state.wallets.find((x) => x.label === 'main');
+if (!w) throw new Error('no "main" wallet in tests/e2e/.auth/fpm.json: run tests/e2e/fpm/setup.sh first');
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const wp = (...args) => execFileSync('docker', ['compose', '-f', 'tests/e2e/fpm/compose.yml', '--profile', 'cli', 'run', '--rm', '-T', 'cli', ...args], { cwd: ROOT, encoding: 'utf8', timeout: 120_000 });
 const json = (out) => JSON.parse(out.split('\n').find((l) => l.startsWith('QERSH_JSON=')).slice('QERSH_JSON='.length));
@@ -39,7 +41,7 @@ for (const form of ['rest', 'fallback']) {
 	const id = await checkout(state.products['14000'], payer);
 	await sleep(2000); // the money of the delivery must be newer than the order (skew 0)
 	const url = form === 'rest' ? w.url : w.fallback;
-	const out = execFileSync('node', [path.join(ROOT, 'tests/e2e/deliver.mjs'), url, '--secret', w.key, '--wallet', w.id, '--provider', w.provider, '--payer', payer, '--amount', '140'], { encoding: 'utf8' });
+	const out = execFileSync('node', [path.join(ROOT, 'tests/e2e/deliver.mjs'), url, '--secret', w.key, '--wallet', w.id, '--payer', payer, '--amount', '140'], { encoding: 'utf8' });
 	const reply = JSON.parse(out.trim().split('\n')[0]);
 	console.log(`${form}: order ${id}, HTTP ${reply.status} ${reply.body && reply.body.status} in ${reply.ms} ms`);
 	if (reply.status !== 200 || !reply.body || reply.body.status !== 'matched') problems.push(`${form}: not matched: ${JSON.stringify(reply).slice(0, 300)}`);

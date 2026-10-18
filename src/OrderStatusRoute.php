@@ -14,8 +14,9 @@ defined( 'ABSPATH' ) || exit;
  * (docs/16 §7.3). The order key must be valid and the method ours; every refusal is the same 404 body. The answer is
  * `{ "status": waiting|partial|paid|review|expired|cancelled }` from qersh_orders.state, or from the WooCommerce
  * status where the merchant settled the order by hand (Checkout::status_of()), plus `claim` (whether a
- * transaction id is saved) for an Orange Cash order: a fact the customer knows, which says nothing about transfers.
- * Never cached (wc_nocache_headers(), litespeed_control_set_nocache).
+ * transaction id is saved) whenever the order page takes one (Checkout::txn_entry_open(), whatever the wallet): a
+ * fact the customer knows, which says nothing about transfers. Never cached (wc_nocache_headers(),
+ * litespeed_control_set_nocache).
  *
  * The method handle_body() is the whole route, used by the REST callback and by Webhook\Fallback
  * (`?wc-api=qersh&qo=status`).
@@ -77,7 +78,7 @@ final class OrderStatusRoute {
 		$out    = array( 'status' => Checkout::status_of( $state, (string) $order->get_status(), Checkout::completing( $row ) ) );
 
 		$wallet = $plugin->wallet( Checkout::order_wallet_id( $order, $row ) );
-		if ( null !== $wallet && isset( $wallet['provider'] ) && 'orange_cash' === $wallet['provider'] ) {
+		if ( Checkout::txn_entry_open( $plugin, $wallet ) ) {
 			$out['claim'] = null !== $row && ! empty( $row['claim_txn'] );
 		}
 		return self::result( 200, $out );

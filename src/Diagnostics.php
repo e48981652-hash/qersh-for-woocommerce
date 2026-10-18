@@ -12,7 +12,6 @@ use QershPay\WooCommerce\Core\Config;
 use QershPay\WooCommerce\Core\Payer;
 use QershPay\WooCommerce\Core\SetupLink;
 use QershPay\WooCommerce\Core\Time;
-use QershPay\WooCommerce\Core\TxnId;
 use QershPay\WooCommerce\Store\Schema;
 
 defined( 'ABSPATH' ) || exit;
@@ -23,7 +22,8 @@ defined( 'ABSPATH' ) || exit;
  * your store URL", and Cron and Action Scheduler health are read from the database.
  *
  * The static methods with no WordPress call are the pure rules (unit-tested); the instance methods read the store
- * and turn the rules into texts.
+ * and turn the rules into texts. No rule asks which kind of e-wallet a wallet is: each reads what the deliveries
+ * carried (the phone's state, the payer's number).
  */
 final class Diagnostics {
 
@@ -68,33 +68,6 @@ final class Diagnostics {
 	const AS_OPTION = 'qersh_wc_as_ok';
 
 	/**
-	 * Option where the webhook (record_delivery()) and the order page (record_txn_refusal()) record a transaction id
-	 * of an unexpected format.
-	 */
-	const DRIFT_OPTION = 'qersh_wc_txn_drift';
-
-	/**
-	 * Option (autoload off) counting the order page's refusals of an id one or two digits longer than the shape
-	 * (txn_long_tally()): only order ids, a salted tag of their payer and times, never what the customer typed.
-	 */
-	const TXN_LONG_OPTION = 'qersh_wc_txn_long';
-
-	/**
-	 * That many distinct orders, of distinct payers, refused within TXN_LONG_WINDOW record the drift.
-	 */
-	const TXN_LONG_ORDERS = 3;
-
-	/**
-	 * The window of those refusals, in seconds.
-	 */
-	const TXN_LONG_WINDOW = 86400;
-
-	/**
-	 * At most this many recent orders are kept in TXN_LONG_OPTION.
-	 */
-	const TXN_LONG_KEEP = 10;
-
-	/**
 	 * Transient caching the storage engine check (an information_schema read).
 	 */
 	const ENGINE_TRANSIENT = 'qersh_wc_engine_check';
@@ -109,16 +82,6 @@ final class Diagnostics {
 	 * The three address forms a delivery can arrive on.
 	 */
 	const FORMS = array( 'wp-json', 'rest_route', 'wc-api' );
-
-	/**
-	 * Wallet types that read text messages (all but the InstaPay app, which reads notifications).
-	 */
-	const NOTIFICATION_PROVIDERS = array( 'instapay_app' );
-
-	/**
-	 * Wallet types whose messages always carry the payer's number when "Send sender details" is on full.
-	 */
-	const NUMBER_PROVIDERS = array( 'vodafone_cash', 'etisalat_cash' );
 
 	/**
 	 * Security plugins and firewalls recognised in a blocked answer, by a pattern of their body or headers.
@@ -179,170 +142,27 @@ final class Diagnostics {
 			return;
 		}
 		try {
-			$now      = $now > 0 ? $now : time();
-			$cfg      = $this->plugin->wallet( $wallet );
-			$provider = is_array( $cfg ) && isset( $cfg['provider'] ) ? (string) $cfg['provider'] : '';
-			$fields   = self::delivery_fields( $envelope, $provider, $form, self::request_host(), $now, $verified );
-			$store    = $this->plugin->wallets();
+			$now    = $now > 0 ? $now : time();
+			$fields = self::delivery_fields( $envelope, $form, self::request_host(), $now, $verified );
+			$store  = $this->plugin->wallets();
 			$store->ensure( $wallet );
 			$store->touch( $wallet, $fields );
-
-			$drift = self::drift_of( $envelope, $provider );
-			if ( null !== $drift && $this->write_drift( $provider, $drift, $now ) ) {
-				$this->plugin->logger()->warning( 'Qersh received an Orange Cash transaction id of an unexpected format (…' . $drift . '); the transaction id box is hidden until the plugin is updated.' );
-			}
 		} catch ( \Throwable $e ) {
 			$this->plugin->logger()->warning( 'Qersh could not record the wallet state of a delivery.', array( 'error' => get_class( $e ) ) );
 		}
 	}
 
 	/**
-	 * Writes the drift record (DRIFT_OPTION) unless a current one exists.
-	 *
-	 * @param string $provider Wallet type.
-	 * @param string $tail     Last three characters of the id.
-	 * @param int    $now      UTC seconds.
-	 * @return bool Whether it was written now.
-	 */
-	private function write_drift( string $provider, string $tail, int $now ): bool {
-		if ( null !== self::drift_tail( get_option( self::DRIFT_OPTION, null ) ) ) {
-			return false;
-		}
-		update_option(
-			self::DRIFT_OPTION,
-			array(
-				$provider => array(
-					'tail'    => $tail,
-					'at'      => $now,
-					'version' => defined( 'QERSH_WC_VERSION' ) ? QERSH_WC_VERSION : '',
-				),
-			),
-			false
-		);
-		return true;
-	}
-
-	/**
-	 * The second drift trigger of docs/17 §4.9: the order page refused (qersh_txn_format, or qersh_txn_wallet_number
-	 * when the text also held the sender's number: Claims::counts_long_run()) an id one or two digits longer than
-	 * the provider's shape, which is what customers type once the operator lengthens its ids while the phone's
-	 * templates still extract the old length (no delivered id then trips drift_of()). The refusals are counted per
-	 * order (txn_long_tally()); once TXN_LONG_ORDERS orders of distinct payers were refused within TXN_LONG_WINDOW,
-	 * the drift is recorded as for a delivered id, and the box is hidden for the provider until the plugin is
-	 * updated. Nothing the customer typed is kept. Never throws.
-	 *
-	 * Claims::submit() passes the number TxnId::long_run() read from the refused input (the page's script sends that
-	 * number alone); one that is not one or two digits longer than the shape (long_run_ok()) is ignored.
-	 *
-	 * @param string $provider  The order's wallet type.
-	 * @param string $long_run  The run of digits read from the refused input.
-	 * @param int    $order_id  The order.
-	 * @param string $payer_key The order's payer key.
-	 * @param int    $now       UTC seconds (0 = now).
-	 * @return bool Whether the drift was recorded by this refusal.
-	 */
-	public function record_txn_refusal( string $provider, string $long_run, int $order_id, string $payer_key, int $now = 0 ): bool {
-		if ( ! $this->plugin instanceof Plugin || $order_id <= 0 || ! self::long_run_ok( $provider, $long_run ) ) {
-			return false;
-		}
-		try {
-			$now     = $now > 0 ? $now : time();
-			$version = defined( 'QERSH_WC_VERSION' ) ? QERSH_WC_VERSION : '';
-			$tag     = substr( wp_hash( 'qersh-txn-long|' . $payer_key ), 0, 12 );
-			$tally   = self::txn_long_tally( get_option( self::TXN_LONG_OPTION, null ), $order_id, $tag, $now, $version );
-			update_option( self::TXN_LONG_OPTION, $tally['option'], false );
-			$tail = substr( $long_run, -3 );
-			if ( $tally['drift'] && $this->write_drift( $provider, $tail, $now ) ) {
-				$this->plugin->logger()->warning( 'Customers keep entering Orange Cash transaction ids longer than this version expects (…' . $tail . '); the transaction id box is hidden until the plugin is updated.' );
-				return true;
-			}
-		} catch ( \Throwable $e ) {
-			$this->plugin->logger()->warning( 'Qersh could not count a refused transaction id.', array( 'error' => get_class( $e ) ) );
-		}
-		return false;
-	}
-
-	/**
-	 * Whether a run of digits is one or two characters longer than the longest shape of a claim provider (15 or 16
-	 * digits for Orange Cash ids of 14). Pure.
-	 *
-	 * @param string $provider Wallet type.
-	 * @param string $run      Run of Latin digits.
-	 * @return bool
-	 */
-	public static function long_run_ok( string $provider, string $run ): bool {
-		if ( ! in_array( $provider, TxnId::CLAIM_PROVIDERS, true ) || 1 !== preg_match( '/^[0-9]+$/D', $run ) ) {
-			return false;
-		}
-		$longest = max( TxnId::LENGTHS[ $provider ] );
-		return in_array( strlen( $run ), array( $longest + 1, $longest + 2 ), true );
-	}
-
-	/**
-	 * Counts one refused long id (record_txn_refusal()). The option keeps, for this plugin version, the most recent
-	 * TXN_LONG_KEEP orders with the time of their last refusal and their payer's tag; a record of another version is
-	 * dropped (the update brought a new shape). The drift is due when TXN_LONG_ORDERS orders with distinct payer tags
-	 * were refused within TXN_LONG_WINDOW, so one customer retrying, or one payer on several orders, never hides the
-	 * box for the whole store. Pure.
-	 *
-	 * @param mixed  $option   Current option value.
-	 * @param int    $order_id The order.
-	 * @param string $tag      Tag of the order's payer.
-	 * @param int    $now      UTC seconds.
-	 * @param string $version  Plugin version.
-	 * @return array `[ 'option' => array, 'drift' => bool ]`
-	 */
-	public static function txn_long_tally( $option, int $order_id, string $tag, int $now, string $version ): array {
-		$orders = array();
-		if ( is_array( $option ) && isset( $option['version'], $option['orders'] ) && $version === $option['version'] && is_array( $option['orders'] ) ) {
-			foreach ( $option['orders'] as $id => $entry ) {
-				if ( (int) $id > 0 && is_array( $entry ) && isset( $entry['at'] ) && (int) $entry['at'] > $now - self::TXN_LONG_WINDOW && (int) $entry['at'] <= $now ) {
-					$orders[ (int) $id ] = array(
-						'at'    => (int) $entry['at'],
-						'payer' => isset( $entry['payer'] ) && is_scalar( $entry['payer'] ) ? (string) $entry['payer'] : '',
-					);
-				}
-			}
-		}
-		if ( $order_id > 0 ) {
-			unset( $orders[ $order_id ] );
-			$orders[ $order_id ] = array(
-				'at'    => $now,
-				'payer' => $tag,
-			);
-		}
-		uasort(
-			$orders,
-			function ( $a, $b ) {
-				return $a['at'] <=> $b['at'];
-			}
-		);
-		$orders = array_slice( $orders, -self::TXN_LONG_KEEP, null, true );
-		$payers = array();
-		foreach ( $orders as $entry ) {
-			$payers[ '' === $entry['payer'] ? 'none' : 'p' . $entry['payer'] ] = true;
-		}
-		return array(
-			'option' => array(
-				'version' => $version,
-				'orders'  => $orders,
-			),
-			'drift'  => count( $orders ) >= self::TXN_LONG_ORDERS && count( $payers ) >= self::TXN_LONG_ORDERS,
-		);
-	}
-
-	/**
-	 * The qersh_wallets columns a delivery writes. Pure.
+	 * The qersh_wallets columns a delivery writes, from the envelope alone (never from the kind of wallet). Pure.
 	 *
 	 * @param array  $envelope Parsed envelope.
-	 * @param string $provider The wallet's type in the store.
 	 * @param string $form     Address form.
 	 * @param string $host     Host the request arrived on (lower case, may carry a port), or ''.
 	 * @param int    $now      UTC seconds.
 	 * @param array  $verified Optional `[ 'v1_index' => int ]`.
 	 * @return array Column => value.
 	 */
-	public static function delivery_fields( array $envelope, string $provider, string $form, string $host, int $now, array $verified = array() ): array {
+	public static function delivery_fields( array $envelope, string $form, string $host, int $now, array $verified = array() ): array {
 		$event  = isset( $envelope['event'] ) && is_string( $envelope['event'] ) ? $envelope['event'] : '';
 		$device = isset( $envelope['device'] ) && is_array( $envelope['device'] ) ? $envelope['device'] : null;
 		$data   = isset( $envelope['data'] ) && is_array( $envelope['data'] ) ? $envelope['data'] : array();
@@ -370,7 +190,7 @@ final class Diagnostics {
 			$fields['last_heartbeat_at'] = $now;
 		}
 		if ( 'transfer.received' === $event ) {
-			$masked = self::sender_masked_value( $provider, isset( $data['counterparty'] ) ? $data['counterparty'] : null );
+			$masked = self::sender_masked_value( isset( $data['counterparty'] ) ? $data['counterparty'] : null );
 			if ( null !== $masked ) {
 				$fields['sender_masked'] = $masked;
 			}
@@ -379,27 +199,6 @@ final class Diagnostics {
 			}
 		}
 		return $fields;
-	}
-
-	/**
-	 * The last three digits of an Orange Cash transaction id whose format this version does not expect, or null
-	 * (docs/17 §4.9, "transaction id format drift"). Pure.
-	 *
-	 * @param array  $envelope Parsed envelope.
-	 * @param string $provider The wallet's type.
-	 * @return string|null
-	 */
-	public static function drift_of( array $envelope, string $provider ): ?string {
-		if ( ! in_array( $provider, TxnId::CLAIM_PROVIDERS, true ) || ! isset( $envelope['event'] ) || 'transfer.received' !== $envelope['event'] ) {
-			return null;
-		}
-		$data = isset( $envelope['data'] ) && is_array( $envelope['data'] ) ? $envelope['data'] : array();
-		$raw  = isset( $data['provider_txn_id'] ) && is_string( $data['provider_txn_id'] ) ? trim( $data['provider_txn_id'] ) : '';
-		if ( '' === $raw || null !== TxnId::canonical_stored( $provider, $raw ) ) {
-			return null;
-		}
-		$digits = (string) preg_replace( '/[^0-9A-Za-z]/', '', $raw );
-		return '' === $digits ? '***' : substr( $digits, -3 );
 	}
 
 	/**
@@ -437,15 +236,16 @@ final class Diagnostics {
 	}
 
 	/**
-	 * Whether a transfer's payer arrived masked (docs/17 §4.9): 1 for a `*` in the number, or for a Vodafone Cash or
-	 * e& money transfer with no number, name or handle; 0 once a full number or handle arrives; null to leave the
-	 * flag as it is (an Orange Cash or bank message that names no number). Pure.
+	 * Whether a transfer's payer arrived masked (docs/17 §4.9), read from the counterparty alone, whatever the
+	 * wallet: 1 for a `*` in the number, or for a counterparty with no number, name or handle at all (a wallet's
+	 * message names its payer, so nothing at all means the app's "Send sender details" is off); 0 once a full mobile
+	 * number arrives; null to leave the flag as it is (a name or a handle only, which says nothing about the number).
+	 * Pure.
 	 *
-	 * @param string $provider     Wallet type.
-	 * @param mixed  $counterparty `data.counterparty`.
+	 * @param mixed $counterparty `data.counterparty`.
 	 * @return int|null
 	 */
-	public static function sender_masked_value( string $provider, $counterparty ): ?int {
+	public static function sender_masked_value( $counterparty ): ?int {
 		$cp     = is_array( $counterparty ) ? $counterparty : array();
 		$number = isset( $cp['number'] ) && is_string( $cp['number'] ) ? trim( $cp['number'] ) : '';
 		$name   = isset( $cp['name'] ) && is_string( $cp['name'] ) ? trim( $cp['name'] ) : '';
@@ -453,10 +253,11 @@ final class Diagnostics {
 		if ( false !== strpos( $number, '*' ) ) {
 			return 1;
 		}
-		if ( null !== Payer::key_of( $cp ) ) {
+		$key = Payer::key_of( $cp );
+		if ( null !== $key && 1 === preg_match( '/^01[0-9]{9}$/D', $key ) ) {
 			return 0;
 		}
-		if ( '' === $number && '' === $name && '' === $handle && in_array( $provider, self::NUMBER_PROVIDERS, true ) ) {
+		if ( '' === $number && '' === $name && '' === $handle ) {
 			return 1;
 		}
 		return null;
@@ -488,18 +289,16 @@ final class Diagnostics {
 		} catch ( \Throwable $e ) {
 			return array();
 		}
-		$now      = time();
-		$provider = isset( $cfg['provider'] ) ? (string) $cfg['provider'] : '';
-		$secrets  = $this->plugin->secrets();
-		$fp       = $secrets->fingerprint( $wallet );
-		$current  = self::url_parts( self::store_url( $wallet ) );
-		$waiting  = false;
+		$now     = time();
+		$secrets = $this->plugin->secrets();
+		$fp      = $secrets->fingerprint( $wallet );
+		$current = self::url_parts( self::store_url( $wallet ) );
+		$waiting = false;
 		if ( null !== $row && 'none' !== self::silent_state( $row, $now, true )['state'] ) {
 			$waiting = $this->orders_waiting( $wallet, $now ) > 0;
 		}
 		$codes = self::wallet_alert_codes(
 			array(
-				'provider'       => $provider,
 				'row'            => $row,
 				'fp'             => $fp,
 				'key_state'      => $secrets->state( $wallet ),
@@ -530,17 +329,16 @@ final class Diagnostics {
 	/**
 	 * The alert codes of a wallet. Pure.
 	 *
-	 * @param array $ctx `provider`, `row` (qersh_wallets row or null), `fp` (Secrets::fingerprint()), `key_state`,
-	 *                   `now`, `cur_host` and `cur_form` (the store URL now), `orders_waiting` (bool).
+	 * @param array $ctx `row` (qersh_wallets row or null), `fp` (Secrets::fingerprint()), `key_state`, `now`,
+	 *                   `cur_host` and `cur_form` (the store URL now), `orders_waiting` (bool).
 	 * @return array[] Each `[ 'code', 'level', 'id', 'since' => ?int ]`.
 	 */
 	public static function wallet_alert_codes( array $ctx ): array {
-		$provider = isset( $ctx['provider'] ) ? (string) $ctx['provider'] : '';
-		$row      = isset( $ctx['row'] ) && is_array( $ctx['row'] ) ? $ctx['row'] : null;
-		$fp       = isset( $ctx['fp'] ) && is_array( $ctx['fp'] ) ? $ctx['fp'] : null;
-		$now      = isset( $ctx['now'] ) ? (int) $ctx['now'] : 0;
-		$out      = array();
-		$add      = function ( $code, $level, $id, $since = null ) use ( &$out ) {
+		$row = isset( $ctx['row'] ) && is_array( $ctx['row'] ) ? $ctx['row'] : null;
+		$fp  = isset( $ctx['fp'] ) && is_array( $ctx['fp'] ) ? $ctx['fp'] : null;
+		$now = isset( $ctx['now'] ) ? (int) $ctx['now'] : 0;
+		$out = array();
+		$add = function ( $code, $level, $id, $since = null ) use ( &$out ) {
 			$out[] = array(
 				'code'  => $code,
 				'level' => $level,
@@ -557,7 +355,7 @@ final class Diagnostics {
 		}
 
 		if ( null !== $row ) {
-			foreach ( self::device_alerts( $provider, isset( $row['last_device_state'] ) ? $row['last_device_state'] : null ) as $code ) {
+			foreach ( self::device_alerts( isset( $row['last_device_state'] ) ? $row['last_device_state'] : null ) as $code ) {
 				$add( $code, 'error', $code );
 			}
 			$silent = self::silent_state( $row, $now, ! empty( $ctx['orders_waiting'] ) );
@@ -588,21 +386,19 @@ final class Diagnostics {
 	}
 
 	/**
-	 * Phone state alerts from the stored `last_device_state` (only for keys the last envelope carried). Pure.
+	 * Phone state alerts from the stored `last_device_state` (only for keys the last envelope carried). Every wallet
+	 * is an e-wallet the phone reads from its text messages, so the permission to read messages is what it needs,
+	 * whatever its SIM binding (`wallet.slot` is null for a wallet bound to no SIM too) and whatever the
+	 * notification access, which no e-wallet needs. Pure.
 	 *
-	 * @param string $provider Wallet type.
-	 * @param mixed  $state    Decoded last_device_state.
-	 * @return string[] `device_sms`, `device_notif`, `device_bg`.
+	 * @param mixed $state Decoded last_device_state.
+	 * @return string[] `device_sms`, `device_bg`.
 	 */
-	public static function device_alerts( string $provider, $state ): array {
+	public static function device_alerts( $state ): array {
 		$state = is_array( $state ) ? $state : array();
 		$out   = array();
-		$sms   = ! in_array( $provider, self::NOTIFICATION_PROVIDERS, true );
-		if ( $sms && array_key_exists( 'sms', $state ) && false === $state['sms'] ) {
+		if ( array_key_exists( 'sms', $state ) && false === $state['sms'] ) {
 			$out[] = 'device_sms';
-		}
-		if ( ! $sms && array_key_exists( 'notif', $state ) && false === $state['notif'] ) {
-			$out[] = 'device_notif';
 		}
 		if ( array_key_exists( 'bg', $state ) && true === $state['bg'] ) {
 			$out[] = 'device_bg';
@@ -796,13 +592,6 @@ final class Diagnostics {
 			/* translators: %s: list of database table names. */
 			$add( 'innodb', 'error', 'innodb', sprintf( esc_html__( 'These Qersh tables do not use the InnoDB engine, so the locks that keep two deliveries apart do not work: %s. Ask your host to convert them to InnoDB.', 'qersh-for-woocommerce' ), View::ltr( implode( ', ', $engines ) ) ) );
 		}
-		$tail = self::drift_tail( get_option( self::DRIFT_OPTION, null ) );
-		if ( null !== $tail && $this->has_provider( 'orange_cash' ) ) {
-			/* translators: %s: the last three digits of a transaction id. */
-			$drift  = sprintf( esc_html__( 'An Orange Cash transfer arrived with a transaction id whose format this version does not expect (…%s), so your customers\' ids may not match it. Update Qersh for WooCommerce.', 'qersh-for-woocommerce' ), View::ltr( $tail ) );
-			$drift .= '<br>' . esc_html__( 'Customers cannot enter the transaction id for this wallet until you update Qersh for WooCommerce.', 'qersh-for-woocommerce' );
-			$add( 'txn_drift:' . $tail, 'error', 'txn_drift', $drift );
-		}
 		if ( $ours ) {
 			$count = $this->competition_today();
 			if ( $count > 0 ) {
@@ -832,8 +621,6 @@ final class Diagnostics {
 				return $prefix . esc_html__( 'The connection key in wp-config.php is not a valid key (at least 24 characters, no spaces), so the store answers the phone 401.', 'qersh-for-woocommerce' );
 			case 'device_sms':
 				return $prefix . $at . esc_html__( 'The phone has no permission to read messages: no transfer will arrive. Open Qersh → “Set up the phone”.', 'qersh-for-woocommerce' );
-			case 'device_notif':
-				return $prefix . $at . esc_html__( 'Qersh cannot reach InstaPay notifications: no transfer will arrive.', 'qersh-for-woocommerce' );
 			case 'device_bg':
 				return $prefix . $at . esc_html__( 'The system stops Qersh from working in the background: open “Set up the phone”.', 'qersh-for-woocommerce' );
 			case 'silent_suspect':
@@ -855,34 +642,6 @@ final class Diagnostics {
 				return $prefix . esc_html__( 'Nothing has arrived with the pending key for 7 days. If you opened the link on the phone, tap “Test connection”; otherwise cancel it or generate a new link.', 'qersh-for-woocommerce' );
 		}
 		return '';
-	}
-
-	/**
-	 * The last three digits recorded in qersh_wc_txn_drift, or null when there is no current drift. Accepts
-	 * `[ 'tail' => '123', 'version' => '0.1.0' ]`, the same keyed by provider, or `last3` for `tail`; a record made by
-	 * another plugin version is ignored (the update brought a new format). Pure apart from the version constant.
-	 *
-	 * @param mixed $option Option value.
-	 * @return string|null
-	 */
-	public static function drift_tail( $option ): ?string {
-		if ( ! is_array( $option ) || empty( $option ) ) {
-			return null;
-		}
-		$record = $option;
-		if ( isset( $option['orange_cash'] ) && is_array( $option['orange_cash'] ) ) {
-			$record = $option['orange_cash'];
-		}
-		if ( isset( $record['version'] ) && defined( 'QERSH_WC_VERSION' ) && QERSH_WC_VERSION !== $record['version'] ) {
-			return null;
-		}
-		foreach ( array( 'tail', 'last3' ) as $key ) {
-			if ( isset( $record[ $key ] ) && is_scalar( $record[ $key ] ) ) {
-				$tail = (string) preg_replace( '/[^0-9A-Za-z]/', '', (string) $record[ $key ] );
-				return '' === $tail ? '***' : substr( $tail, -3 );
-			}
-		}
-		return '***';
 	}
 
 	/*
@@ -1516,8 +1275,8 @@ final class Diagnostics {
 	}
 
 	/**
-	 * Orange Cash transfers that a competing unpaid order of the same amount kept from being confirmed on their own
-	 * today, Cairo time (docs/17 §4.9): verdict or evaluation `txn_contested`.
+	 * Transfers that a competing unpaid order of the same amount kept from being confirmed on their own today, Cairo
+	 * time (docs/17 §4.9): verdict or evaluation `txn_contested`, on any wallet.
 	 *
 	 * @return int
 	 */
@@ -1529,8 +1288,8 @@ final class Diagnostics {
 			$start = ( new \DateTimeImmutable( 'today', new \DateTimeZone( View::TIME_ZONE ) ) )->getTimestamp();
 			$db    = $this->plugin->db();
 			return (int) $db->var(
-				"SELECT COUNT(*) FROM %i WHERE provider = %s AND ( reason = 'txn_contested' OR claim_eval = 'txn_contested' ) AND updated_at >= %d",
-				array( $db->table( 'transfers' ), 'orange_cash', $start )
+				"SELECT COUNT(*) FROM %i WHERE ( reason = 'txn_contested' OR claim_eval = 'txn_contested' ) AND updated_at >= %d",
+				array( $db->table( 'transfers' ), $start )
 			);
 		} catch ( \Throwable $e ) {
 			return 0;
@@ -1554,36 +1313,38 @@ final class Diagnostics {
 	}
 
 	/**
-	 * Whether a wallet of this type is configured.
+	 * Whether customers may enter a transaction id for the orders of this wallet now (docs/17 §4.10): see
+	 * txn_entry_allowed(), on the effective configuration.
 	 *
-	 * @param string $provider Wallet type.
+	 * @param string $wallet_id Wallet id.
 	 * @return bool
 	 */
-	private function has_provider( string $provider ): bool {
-		$config = $this->plugin instanceof Plugin ? $this->plugin->config() : array();
+	public function txn_entry_open( string $wallet_id ): bool {
+		if ( ! $this->plugin instanceof Plugin ) {
+			return false;
+		}
+		return self::txn_entry_allowed( $this->plugin->config(), $wallet_id );
+	}
+
+	/**
+	 * The rule of txn_entry_open(): store.txn_entry is on and the wallet has an entry in the configuration, enabled
+	 * or not (turning a wallet off only hides it from the checkout, docs/17 §5 step 10, so the orders already waiting
+	 * on it keep their box; a deleted wallet has no entry). Whatever the kind of e-wallet: a typed id only ever
+	 * decides a transfer that arrived without the payer's number, by exact equality (docs/17 §4.6 rule 4a). Pure.
+	 *
+	 * @param array  $config    Effective configuration.
+	 * @param string $wallet_id Wallet id.
+	 * @return bool
+	 */
+	public static function txn_entry_allowed( array $config, string $wallet_id ): bool {
+		if ( empty( $config['store']['txn_entry'] ) || ! Config::wallet_id_ok( $wallet_id ) ) {
+			return false;
+		}
 		foreach ( isset( $config['wallets'] ) && is_array( $config['wallets'] ) ? $config['wallets'] : array() as $wallet ) {
-			if ( is_array( $wallet ) && isset( $wallet['provider'] ) && $provider === $wallet['provider'] ) {
+			if ( is_array( $wallet ) && isset( $wallet['id'] ) && $wallet_id === $wallet['id'] ) {
 				return true;
 			}
 		}
 		return false;
-	}
-
-	/**
-	 * Whether the customer may enter a transaction id for this wallet type now (the setting, a claim provider, and
-	 * no format drift).
-	 *
-	 * @param string $provider Wallet type.
-	 * @return bool
-	 */
-	public function txn_entry_open( string $provider ): bool {
-		if ( ! $this->plugin instanceof Plugin || ! in_array( $provider, TxnId::CLAIM_PROVIDERS, true ) ) {
-			return false;
-		}
-		$config = $this->plugin->config();
-		if ( empty( $config['store']['txn_entry'] ) ) {
-			return false;
-		}
-		return null === self::drift_tail( get_option( self::DRIFT_OPTION, null ) );
 	}
 }

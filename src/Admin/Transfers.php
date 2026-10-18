@@ -404,8 +404,8 @@ final class Transfers {
 	}
 
 	/**
-	 * The warnings shown before an attach (docs/17 §4.6): the transaction id already paid another order, or the
-	 * transfer arrived before the order was created.
+	 * The warnings shown before an attach (docs/17 §4.6): the transaction id already paid another order (looked up
+	 * store-wide, whatever the wallet), or the transfer arrived before the order was created.
 	 *
 	 * @param array     $row   Transfer row.
 	 * @param \WC_Order $order Target order.
@@ -418,7 +418,7 @@ final class Transfers {
 		$number   = View::ltr( '#' . $order->get_order_number() );
 		try {
 			if ( ! empty( $row['provider_txn_id'] ) ) {
-				foreach ( $plugin->transfers()->find_by_txn( (string) $row['provider'], (string) $row['provider_txn_id'] ) as $other ) {
+				foreach ( $plugin->transfers()->find_by_txn( (string) $row['provider_txn_id'] ) as $other ) {
 					if ( $other['transfer_id'] !== $row['transfer_id'] && ! empty( $other['order_id'] ) && (int) $other['order_id'] !== $order_id && in_array( $other['outcome'], array( 'matched', 'partial', 'overpaid', 'attached' ), true ) ) {
 						/* translators: %s: order number. */
 						$out[] = sprintf( esc_html__( 'This transaction id already paid order %s. Attach it only if you are sure this is a different transfer.', 'qersh-for-woocommerce' ), View::order_link( (int) $other['order_id'] ) );

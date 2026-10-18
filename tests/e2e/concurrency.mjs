@@ -2,7 +2,8 @@
 // nightly MariaDB job on wp-env (.wp-env.test.json), with no browser.
 //   QERSH_E2E_BASE=http://localhost:8890 QERSH_E2E_WP_ENV_CONFIG=.wp-env.test.json node tests/e2e/concurrency.mjs
 // Prepares the store and two test wallets (tests/e2e/setup/store.php, wallets.php; written to tests/e2e/.auth/), then:
-// 1. Orange Cash: six POSTs of the transaction id and six copies of the delivery with that id, all at once ← one
+// 1. a transfer that names no payer number: six POSTs of the transaction id and six copies of the delivery with that
+//    id, all at once; the route and the delivery take the same lock, txn:<id> (MatchPolicy::txn_lock()) ← one
 //    decision, one completion (stock reduced once, one transfer on the order), no 5xx (no deadlock);
 // 2. two transfers of one payer at the same time ← each pays one of its two orders;
 // 3. two crossing manual attaches (payer A's transfer to payer B's order and B's to A's) at the same instant ← both
@@ -42,8 +43,8 @@ async function scenario(name, fn) {
 	}
 }
 
-await scenario('orange-txn-and-delivery-together', async () => {
-	const w = wallet('orange_cash');
+await scenario('txn-and-delivery-together', async () => {
+	const w = wallet('second');
 	const product = state().products['150000'];
 	const order = createOrder({ product, w, payer: randPayer(), backdate: 60 });
 	const before = orderState(order.id);
@@ -63,7 +64,7 @@ await scenario('orange-txn-and-delivery-together', async () => {
 });
 
 await scenario('one-payer-two-transfers-together', async () => {
-	const w = wallet('vodafone_cash');
+	const w = wallet('main');
 	const payer = randPayer();
 	const product = state().products['10000'];
 	const first = createOrder({ product, w, payer, backdate: 120 });
@@ -80,7 +81,7 @@ await scenario('one-payer-two-transfers-together', async () => {
 });
 
 await scenario('crossing-manual-attaches', async () => {
-	const w = wallet('vodafone_cash');
+	const w = wallet('main');
 	const product = state().products['10000'];
 	const a = { payer: randPayer(), transfer: 'trf_' + randomBytes(12).toString('hex') };
 	const b = { payer: randPayer(), transfer: 'trf_' + randomBytes(12).toString('hex') };

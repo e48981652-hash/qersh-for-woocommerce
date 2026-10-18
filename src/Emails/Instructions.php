@@ -19,9 +19,9 @@ defined( 'ABSPATH' ) || exit;
  * woocommerce_email_actions (so it is deferred with the rest when WooCommerce defers emails). Never on
  * woocommerce_new_order or woocommerce_order_status_pending: both run before our data exists, and the second does
  * not run in the classic checkout (docs/17 §4.1). The same content as the thank-you box, with the deadline as date and
- * time in Cairo (no relative time: the email may be read later), and for an Orange Cash order a link to the order
- * page's transaction-id section (#qersh-txn, never carrying the id). Editable in WooCommerce's email settings, with
- * a plain-text version.
+ * time in Cairo (no relative time: the email may be read later), and, when the order page takes a transaction id
+ * (the box's `txn_open`, the same gate for every wallet), a link to its transaction-id section (#qersh-txn, never
+ * carrying the id). Editable in WooCommerce's email settings, with a plain-text version.
  */
 class Instructions extends \WC_Email {
 

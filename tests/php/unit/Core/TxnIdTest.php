@@ -1,7 +1,8 @@
 <?php
 /**
  * Tests of Core\TxnId (docs/17 §4.10): the shared vectors in tests/vectors/txn-normalize.json, which the order
- * page's JavaScript normaliser reads too, the shapes of fixtures/txn-patterns.json, and canonical_stored().
+ * page's JavaScript normaliser reads too, and canonical_stored(). The same for every e-wallet: no wallet type goes
+ * in, no shape table comes out.
  *
  * @package QershPay\WooCommerce\Tests
  */
@@ -21,14 +22,23 @@ defined( 'ABSPATH' ) || exit;
 final class TxnIdTest extends TestCase {
 
 	/**
+	 * The shared vectors.
+	 *
+	 * @return array
+	 */
+	private static function cases(): array {
+		$cases = json_decode( qersh_wc_test_fixture( 'tests/vectors/txn-normalize.json' ), true );
+		return is_array( $cases ) ? $cases : array();
+	}
+
+	/**
 	 * The shared vectors, by name.
 	 *
 	 * @return array
 	 */
 	public function vectors(): array {
-		$cases = json_decode( qersh_wc_test_fixture( 'tests/vectors/txn-normalize.json' ), true );
-		$out   = array();
-		foreach ( is_array( $cases ) ? $cases : array() as $case ) {
+		$out = array();
+		foreach ( self::cases() as $case ) {
 			$out[ $case['name'] ] = array( $case );
 		}
 		return $out;
@@ -42,49 +52,25 @@ final class TxnIdTest extends TestCase {
 	 * @param array $case One vector.
 	 */
 	public function test_vector( array $case ): void {
-		$result = TxnId::canonical_typed( $case['provider'], $case['raw'], $case['payer_key'], $case['store_numbers'] );
-		$this->assertSame( $case['expect'], $result );
-		$this->assertSame( $case['long_run'], TxnId::long_run( $case['provider'], $case['raw'] ), 'long_run' );
+		$this->assertSame( $case['expect'], TxnId::canonical_typed( $case['raw'], $case['payer_key'], $case['store_numbers'] ) );
 	}
 
-	public function test_the_vectors_cover_long_runs(): void {
-		$cases = json_decode( qersh_wc_test_fixture( 'tests/vectors/txn-normalize.json' ), true );
-		$found = array();
-		foreach ( $cases as $case ) {
-			if ( null !== $case['long_run'] ) {
-				$found[ strlen( $case['long_run'] ) ][ $case['expect']['ok'] ? 'read' : $case['expect']['error'] ] = true;
-			}
+	public function test_the_vectors_carry_no_wallet_type(): void {
+		$names = array();
+		foreach ( self::cases() as $case ) {
+			$this->assertSame( array( 'name', 'raw', 'payer_key', 'store_numbers', 'expect' ), array_keys( $case ), $case['name'] );
+			$this->assertIsString( $case['payer_key'], $case['name'] );
+			$names[] = $case['name'];
 		}
-		ksort( $found );
-		// 15 and 16 digits (the 14-digit shape plus one or two), refused as a format or as a wallet number (an
-		// Orange message with the sender's number), and next to an id that is read.
-		$this->assertSame( array( 15, 16 ), array_keys( $found ) );
-		$this->assertArrayHasKey( 'qersh_txn_format', $found[15] );
-		$this->assertArrayHasKey( 'qersh_txn_wallet_number', $found[15] );
-		$this->assertArrayHasKey( 'read', $found[15] );
-	}
-
-	public function test_long_run_outside_the_vectors(): void {
-		$this->assertNull( TxnId::long_run( 'orange_cash', null ) );
-		$this->assertNull( TxnId::long_run( 'orange_cash', 250072940674051 ), 'a JSON number is never read' );
-		$this->assertNull( TxnId::long_run( 'orange_cash', '' ) );
-		$this->assertNull( TxnId::long_run( 'orange_cash', str_repeat( ' ', 386 ) . '250072940674051' ), '401 characters' );
-		$this->assertSame( '250072940674051', TxnId::long_run( 'orange_cash', str_repeat( ' ', 385 ) . '250072940674051' ) );
-		$this->assertNull( TxnId::long_run( 'orange_cash', '25007294067405' ), 'the shape itself' );
-		// The first one counts; a group joined to 15 or 16 digits is read whole, as step 5 reads ids.
-		$this->assertSame( '250072940674051', TxnId::long_run( 'orange_cash', '250072940674051 و 2500729406740512' ) );
-		$this->assertSame( '2500517294418312', TxnId::long_run( 'orange_cash', 'رقم 2500517294-418312' ) );
-		$this->assertSame( '250072940674051', TxnId::long_run( 'orange_cash', "100\n250072940674051" ) );
-		// Each run of a group whose joined length is not one of them.
-		$this->assertSame( '250072940674051', TxnId::long_run( 'orange_cash', '250072940674051-25007294067405123' ) );
+		$this->assertSame( array_unique( $names ), $names, 'one name per vector' );
 	}
 
 	public function test_the_vectors_cover_what_docs_17_names(): void {
-		$cases  = json_decode( qersh_wc_test_fixture( 'tests/vectors/txn-normalize.json' ), true );
 		$errors = array();
 		$ids    = array();
-		foreach ( $cases as $case ) {
-			$this->assertSame( array( 'name', 'provider', 'raw', 'payer_key', 'store_numbers', 'expect', 'long_run' ), array_keys( $case ) );
+		$names  = '';
+		foreach ( self::cases() as $case ) {
+			$names .= $case['name'] . "\n";
 			if ( $case['expect']['ok'] ) {
 				$ids[ $case['expect']['txn'] ] = true;
 			} else {
@@ -93,25 +79,43 @@ final class TxnIdTest extends TestCase {
 		}
 		ksort( $errors );
 		$this->assertSame( array( 'qersh_txn_empty', 'qersh_txn_format', 'qersh_txn_several', 'qersh_txn_too_long', 'qersh_txn_wallet_number' ), array_keys( $errors ) );
-		foreach ( array( '25007294067405', '25005172944183', '25004617383051', '25006831596394', '7700031948', '2995831338', '0012345678' ) as $id ) {
+		// Ids of every length the wallets print, with letters, and with leading zeros.
+		foreach ( array( '25007294067405', '25005172944183', '25004617383051', '25006831596394', '7700031948', '2995831338', '913372004518', '250046173830512', '0012345678', 'A1B2C3D4E5' ) as $id ) {
 			$this->assertArrayHasKey( $id, $ids, $id );
 		}
-	}
-
-	public function test_constants_equal_fixtures_txn_patterns(): void {
-		$fixture = json_decode( qersh_wc_test_fixture( 'fixtures/txn-patterns.json' ), true );
-		$this->assertSame( array_keys( $fixture['providers'] ), TxnId::CLAIM_PROVIDERS );
-		foreach ( $fixture['providers'] as $provider => $spec ) {
-			$this->assertSame( $spec['pattern'], TxnId::PATTERNS[ $provider ] );
-			$this->assertSame( $spec['lengths'], TxnId::LENGTHS[ $provider ] );
-			$this->assertSame( $spec['class'], TxnId::CLASSES[ $provider ] );
+		// Messages of three wallets, as paste samples.
+		foreach ( array( 'Orange Cash C1', 'Orange Cash C2', 'Orange Cash C3', 'Vodafone Cash style, Arabic', 'Vodafone Cash style, English', 'e& money style, Arabic', 'e& money style, English' ) as $sample ) {
+			$this->assertStringContainsString( $sample, $names, $sample );
 		}
-		$this->assertSame( array( 'orange_cash' ), TxnId::CLAIM_PROVIDERS );
 	}
 
-	public function test_canonical_typed_never_takes_ten_digits_out_of_fourteen(): void {
-		// The truncated pack id (first 10 of 14) must never be read out of a 14-digit id (docs/17 §4.10), however the
-		// customer split it: the old pack cuts 25005172944183 and 25005172945283 alike to 2500517294.
+	public function test_no_wallet_type_and_no_shape_table(): void {
+		foreach ( array( 'CLAIM_PROVIDERS', 'PATTERNS', 'LENGTHS', 'CLASSES' ) as $constant ) {
+			$this->assertFalse( defined( TxnId::class . '::' . $constant ), $constant );
+		}
+		$this->assertFalse( method_exists( TxnId::class, 'long_run' ) );
+		$this->assertSame( 6, TxnId::MIN_ID );
+		$this->assertSame( 40, TxnId::MAX_ID );
+
+		$typed = new \ReflectionMethod( TxnId::class, 'canonical_typed' );
+		$this->assertSame(
+			array( 'raw', 'payer_key', 'store_numbers' ),
+			array_map(
+				static function ( \ReflectionParameter $p ): string {
+					return $p->getName();
+				},
+				$typed->getParameters()
+			)
+		);
+		$this->assertSame( 1, $typed->getNumberOfRequiredParameters() );
+		$stored = new \ReflectionMethod( TxnId::class, 'canonical_stored' );
+		$this->assertSame( 1, $stored->getNumberOfParameters() );
+	}
+
+	public function test_canonical_typed_never_reads_a_part_of_a_split_id(): void {
+		// An app template that cuts a 14-digit id to its first 10 digits makes 25005172944183 and 25005172945283
+		// both 2500517294: however a customer splits an id, it is read whole (docs/17 §4.10),
+		// so it never equals such a cut id, and it never equals a part of another one.
 		$whole = array(
 			'ok'  => true,
 			'txn' => '25005172944183',
@@ -133,77 +137,101 @@ final class TxnIdTest extends TestCase {
 			'رقم المعاملة 2500 5172 9441 83',
 			'رقم المعاملة 2500-5172944183',
 			'رقم المعاملة 2500517 2944183',
+			'Transaction ID: 2500517294 4183.',
 		);
 		foreach ( $texts as $text ) {
-			$this->assertSame( $whole, TxnId::canonical_typed( 'orange_cash', $text, '01001234567', array( '01212345678' ) ), $text );
+			$this->assertSame( $whole, TxnId::canonical_typed( $text, '01001234567', array( '01212345678' ) ), $text );
 		}
+		$this->assertNotSame( TxnId::canonical_stored( '2500517294' ), $whole['txn'] );
 	}
 
 	public function test_canonical_typed_joins_only_one_separator_on_one_line(): void {
 		$args = array( '01001234567', array( '01212345678' ) );
-		// Joined runs whose length is not an id leave each run to be read alone.
-		$this->assertSame(
-			array(
-				'ok'  => true,
-				'txn' => '7700031948',
-			),
-			TxnId::canonical_typed( 'orange_cash', 'رقم المعاملة 7700031948 100', ...$args )
-		);
-		$this->assertSame(
-			array(
-				'ok'  => true,
-				'txn' => '25007294067405',
-			),
-			TxnId::canonical_typed( 'orange_cash', 'رقم المعاملة 25007294067405 7770', ...$args )
-		);
-		$this->assertSame(
-			array(
-				'ok'  => true,
-				'txn' => '25007294067405',
-			),
-			TxnId::canonical_typed( 'orange_cash', 'بمبلغ 11.00 جنيه رقم المعاملة 25007294067405', ...$args )
-		);
 		// A line break of any kind keeps numbers apart.
 		foreach ( array( "\n", "\r\n", "\r", "\u{2028}", "\u{2029}", "\u{000B}", "\u{000C}", "\u{001E}" ) as $break ) {
 			$this->assertSame(
 				array(
-					'ok'  => true,
-					'txn' => '7700031948',
+					'ok'    => false,
+					'error' => 'qersh_txn_several',
 				),
-				TxnId::canonical_typed( 'orange_cash', 'رقم المعاملة 7700031948' . $break . '1000 جنيه', ...$args ),
+				TxnId::canonical_typed( 'رقم المعاملة 7700031948' . $break . '913372004518', ...$args ),
 				bin2hex( $break )
 			);
 		}
-		// Two 14-digit ids on one line stay two.
-		$this->assertSame(
-			array(
-				'ok'    => false,
-				'error' => 'qersh_txn_several',
-			),
-			TxnId::canonical_typed( 'orange_cash', 'رقم 25007294067405 25005172944183', ...$args )
-		);
-		// A joined phone number is left out like a whole one.
+		// Two separators in a row, a word or another character end a number in a message.
+		foreach ( array( 'رقم 25007294067405  913372004518', 'رقم 25007294067405 و 913372004518', 'رقم 25007294067405, 913372004518', 'Ref 25007294067405 or 913372004518' ) as $text ) {
+			$this->assertSame(
+				array(
+					'ok'    => false,
+					'error' => 'qersh_txn_several',
+				),
+				TxnId::canonical_typed( $text, ...$args ),
+				$text
+			);
+		}
+		// A number joined by separators is left out like a whole one, and so is one standing next to the id.
 		$this->assertSame(
 			array(
 				'ok'    => false,
 				'error' => 'qersh_txn_wallet_number',
 			),
-			TxnId::canonical_typed( 'orange_cash', 'من 0020 1001234567 فقط', ...$args )
+			TxnId::canonical_typed( 'من 0020 1001234567 فقط', ...$args )
 		);
+		foreach ( array( 'من 121 234 5678 رقم المعاملة 25007294067405', '01001234567 25007294067405', '25007294067405 01212345678', 'من 01001234567-25007294067405' ) as $text ) {
+			$this->assertSame(
+				array(
+					'ok'  => true,
+					'txn' => '25007294067405',
+				),
+				TxnId::canonical_typed( $text, ...$args ),
+				$text
+			);
+		}
+	}
+
+	public function test_canonical_typed_never_reads_dates_times_amounts_or_links(): void {
+		$args  = array( '01001234567', array( '01212345678' ) );
+		$id    = array(
+			'ok'  => true,
+			'txn' => '913372004518',
+		);
+		$noise = array(
+			'18-10-26',
+			'18/10/2026',
+			'2026-10-18',
+			'14:35',
+			'09:15:42',
+			'150.00 جنيه',
+			'125000.00',
+			'125000,50',
+			'125000 جنيه',
+			'125000 جنية',
+			'125000 ج.م',
+			'125000 EGP',
+			'125000EGP',
+			'125000 LE',
+			'https://short.example/Ab12Cd34',
+			'www.short.example/x9y8z7w6',
+		);
+		foreach ( $noise as $text ) {
+			$this->assertSame(
+				array(
+					'ok'    => false,
+					'error' => 'qersh_txn_format',
+				),
+				TxnId::canonical_typed( 'رسالة ' . $text, ...$args ),
+				$text
+			);
+			$this->assertSame( $id, TxnId::canonical_typed( 'رقم العملية 913372004518 ' . $text, ...$args ), $text );
+			$this->assertSame( $id, TxnId::canonical_typed( $text . ' رقم العملية 913372004518', ...$args ), $text );
+		}
+		// A currency word only ends a number as a word: «LE» inside a longer Latin word does not.
 		$this->assertSame(
 			array(
 				'ok'  => true,
-				'txn' => '25007294067405',
+				'txn' => '913372004518',
 			),
-			TxnId::canonical_typed( 'orange_cash', 'من 121 234 5678 رقم المعاملة 25007294067405', ...$args )
-		);
-		// The compact attempt still reads the id alone, with any white space inside.
-		$this->assertSame(
-			array(
-				'ok'  => true,
-				'txn' => '25007294067405',
-			),
-			TxnId::canonical_typed( 'orange_cash', "2500\n7294067405", ...$args )
+			TxnId::canonical_typed( 'Ref 913372004518 LEFT', ...$args )
 		);
 	}
 
@@ -213,64 +241,120 @@ final class TxnIdTest extends TestCase {
 				'ok'    => false,
 				'error' => 'qersh_txn_format',
 			),
-			TxnId::canonical_typed( 'orange_cash', array( '25007294067405' ), null, array() )
+			TxnId::canonical_typed( array( '25007294067405' ) )
 		);
 		$this->assertSame(
 			array(
 				'ok'    => false,
 				'error' => 'qersh_txn_format',
 			),
-			TxnId::canonical_typed( 'orange_cash', 2.5007294067405E+13, null, array() )
+			TxnId::canonical_typed( 2.5007294067405E+13 )
+		);
+		$this->assertSame(
+			array(
+				'ok'    => false,
+				'error' => 'qersh_txn_format',
+			),
+			TxnId::canonical_typed( true )
 		);
 		$this->assertSame(
 			array(
 				'ok'    => false,
 				'error' => 'qersh_txn_too_long',
 			),
-			TxnId::canonical_typed( 'orange_cash', str_repeat( "\xFF", 401 ), null, array() )
+			TxnId::canonical_typed( str_repeat( "\xFF", 401 ) )
 		);
 		$this->assertSame(
 			array(
 				'ok'  => true,
 				'txn' => '25007294067405',
 			),
-			TxnId::canonical_typed( 'orange_cash', "\xFF25007294067405", null, array() )
+			TxnId::canonical_typed( "\xFF25007294067405" )
 		); // not UTF-8
+		// The defaults: no payer key and no store numbers, so a bare 1xxxxxxxxx is an id; 01xxxxxxxxx never is.
 		$this->assertSame(
 			array(
 				'ok'  => true,
-				'txn' => '25007294067405',
+				'txn' => '1001234567',
 			),
-			TxnId::canonical_typed( 'orange_cash', '25007294067405', null, array( null, 7, '', 'shop@instapay' ) )
+			TxnId::canonical_typed( '1001234567' )
 		);
 		$this->assertSame(
 			array(
 				'ok'    => false,
 				'error' => 'qersh_txn_wallet_number',
 			),
-			TxnId::canonical_typed( 'orange_cash', 'shop', null, array( 'shop@instapay' ) )
+			TxnId::canonical_typed( '01001234567' )
+		);
+		// Store numbers that are not mobile numbers are ignored, a handle included (the stores are e-wallets).
+		$this->assertSame(
+			array(
+				'ok'  => true,
+				'txn' => '25007294067405',
+			),
+			TxnId::canonical_typed( '25007294067405', '', array( null, 7, '', 'shop@instapay' ) )
+		);
+		$this->assertSame(
+			array(
+				'ok'    => false,
+				'error' => 'qersh_txn_format',
+			),
+			TxnId::canonical_typed( 'shop', 'shop@instapay', array( 'shop@instapay' ) )
+		);
+		// A store number in another spelling is still the store's.
+		$this->assertSame(
+			array(
+				'ok'    => false,
+				'error' => 'qersh_txn_wallet_number',
+			),
+			TxnId::canonical_typed( '1212345678', '', array( '+20 121 234 5678' ) )
 		);
 	}
 
 	public function test_canonical_stored(): void {
-		$this->assertSame( '25007294067405', TxnId::canonical_stored( 'orange_cash', '25007294067405' ) );
-		$this->assertSame( '25007294067405', TxnId::canonical_stored( 'orange_cash', " 25007294067405\n" ) );
-		$this->assertSame( '2500461738', TxnId::canonical_stored( 'orange_cash', '2500461738' ) ); // the pack's cut id still has a shape
-		$this->assertSame( '0012345678', TxnId::canonical_stored( 'orange_cash', '0012345678' ) );
-		$this->assertNull( TxnId::canonical_stored( 'orange_cash', '2500729406114' ) );
-		$this->assertNull( TxnId::canonical_stored( 'orange_cash', '25007294067405X' ) );
-		$this->assertNull( TxnId::canonical_stored( 'orange_cash', "25007294067405\n0" ) );
-		$this->assertNull( TxnId::canonical_stored( 'orange_cash', '٢٥٠٠٧٢٩٤٠٦٧٤٠٥' ) ); // the phone sends Latin digits
-		$this->assertNull( TxnId::canonical_stored( 'orange_cash', '' ) );
-		$this->assertNull( TxnId::canonical_stored( 'orange_cash', null ) );
-		$this->assertNull( TxnId::canonical_stored( 'orange_cash', 25007294067405 ) );
-		$this->assertNull( TxnId::canonical_stored( 'vodafone_cash', '25007294067405' ) );
+		$this->assertSame( '25007294067405', TxnId::canonical_stored( '25007294067405' ) );
+		$this->assertSame( '913372004518', TxnId::canonical_stored( '913372004518' ) );
+		$this->assertSame( '250046173830512', TxnId::canonical_stored( '250046173830512' ) );
+		$this->assertSame( '2500461738', TxnId::canonical_stored( '2500461738' ) );
+		$this->assertSame( '0012345678', TxnId::canonical_stored( '0012345678' ) );
+		$this->assertSame( '25007294067405', TxnId::canonical_stored( " 25007294067405\n" ) );
+		$this->assertSame( '25007294067405', TxnId::canonical_stored( '2500-7294 0674.05' ) );
+		$this->assertSame( '25007294067405', TxnId::canonical_stored( '٢٥٠٠٧٢٩٤٠٦٧٤٠٥' ) );
+		$this->assertSame( '25007294067405', TxnId::canonical_stored( "\u{200F}25007294067405" ) );
+		$this->assertSame( 'AB12CD34EF', TxnId::canonical_stored( 'ab12cd34ef' ) );
+		$this->assertSame( '25007294067405X', TxnId::canonical_stored( '25007294067405X' ) );
+		$this->assertSame( '913372', TxnId::canonical_stored( '913372' ) );
+		$this->assertSame( str_repeat( '1234567890', 4 ), TxnId::canonical_stored( str_repeat( '1234567890', 4 ) ) );
+		$this->assertNull( TxnId::canonical_stored( '91337' ) );
+		$this->assertNull( TxnId::canonical_stored( str_repeat( '1234567890', 4 ) . '1' ) );
+		$this->assertNull( TxnId::canonical_stored( 'ABCDEFGH' ) );
+		$this->assertNull( TxnId::canonical_stored( 'TXN/25007294067405' ) );
+		$this->assertNull( TxnId::canonical_stored( '+25007294067405' ) );
+		$this->assertNull( TxnId::canonical_stored( '' ) );
+		$this->assertNull( TxnId::canonical_stored( ' - ' ) );
+		$this->assertNull( TxnId::canonical_stored( null ) );
+		$this->assertNull( TxnId::canonical_stored( 25007294067405 ) );
+		$this->assertNull( TxnId::canonical_stored( array( '25007294067405' ) ) );
+		$this->assertNull( TxnId::canonical_stored( str_repeat( '1', 1601 ) ) );
 	}
 
 	public function test_a_typed_id_equals_the_stored_id_of_the_same_transfer(): void {
-		foreach ( array( '25007294067405', '7700031948', '0012345678' ) as $id ) {
-			$typed = TxnId::canonical_typed( 'orange_cash', ' #' . $id . '. ', '01001234567', array( '01212345678' ) );
-			$this->assertSame( TxnId::canonical_stored( 'orange_cash', $id ), $typed['txn'] );
+		// Whatever the wallet: what the phone delivered and what the customer typed meet in one canonical form.
+		foreach ( array( '25007294067405', '7700031948', '913372004518', '250046173830512', '0012345678', 'a1b2c3d4e5' ) as $id ) {
+			$stored = TxnId::canonical_stored( $id );
+			$this->assertNotNull( $stored, $id );
+			$spaced = implode( ' ', str_split( $id, 4 ) );
+			foreach ( array( $id, ' #' . $id . '. ', $spaced, strtoupper( $id ), 'رقم العملية ' . $id . '.', 'Transaction ID: ' . $spaced ) as $text ) {
+				$typed = TxnId::canonical_typed( $text, '01001234567', array( '01212345678' ) );
+				$this->assertSame(
+					array(
+						'ok'  => true,
+						'txn' => $stored,
+					),
+					$typed,
+					$text
+				);
+			}
 		}
 	}
 }

@@ -1,7 +1,7 @@
 <?php
 /**
  * Tests of the pure rules of package C: the customer-facing status, the amount to transfer, the confirmation line
- * of each wallet, the status line, the store's limits, and the route helpers. WordPress-free.
+ * (one for every wallet), the status line, the store's limits, and the route helpers. WordPress-free.
  *
  * @package QershPay\WooCommerce\Tests
  */
@@ -175,67 +175,105 @@ final class CheckoutTest extends TestCase {
 		$this->assertSame( 14000, Checkout::amounts( 14000, -5, true )['due'], 'a negative paid amount counts as zero' );
 	}
 
-	/** The confirmation line of each wallet type (docs/17 §3), with the Orange auto_seen variant. */
+	/** One confirmation line for every wallet (docs/17 §3), its transaction-id part only where the page takes one. */
 	public function test_confirm_kind(): void {
-		$this->assertSame( 'auto', Checkout::confirm_kind( 'vodafone_cash', false, false ) );
-		$this->assertSame( 'auto', Checkout::confirm_kind( 'etisalat_cash', true, true ) );
-		$this->assertSame( 'orange_auto', Checkout::confirm_kind( 'orange_cash', true, true ) );
-		$this->assertSame( 'orange', Checkout::confirm_kind( 'orange_cash', false, true ) );
-		$this->assertSame( 'decision', Checkout::confirm_kind( 'orange_cash', true, false ), 'transaction id entry off' );
-		foreach ( array( 'instapay_app', 'bank_nbe', 'bank_cib', 'bank_egbank', '' ) as $provider ) {
-			$this->assertSame( 'decision', Checkout::confirm_kind( $provider, true, true ), $provider );
-		}
+		$this->assertSame( 'txn', Checkout::confirm_kind( true ) );
+		$this->assertSame( 'plain', Checkout::confirm_kind( false ), 'transaction id entry off, or the order page takes none now' );
 	}
 
-	/** Orange Cash entries take transaction ids, turned off or not (turning off only hides it from the checkout). */
+	/**
+	 * A wallet entry of any wallet takes transaction ids, turned off or not (turning off only hides it from the
+	 * checkout). The type an older entry still carries changes nothing.
+	 */
 	public function test_txn_wallet(): void {
-		$orange = array(
+		$wallet = array(
 			'id'              => 'ccccccccccc3',
-			'label'           => 'Orange',
-			'provider'        => 'orange_cash',
-			'receive_address' => '01201234567',
+			'label'           => 'Main',
+			'receive_address' => '01001234567',
 			'enabled'         => true,
 		);
-		$this->assertTrue( Checkout::txn_wallet( $orange ) );
-		$off            = $orange;
+		$this->assertTrue( Checkout::txn_wallet( $wallet ) );
+		$off            = $wallet;
 		$off['enabled'] = false;
 		$this->assertTrue( Checkout::txn_wallet( $off ), 'a turned-off wallet keeps the field of its waiting orders' );
 		unset( $off['enabled'] );
 		$this->assertTrue( Checkout::txn_wallet( $off ) );
 		$this->assertFalse( Checkout::txn_wallet( null ), 'a deleted wallet has no entry' );
-		foreach ( array( 'vodafone_cash', 'etisalat_cash', 'instapay_app', 'bank_nbe', 'bank_cib', 'bank_egbank', '' ) as $provider ) {
-			$other             = $orange;
-			$other['provider'] = $provider;
-			$this->assertFalse( Checkout::txn_wallet( $other ), $provider );
+		foreach ( array( 'vodafone_cash', 'etisalat_cash', 'orange_cash', 'instapay_app', 'bank_nbe', 'some_new_wallet', '' ) as $provider ) {
+			$legacy             = $wallet;
+			$legacy['provider'] = $provider;
+			$this->assertTrue( Checkout::txn_wallet( $legacy ), "a legacy provider '$provider' is ignored" );
 		}
-		$this->assertFalse( Checkout::txn_wallet( array( 'provider' => 'orange_cash' ) ), 'an entry without an id' );
+		$this->assertTrue( Checkout::txn_wallet( array( 'id' => 'ddddddddddd4' ) ), 'an id is all it needs' );
+		$this->assertFalse( Checkout::txn_wallet( array( 'receive_address' => '01001234567' ) ), 'an entry without an id' );
+		$this->assertFalse( Checkout::txn_wallet( array( 'id' => '' ) ) );
+		$this->assertFalse( Checkout::txn_wallet( array( 'id' => 42 ) ), 'an id is a string' );
 	}
 
-	/** After 15 minutes: the Orange reminder only while the field is there and empty; the base line otherwise. */
+	/** After 15 minutes: the transaction-id reminder only while the field is there and empty, else the base line. */
 	public function test_nudge_key(): void {
-		$this->assertSame( 'nudge_other', Checkout::nudge_key( 'waiting', true, false, false, false ) );
-		$this->assertSame( 'nudge_other', Checkout::nudge_key( 'waiting', true, false, true, true ), 'not an Orange order' );
-		$this->assertSame( 'nudge_txn', Checkout::nudge_key( 'waiting', true, true, true, false ) );
-		$this->assertSame( '', Checkout::nudge_key( 'waiting', true, true, true, true ), 'an id was entered' );
-		$this->assertSame( 'nudge_other', Checkout::nudge_key( 'waiting', true, true, false, false ), 'Orange without the field: the reminder points at nothing' );
-		$this->assertSame( 'nudge_other', Checkout::nudge_key( 'waiting', true, true, false, true ) );
-		$this->assertSame( '', Checkout::nudge_key( 'waiting', false, false, false, false ), 'before 15 minutes' );
+		$this->assertSame( 'nudge_other', Checkout::nudge_key( 'waiting', true, false, false ), 'no field' );
+		$this->assertSame( 'nudge_other', Checkout::nudge_key( 'waiting', true, false, true ), 'no field: the reminder would point at nothing' );
+		$this->assertSame( 'nudge_txn', Checkout::nudge_key( 'waiting', true, true, false ) );
+		$this->assertSame( '', Checkout::nudge_key( 'waiting', true, true, true ), 'an id was entered' );
+		$this->assertSame( '', Checkout::nudge_key( 'waiting', false, true, false ), 'before 15 minutes' );
+		$this->assertSame( '', Checkout::nudge_key( 'waiting', false, false, false ), 'before 15 minutes' );
 		foreach ( array( 'partial', 'paid', 'review', 'expired', 'cancelled' ) as $status ) {
-			$this->assertSame( '', Checkout::nudge_key( $status, true, true, true, false ), $status );
-			$this->assertSame( '', Checkout::nudge_key( $status, true, false, false, false ), $status );
+			$this->assertSame( '', Checkout::nudge_key( $status, true, true, false ), $status );
+			$this->assertSame( '', Checkout::nudge_key( $status, true, false, false ), $status );
 		}
 	}
 
-	/** The status line: the neutral saved line replaces "Waiting…" once a transaction id is saved. */
+	/** The status line: one waiting line for every wallet; the neutral saved line once a transaction id is saved. */
 	public function test_status_line_key(): void {
-		$this->assertSame( 'waiting', Checkout::status_line_key( 'waiting', false, false ) );
-		$this->assertSame( 'waiting_decision', Checkout::status_line_key( 'waiting', true, false ) );
-		$this->assertSame( 'saved', Checkout::status_line_key( 'waiting', true, true ) );
-		$this->assertSame( 'saved', Checkout::status_line_key( 'waiting', false, true ) );
+		$this->assertSame( 'waiting', Checkout::status_line_key( 'waiting', false ) );
+		$this->assertSame( 'saved', Checkout::status_line_key( 'waiting', true ) );
 		foreach ( array( 'partial', 'paid', 'review', 'expired', 'cancelled' ) as $status ) {
-			$this->assertSame( $status, Checkout::status_line_key( $status, false, true ), $status );
+			$this->assertSame( $status, Checkout::status_line_key( $status, true ), $status );
+			$this->assertSame( $status, Checkout::status_line_key( $status, false ), $status );
 		}
-		$this->assertSame( 'waiting', Checkout::status_line_key( 'other', false, false ) );
+		$this->assertSame( 'waiting', Checkout::status_line_key( 'other', false ) );
+	}
+
+	/** Every refusal code of the transaction-id reader has a text on the order page (Claims::message()). */
+	public function test_txn_error_codes(): void {
+		foreach ( array( 'qersh_txn_empty', 'qersh_txn_too_long', 'qersh_txn_format', 'qersh_txn_wallet_number', 'qersh_txn_several' ) as $code ) {
+			$this->assertContains( $code, Checkout::TXN_ERROR_CODES, $code );
+		}
+		foreach ( array( 'qersh_txn_wait', 'qersh_txn_locked', 'qersh_txn_closed' ) as $code ) {
+			$this->assertContains( $code, Checkout::TXN_ERROR_CODES, "the route's own $code" );
+		}
+		$this->assertSame( array_values( array_unique( Checkout::TXN_ERROR_CODES ) ), Checkout::TXN_ERROR_CODES );
+		$this->assertNotContains( 'other', Checkout::TXN_ERROR_CODES, 'added by txn_error_texts()' );
+	}
+
+	/**
+	 * What the customer reads (checkout, order page, email) never names a wallet type or brand, never says "*9#",
+	 * and the storefront code never reads the type of a wallet: the plugin does not know it.
+	 */
+	public function test_storefront_never_names_a_wallet_type(): void {
+		$files  = array(
+			'src/Checkout.php',
+			'src/Gateway.php',
+			'src/PayerField.php',
+			'src/BlocksIntegration.php',
+			'src/Emails/Instructions.php',
+			'templates/checkout/payer-field.php',
+			'templates/order/thankyou-box.php',
+			'templates/order/txn-box.php',
+			'templates/emails/instructions.php',
+			'templates/emails/plain/instructions.php',
+			'assets/js/payer-field.js',
+			'assets/js/checkout-blocks.js',
+			'assets/js/thankyou.js',
+		);
+		$brands = '/vodafone|orange|etisalat|e&\s*(money|cash)|instapay|\bbank_|\bCIB\b|EGBANK|\*9#|فودافون|أورانج|اورنج|اتصالات|انستا ?باي/iu';
+		foreach ( $files as $file ) {
+			$source = qersh_wc_test_fixture( $file );
+			$this->assertSame( 0, preg_match( $brands, $source, $hit ), $file . ': ' . ( isset( $hit[0] ) ? $hit[0] : '' ) );
+			// The webhook's `provider_txn_id` is the transfer's id, not a type.
+			$this->assertSame( 0, preg_match( '/provider(?!_txn_id)/i', $source, $hit ), $file . ': reads a wallet type' );
+		}
 	}
 
 	/** The store's minimum and maximum. */
