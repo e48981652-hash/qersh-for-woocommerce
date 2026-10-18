@@ -33,7 +33,11 @@ update_option( 'woocommerce_onboarding_profile', array( 'skipped' => true ) );
 
 global $wp_rewrite;
 $wp_rewrite->set_permalink_structure( 'plain' === $qersh_permalinks ? '' : '/%postname%/' );
-flush_rewrite_rules( false );
+// set_permalink_structure() re-initialises WP_Rewrite when the structure changes, which drops every endpoint
+// registered on init (WooCommerce's order-received, order-pay and My Account pages). A flush here would save the
+// rules without them, and the order-received page would answer 404. Dropping the stored rules lets the next
+// request rebuild them with every endpoint.
+delete_option( 'rewrite_rules' );
 
 $qersh_want_hpos = 'off' !== $qersh_hpos;
 $qersh_sync      = wc_get_container()->get( DataSynchronizer::class );
