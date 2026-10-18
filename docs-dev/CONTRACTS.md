@@ -58,8 +58,10 @@ A module may call another module's public methods as listed here. If you need a 
   - `Autoloader::register()`.
   - `add_action( 'parse_request', [ Webhook\Fallback::class, 'maybe_handle' ], -1 )`. This runs before the WooCommerce check, so it answers 503 when WooCommerce is off.
   - `add_filter( 'woocommerce_defer_transactional_emails', [ Plugin::class, 'filter_defer_emails' ] )`.
+  - `add_filter( 'lang_dir_for_domain', [ Plugin::class, 'lang_dir' ], 10, 3 )`: the bundled `languages/` folder when the plugin is network-activated (WordPress registers the Domain Path folder only for plugins active on the site). A folder WordPress found, such as a language pack, passes through.
   - `add_action( 'before_woocommerce_init', [ Plugin::class, 'declare_compatibility' ] )`.
   - `register_activation_hook( QERSH_WC_FILE, [ Plugin::class, 'activate' ] )`.
+  - `register_deactivation_hook( QERSH_WC_FILE, [ Plugin::class, 'deactivate' ] )`: cancels the two recurring actions; `Webhook\Module::schedule_recurring()` schedules them again after reactivation. No data is deleted.
   - `add_action( 'plugins_loaded', [ Plugin::class, 'boot' ], 20 )`.
 - **`Plugin::boot()`:**
   - Always: runs the schema check, registers the REST routes (`rest_api_init`, routes answer 503 JSON when WooCommerce or the tables are missing) and the cron/Action Scheduler hooks.
@@ -104,6 +106,7 @@ The shape is exactly the JSON in docs/17 §4.2.
   - Read: `get(): array` (with defaults), `is_constant(): bool`.
   - Write: `save( array $config ): true|\WP_Error`, refused when constant.
   - Transfer: `export(): array` (no runtime state) and `import( array $config ): true|\WP_Error`.
+- **Wallet labels:** `ConfigStore::clean_label( string $label ): string` runs `sanitize_text_field()` and cuts to `ConfigStore::LABEL_MAX` (60) characters, the same limit as `Core\SetupLink::LABEL_MAX`.
 - **Storage:** option `qersh_wc_config`, autoload off. Gateway form fields stay in `woocommerce_qersh_settings` (enabled, title, description, instructions only).
 
 ## 6. Core API (pure PHP, `src/Core`)
@@ -199,6 +202,8 @@ Value sets:
 - `qersh_orders.completion`: `none|due|running|done`.
 - `qersh_transfers.reason` codes: as in docs/17 §4.6 and §4.3.
 
+**Lost tables.** `Schema::table_missing( ?string $prefix = null )` is called by `Db` when a query reports one of our tables missing. `Schema::lost(): bool` is then true for the rest of the request, so `Plugin::tables_ready()` is false. `Schema::forget_version()` deletes `qersh_wc_db_version` (at once, or right after the open transaction ends) so the next request's `maybe_upgrade()` creates the tables again. A second loss within ten minutes pauses automatic installs for ten minutes.
+
 ## 8. Store API (`src/Store`, package B; others call only these)
 - **`Db`:**
   - Basics: `table( string $short ): string`, `wpdb(): \wpdb`, `is_sqlite(): bool`.
@@ -243,10 +248,10 @@ Value sets:
   - Recurring: `qersh_wc_sweep` (every 900 s), `qersh_wc_daily` (every 86400 s, cleanup).
 - **Emails:** class ids `qersh_instructions` and `qersh_admin_alert`. Trigger actions `qersh_wc_send_instructions` ( order_id ) and `qersh_wc_admin_alert` ( kind, args ); both are added to `woocommerce_email_actions`.
 - **AJAX:** `wp_ajax_qersh_wc_key_link`.
-- **admin-post actions:** `qersh_wc_wallet_save`, `qersh_wc_wallet_delete`, `qersh_wc_wallet_restore`, `qersh_wc_key_paste`, `qersh_wc_key_pending_cancel`, `qersh_wc_transfer_attach`, `qersh_wc_transfer_dismiss`, `qersh_wc_settings_save`, `qersh_wc_config_import`, `qersh_wc_config_export`, `qersh_wc_self_test`.
+- **admin-post actions:** `qersh_wc_wallet_save`, `qersh_wc_wallet_delete`, `qersh_wc_wallet_restore`, `qersh_wc_key_paste`, `qersh_wc_key_pending_cancel`, `qersh_wc_transfer_attach`, `qersh_wc_transfer_dismiss`, `qersh_wc_transfer_resolve`, `qersh_wc_settings_save`, `qersh_wc_config_import`, `qersh_wc_config_export`, `qersh_wc_self_test`.
 - **Admin page:** a submenu of WooCommerce, slug `qersh`, with tabs `wallets|transfers|settings|status`.
-- **Order meta:** `_qersh_payer_key`, `_qersh_wallet`, `_qersh_placed_at`, `_qersh_deadline`, `_qersh_expired_at`, `_qersh_flag`, `_qersh_claim_txn`.
-- **Options:** `woocommerce_qersh_settings`, `qersh_wc_config`, `qersh_wc_db_version`, `qersh_wc_as_ok`, `qersh_wc_txn_drift`, `qersh_wc_secret_<wallet>`, `qersh_wc_notices` (dismissed notice ids).
+- **Order meta:** `_qersh_payer_key`, `_qersh_wallet`, `_qersh_placed_at`, `_qersh_deadline`, `_qersh_expired_at`, `_qersh_flag`, `_qersh_claim_txn`, `_qersh_attach_hold` (`Completion::ATTACH_HOLD_META`: set by an admin attach that pays an on-hold order, removed once its completion is settled).
+- **Options:** `woocommerce_qersh_settings`, `qersh_wc_config`, `qersh_wc_db_version`, `qersh_wc_as_ok`, `qersh_wc_txn_drift`, `qersh_wc_txn_long` (`Diagnostics::TXN_LONG_OPTION`, the second drift trigger), `qersh_wc_secret_<wallet>`, `qersh_wc_notices` (dismissed notice ids).
 - **Gateway id:** `qersh`. Blocks script data key: `qersh_data`. The `$_POST` key for the payer field is `qersh_payer`, and for the chosen wallet `qersh_wallet`.
 
 ## 10. Cross-module calls (package D implements, C and E call)
@@ -254,13 +259,17 @@ Value sets:
   - `on_process_payment( \WC_Order $order, string $payer_key, string $wallet, int $now ): void`: the `qersh_orders` row, meta, deadline, expiry action and instructions email (docs/17 §4.3, §4.7).
   - `apply_attach( string $transfer_id, int $order_id, int $user_id ): true|\WP_Error`: manual attach.
   - `dismiss( string $transfer_id, int $user_id ): true|\WP_Error`.
+  - `resolve( string $transfer_id, int $user_id ): true|\WP_Error`: "Mark as decided". It takes a linked transfer out of "Needs a decision" without touching the order or the money, through the pure `Orders::resolved_fields( array $tr ): array` (overpaid → matched, review → attached, a forgery flag → forgery_decided, an overdue reason → decided).
   - `suggestions( array $transfer_row ): array`, computed when read (docs/17 §4.6).
 - **`Claims`:**
   - `submit( \WC_Order $order, string $raw, int $now ): array`, returning `[ 'http' => int, 'body' => array, 'retry_after' => ?int ]` (docs/17 §4.10 route steps 1–8).
   - `evaluate( int $order_id ): void`.
+  - `Claims::counts_long_run( string $code ): bool` (pure): true for `qersh_txn_format` and `qersh_txn_wallet_number`. Only those refusals pass `Core\TxnId::long_run( string $provider, $raw ): ?string` (JS twin `longRun()` in `assets/js/txn-normalize.js`) to `Diagnostics::record_txn_refusal()`. The order page then sends only that long run, never the rest of what the customer pasted.
 - **`Completion`:** `request( int $order_id ): void` (paths a/b/c), `run( int $order_id ): void` (the claimed path), `sweep(): void`.
+  - The decision facts include `merchant_hold`, from the pure `Completion::merchant_hold( $meta, array $row ): bool`. An on-hold order completes only when `_qersh_attach_hold` names the row's current paid decision.
 - **`Expiry`:** `run( int $order_id ): void`, `sweep(): void`, plus the filters on `woocommerce_cancel_unpaid_order` and `woocommerce_order_hold_stock_minutes`.
-- **`Diagnostics`** (package E): `wallet_alerts( string $wallet ): array`, `global_alerts(): array`, `self_test( string $wallet ): array`, `record_delivery( string $wallet, array $envelope, string $form ): void` (called by the webhook controller), `as_health(): void`.
+  - `Expiry::cancel_email_now( bool $mutes ): string` (pure) returns `mute` or `after_commit`. WooCommerce's admin "Cancelled order" email from our cancellation is held back inside the transaction and sent after COMMIT.
+- **`Diagnostics`** (package E): `wallet_alerts( string $wallet ): array`, `global_alerts(): array`, `self_test( string $wallet ): array`, `record_delivery( string $wallet, array $envelope, string $form ): void` (called by the webhook controller), `as_health(): void`, `record_txn_refusal( string $provider, string $long_run, int $order_id, string $payer_key, int $now = 0 ): bool` (the second drift trigger, with the pure `Diagnostics::long_run_ok( string $provider, string $run ): bool`).
 
 ## 11. Tests
 - **Unit:** `tests/php/unit/**Test.php`, PHPUnit 9.6 with yoast/phpunit-polyfills 2. No WordPress; the bootstrap defines `ABSPATH` and loads the autoloader. Run `composer test:unit`, or `vendor/bin/phpunit -c phpunit.xml.dist --testsuite unit`.
@@ -278,6 +287,8 @@ Package D is split in two: **D1** owns `src/Webhook/{Module,Fallback,Controller}
   - On `Store\LockTimeout` after one retry they return `[ 'http' => 429, 'reply' => [ 'code' => 'qersh_busy' ], 'retry_after' => 30 ]`.
   - `Orders::status_updates( string $wallet, int $now ): array` returns the `status_updates[]` items to append to any 2xx reply (docs/17 §4.4 step 10). The controller appends them, and calls `Transfers::note_synced()` for the ids it sent.
   - The controller handles `webhook.test`, `device.heartbeat` and ignored events itself.
+  - After a caught `Throwable` the controller answers `Controller::after_throwable( bool $ready ): array`: 500 `qersh_internal_error`, or 503 `qersh_unavailable` once the store is no longer ready (`Schema::lost()`). `Controller::found_unready(): bool` gives the same answer where no controller exists (the permission check, the fallback address).
+  - `Webhook\Fallback` reads each header it needs (signature, content length) one key at a time.
 - **D2 to D1:** after a paid decision commits, `Completion::request( int $order_id )`.
   - Path (a) registers one shutdown callback at priority 5.
   - Path (b) runs inline under the 6 s guard, webhook requests only.
@@ -291,4 +302,5 @@ Package D is split in two: **D1** owns `src/Webhook/{Module,Fallback,Controller}
   - Both return `[ 'http' => int, 'body' => array, 'headers' => array ]`, and each is also the core of its REST callback.
 - **E to D2, for admin screens:** `Orders::apply_attach( string $transfer_id, int $order_id, int $user_id )`, `Orders::dismiss( string $transfer_id, int $user_id )` and `Orders::suggestions( array $transfer_row ): array`.
 - **D1 to E:** `Diagnostics::record_delivery( string $wallet, array $envelope, string $form, int $now ): void`, called for every verified delivery before dispatch. `$form` is `wp-json`, `rest_route` or `wc-api`.
+- **Plain emails:** `Checkout::plain_apostrophes( string $text ): string` (pure) turns `'` into U+2019 in plain-text lines that go into WooCommerce's own emails. Their catch-all for unknown entities would delete `&#039;`.
 - **Customer-facing status values** (`OrderStatusRoute`): `waiting|partial|paid|review|expired|cancelled`, read from `qersh_orders.state` (docs/17 §4.1), plus `claim` (bool) for Orange orders.
