@@ -4,7 +4,7 @@ Tags: woocommerce, egypt, e-wallet, wallet transfer, mobile wallet
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.1.0
+Stable tag: 0.1.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -131,10 +131,13 @@ Qersh takes nothing from any transfer; the subscription is a flat monthly fee, b
 
 == Changelog ==
 
+= 0.1.1 =
+* wordpress.org review: URLs in plain-text emails escaped for output; admin notices limited to the screens they concern.
+
 = 0.1.0 =
 * First release: e-wallet transfers for the classic checkout, the Checkout block and "Pay for order", matched by payer and time, on any e-wallet the Qersh app reads; the transaction id on the order page; "Needs a decision"; diagnostics; English and Arabic.
 
 == Upgrade Notice ==
 
-= 0.1.0 =
-First release.
+= 0.1.1 =
+Plugin review changes.

@@ -48,7 +48,7 @@ A module calls another module only through the public methods listed here. A mod
 
 ## 3. Constants and bootstrap (`qersh-for-woocommerce.php`)
 - **Constants:**
-  - `QERSH_WC_VERSION = '0.1.0'`, `QERSH_WC_FILE = __FILE__`, `QERSH_WC_DIR`, `QERSH_WC_URL`. Our scripts and styles are versioned by `Plugin::asset_version( string $path )` (`QERSH_WC_VERSION` and the file's modification time), never by `QERSH_WC_VERSION` alone.
+  - `QERSH_WC_VERSION = '0.1.1'`, `QERSH_WC_FILE = __FILE__`, `QERSH_WC_DIR`, `QERSH_WC_URL`. Our scripts and styles are versioned by `Plugin::asset_version( string $path )` (`QERSH_WC_VERSION` and the file's modification time), never by `QERSH_WC_VERSION` alone.
   - `QERSH_WC_DB_VERSION = 2` (equal to `Store\Schema::VERSION`; see §7 for what schema 2 changed), `QERSH_WC_MIN_WC = '11.0'`.
   - Optional in wp-config:
     - `QERSH_WC_CONFIG`: a JSON string; makes the settings read-only.
@@ -69,7 +69,7 @@ A module calls another module only through the public methods listed here. A mod
 - **Module entry points.** `Plugin::boot()` calls each package's static `register( Plugin $plugin, bool $wc_ready ): void`, guarded by `class_exists`. So `Plugin.php` is never edited by C, D or E.
   - `Checkout` (C, `src/Checkout.php`): the gateway, Blocks, the two storefront routes and the thank-you hooks.
   - `Webhook\Module` (D, `src/Webhook/Module.php`): the webhook route, the Action Scheduler handlers, the order hooks that keep `qersh_orders` in step, and the expiry and stock filters.
-  - `Admin\Module` (E, `src/Admin/Module.php`): menus, admin-post, AJAX, notices, the order box, privacy, emails and diagnostics hooks.
+  - `Admin\Module` (E, `src/Admin/Module.php`): menus, admin-post, AJAX, the order box, privacy, emails and diagnostics hooks. It calls `Admin\Notices::register( bool $wc_ready )` (E, `src/Admin/Notices.php`) in both states: the admin notices hook themselves from `current_screen` on the screens they concern (our page, WooCommerce → Settings → Payments, the order screens) and from `load-plugins.php` for the WooCommerce-missing line, print through `wp_admin_notice()`, and remember their dismissals in `Notices::OPTION`.
 - **Routes and WooCommerce off.** Each module registers its own REST routes on `rest_api_init` even when `$wc_ready` is false. Routes then answer 503 JSON `{ "code": "qersh_unavailable" }` through `Plugin::unavailable_response()`.
 
 ## 4. Service container (`src/Plugin.php`)
@@ -255,11 +255,11 @@ Value sets:
   - `qersh_wc_complete` ( order_id ), `qersh_wc_expire` ( order_id ), `qersh_wc_claim_eval` ( order_id ).
   - Recurring: `qersh_wc_sweep` (every 900 s), `qersh_wc_daily` (every 86400 s, cleanup).
 - **Emails:** class ids `qersh_instructions` and `qersh_admin_alert`. Trigger actions `qersh_wc_send_instructions` ( order_id ) and `qersh_wc_admin_alert` ( kind, args ); both are added to `woocommerce_email_actions`.
-- **AJAX:** `wp_ajax_qersh_wc_key_link`.
+- **AJAX:** `wp_ajax_qersh_wc_key_link`, `wp_ajax_qersh_wc_notice_dismiss` (`Admin\Notices::DISMISS_ACTION`, also its nonce action).
 - **admin-post actions:** `qersh_wc_wallet_save`, `qersh_wc_wallet_delete`, `qersh_wc_wallet_restore`, `qersh_wc_key_paste`, `qersh_wc_key_pending_cancel`, `qersh_wc_transfer_attach`, `qersh_wc_transfer_dismiss`, `qersh_wc_transfer_resolve`, `qersh_wc_settings_save`, `qersh_wc_config_import`, `qersh_wc_config_export`, `qersh_wc_self_test`.
 - **Admin page:** a submenu of WooCommerce, slug `qersh`, with tabs `wallets|transfers|settings|status`.
 - **Order meta:** `_qersh_payer_key`, `_qersh_wallet`, `_qersh_placed_at`, `_qersh_deadline`, `_qersh_expired_at`, `_qersh_flag`, `_qersh_claim_txn`, `_qersh_attach_hold` (`Completion::ATTACH_HOLD_META`: set by an admin attach that pays an on-hold order, removed once its completion is settled).
-- **Options:** `woocommerce_qersh_settings`, `qersh_wc_config`, `qersh_wc_db_version`, `qersh_wc_as_ok`, `qersh_wc_secret_<wallet>`, `qersh_wc_notices` (dismissed notice ids). Obsolete since schema 2, deleted by its upgrade and still removed on uninstall: `qersh_wc_txn_drift` and `qersh_wc_txn_long` (the transaction-id drift diagnostics, removed).
+- **Options:** `woocommerce_qersh_settings`, `qersh_wc_config`, `qersh_wc_db_version`, `qersh_wc_as_ok`, `qersh_wc_secret_<wallet>`, `qersh_wc_notices` (`Admin\Notices::OPTION`, dismissed notice ids, autoload off). Obsolete since schema 2, deleted by its upgrade and still removed on uninstall: `qersh_wc_txn_drift` and `qersh_wc_txn_long` (the transaction-id drift diagnostics, removed).
 - **Gateway id:** `qersh`, default title `Gateway::default_title()` ("E-wallet transfer", one for every wallet). Blocks script data key: `qersh_data`, whose `wallets[]` are `{ id, label, address, display, confirm }` (no type, brand or InstaPay flag). The thank-you script data has `txn_box` (bool, the wallet's gate) and `txn_open`, and its `txn` part is `{ payer_key, store_numbers }`. The `$_POST` key for the payer field is `qersh_payer`, and for the chosen wallet `qersh_wallet`.
 
 ## 10. Cross-module calls (package D implements, C and E call)

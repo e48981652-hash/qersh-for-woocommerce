@@ -67,8 +67,11 @@ if ( is_array( $box ) ) {
 
 	if ( $box['txn_open'] ) {
 		// The link to the id box: the id is optional (the confirm line above says when it helps), never an order.
+		// Printed as WooCommerce's emails/plain/email-order-details.php prints "View order": the sentence through
+		// esc_html__(), the address through esc_url() in its display context, whose `&#038;` WC_Email::get_content()
+		// maps back to `&` with its plain-text rules, so the link works in a text client.
 		/* translators: %s: link to the order page. */
-		echo esc_html( sprintf( __( 'If the store cannot see the number you transferred from, you can enter the transaction id on your order page: %s', 'qersh-for-woocommerce' ), esc_url_raw( Checkout::txn_page_url( $order ) ) ) ) . "\n\n";
+		echo sprintf( esc_html__( 'If the store cannot see the number you transferred from, you can enter the transaction id on your order page: %s', 'qersh-for-woocommerce' ), esc_url( Checkout::txn_page_url( $order ) ) ) . "\n\n";
 	}
 	if ( '' !== trim( $box['instructions'] ) ) {
 		echo esc_html( wp_strip_all_tags( wptexturize( $box['instructions'] ) ) ) . "\n\n";

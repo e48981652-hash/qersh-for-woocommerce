@@ -3,7 +3,7 @@
  * Tests of the pure rules behind the review fixes of the admin area: which payer numbers the personal data tools
  * may follow and which transfers the eraser may blank, the policy text's markup, the self-test's response headers
  * and the address the phone last used, the options of the old transaction-id drift, attaching to an order created
- * in the admin, and apostrophes in plain-text emails.
+ * in the admin, and apostrophes and links in plain-text emails.
  *
  * @package QershPay\WooCommerce\Tests
  */
@@ -456,5 +456,37 @@ final class ReviewFindingsFixesTest extends TestCase {
 
 		$odd = View::plain_text_rules( array( '/a/' ), array() );
 		$this->assertSame( array( array( '/a/' ), array() ), $odd, 'lists of different lengths are left alone' );
+	}
+
+	/**
+	 * Both plain templates print their link with esc_url() in its display context, as WooCommerce's own do, which
+	 * writes the `&` between query arguments as `&#038;`: WooCommerce's rules, and ours on top of them, give the
+	 * address back with `&`, so the line is a working link in a text client.
+	 */
+	public function test_plain_text_rules_keep_links(): void {
+		list( $search, $replace ) = $this->woocommerce_plain_rules();
+		$escaped                  = 'Open: https://store.example/wp-admin/admin.php?page=qersh&#038;tab=transfers&#038;view=needs_decision';
+		$plain                    = 'Open: https://store.example/wp-admin/admin.php?page=qersh&tab=transfers&view=needs_decision';
+		$this->assertSame( $plain, preg_replace( $search, $replace, $escaped ), 'WooCommerce alone' );
+
+		list( $ours_search, $ours_replace ) = View::plain_text_rules( $search, $replace );
+		$this->assertSame( $plain, preg_replace( $ours_search, $ours_replace, $escaped ) );
+		$this->assertSame( 'https://store.example/checkout/order-received/1042/?key=wc_order_k7q2m9x4p1rz#qersh-txn', preg_replace( $ours_search, $ours_replace, 'https://store.example/checkout/order-received/1042/?key=wc_order_k7q2m9x4p1rz#qersh-txn' ), 'a link without an ampersand is left alone' );
+	}
+
+	/**
+	 * Templates print, so a URL in them goes through esc_url(), never esc_url_raw(), which sanitizes for storage
+	 * (the wordpress.org review of 2026-10-23).
+	 */
+	public function test_templates_escape_urls_for_output(): void {
+		$root  = QERSH_WC_TESTS_ROOT;
+		$files = array_merge( glob( $root . '/templates/*/*.php' ), glob( $root . '/templates/*/*/*.php' ) );
+		$this->assertContains( $root . '/templates/emails/plain/admin-alert.php', $files );
+		$this->assertContains( $root . '/templates/emails/plain/instructions.php', $files );
+		foreach ( $files as $file ) {
+			$source = qersh_wc_test_fixture( substr( $file, strlen( $root ) + 1 ) );
+			// A call with an argument; a comment may still name esc_url_raw() to say what it is for.
+			$this->assertSame( 0, preg_match( '/esc_url_raw\(\s*[^)\s]/', $source ), substr( $file, strlen( $root ) + 1 ) . ': a URL sanitized for storage at the point of output' );
+		}
 	}
 }

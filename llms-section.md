@@ -4,7 +4,7 @@
 
 Qersh (Qersh Pay) is an Android app that reads the incoming-transfer notifications of e-wallets (Vodafone Cash, Orange Cash, e& money and others) on the merchant's phone and sends a signed webhook to the merchant's server, so orders are confirmed automatically with no payment gateway. Qersh is a wallet notification relay, not a payment service provider.
 
-Plugin: **Qersh for WooCommerce** 0.1.0 (wordpress.org slug `qersh-for-woocommerce`, GPLv2 or later; requires WordPress 6.9, WooCommerce 11.0, PHP 7.4). Repository: https://github.com/e48981652-hash/qersh-for-woocommerce. Docs page: https://qersh.cfd/en/integrations/woocommerce. Gateway id `qersh`, REST namespace `qersh/v1`. Everything below is the plugin README, section by section.
+Plugin: **Qersh for WooCommerce** 0.1.1 (wordpress.org slug `qersh-for-woocommerce`, GPLv2 or later; requires WordPress 6.9, WooCommerce 11.0, PHP 7.4). Repository: https://github.com/e48981652-hash/qersh-for-woocommerce. Docs page: https://qersh.cfd/en/integrations/woocommerce. Gateway id `qersh`, REST namespace `qersh/v1`. Everything below is the plugin README, section by section.
 
 ### What it is
 

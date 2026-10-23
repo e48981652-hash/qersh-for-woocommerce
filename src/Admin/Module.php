@@ -1,7 +1,7 @@
 <?php
 /**
- * The admin side of the plugin: the WooCommerce → Qersh page, its actions, notices, the order box, privacy, the
- * administrator's alert email and the diagnostics hooks.
+ * The admin side of the plugin: the WooCommerce → Qersh page, its actions, the order box, privacy, the
+ * administrator's alert email and the diagnostics hooks. The notices are Notices.
  *
  * @package QershPay\WooCommerce
  */
@@ -38,11 +38,6 @@ final class Module {
 	 * Capability of every screen and action.
 	 */
 	const CAP = 'manage_woocommerce';
-
-	/**
-	 * Option with the ids of dismissed notices (autoload off).
-	 */
-	const NOTICES_OPTION = 'qersh_wc_notices';
 
 	/**
 	 * The action that sends the administrator's alert email: do_action( 'qersh_wc_admin_alert', $kind, $args ).
@@ -99,22 +94,21 @@ final class Module {
 		// A deleted site of a network takes our tables with it.
 		add_filter( 'wpmu_drop_tables', array( __CLASS__, 'drop_tables' ), 10, 2 );
 
+		// Notices hook themselves on the screens they concern only (the WooCommerce-missing line included).
+		Notices::register( $wc_ready );
 		if ( ! $wc_ready ) {
-			add_action( 'admin_notices', array( __CLASS__, 'wc_missing_notice' ) );
 			return;
 		}
 
 		add_action( 'admin_menu', array( __CLASS__, 'menu' ), 60 );
 		add_filter( 'woocommerce_screen_ids', array( __CLASS__, 'screen_ids' ) );
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'enqueue' ) );
-		add_action( 'admin_notices', array( __CLASS__, 'notices' ) );
 		add_filter( 'plugin_action_links_' . plugin_basename( QERSH_WC_FILE ), array( __CLASS__, 'action_links' ) );
 
 		foreach ( self::ACTIONS as $action => $handler ) {
 			add_action( 'admin_post_' . $action, $handler );
 		}
 		add_action( 'wp_ajax_qersh_wc_key_link', array( Wallets::class, 'ajax_key_link' ) );
-		add_action( 'wp_ajax_qersh_wc_notice_dismiss', array( __CLASS__, 'ajax_dismiss_notice' ) );
 
 		add_action( 'add_meta_boxes', array( OrderBox::class, 'add' ), 30, 2 );
 
@@ -207,22 +201,6 @@ final class Module {
 	public static function is_our_screen(): bool {
 		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
 		return $screen && self::screen_id() === $screen->id;
-	}
-
-	/**
-	 * True on a WooCommerce screen (ours included).
-	 *
-	 * @return bool
-	 */
-	public static function is_wc_screen(): bool {
-		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-		if ( ! $screen ) {
-			return false;
-		}
-		if ( self::screen_id() === $screen->id ) {
-			return true;
-		}
-		return function_exists( 'wc_get_screen_ids' ) && in_array( $screen->id, wc_get_screen_ids(), true );
 	}
 
 	/**
@@ -321,14 +299,14 @@ final class Module {
 	}
 
 	/**
-	 * Scripts and styles: everything on our page, the stylesheet on the order screens.
+	 * Scripts and styles: on our page, on the order screens (the box) and on every screen a notice of ours may appear
+	 * (its dismissal is remembered by the script); nowhere else.
 	 *
 	 * @param string $hook_suffix Hook suffix of the screen.
 	 */
 	public static function enqueue( $hook_suffix ): void {
-		$ours  = self::screen_id() === $hook_suffix || self::is_our_screen();
-		$order = OrderBox::is_order_screen();
-		if ( ! $ours && ! $order && ! self::is_wc_screen() ) {
+		$ours = self::screen_id() === $hook_suffix || self::is_our_screen();
+		if ( ! $ours && ! OrderBox::is_order_screen() && '' === Notices::current_kind() ) {
 			return;
 		}
 		wp_enqueue_style( 'qersh-wc-admin', QERSH_WC_URL . 'assets/css/admin.css', array(), Plugin::asset_version( 'assets/css/admin.css' ) );
@@ -339,7 +317,7 @@ final class Module {
 			'ajaxUrl'      => admin_url( 'admin-ajax.php' ),
 			'postUrl'      => admin_url( 'admin-post.php' ),
 			'keyLinkNonce' => wp_create_nonce( 'qersh_wc_key_link' ),
-			'noticeNonce'  => wp_create_nonce( 'qersh_wc_notice_dismiss' ),
+			'noticeNonce'  => wp_create_nonce( Notices::DISMISS_ACTION ),
 			'cancelNonce'  => wp_create_nonce( 'qersh_wc_key_pending_cancel' ),
 			'qrHideMs'     => 5 * MINUTE_IN_SECONDS * 1000,
 		);
@@ -357,116 +335,6 @@ final class Module {
 		$links = is_array( $links ) ? $links : array();
 		array_unshift( $links, '<a href="' . esc_url( self::page_url( 'wallets' ) ) . '">' . esc_html__( 'Wallets', 'qersh-for-woocommerce' ) . '</a>' );
 		return $links;
-	}
-
-	/*
-	 * ---------------------------------------------------------------------------------------------------------------
-	 * Notices (our screens and WooCommerce screens only, dismissible, gone when their cause is gone).
-	 * ---------------------------------------------------------------------------------------------------------------
-	 */
-
-	/**
-	 * Prints the alerts of Diagnostics.
-	 */
-	public static function notices(): void {
-		if ( ! current_user_can( self::CAP ) || ! self::is_wc_screen() ) {
-			return;
-		}
-		$ours   = self::is_our_screen();
-		$cards  = $ours && 'wallets' === self::current_tab();
-		$alerts = self::active_alerts( $ours );
-		$hidden = self::dismissed();
-		$keep   = array();
-		foreach ( $alerts as $alert ) {
-			if ( in_array( $alert['id'], $hidden, true ) ) {
-				$keep[] = $alert['id'];
-				continue;
-			}
-			if ( ( ! $ours && 'info' === $alert['level'] ) || ( $cards && '' !== $alert['wallet'] ) ) {
-				continue; // On the Wallets tab each wallet's alerts are in its card.
-			}
-			$class = 'error' === $alert['level'] ? 'notice-error' : ( 'warning' === $alert['level'] ? 'notice-warning' : 'notice-info' );
-			$link  = '';
-			if ( ! $ours ) {
-				$link = ' <a href="' . esc_url( self::page_url( '' === $alert['wallet'] ? 'status' : 'wallets' ) ) . '">' . esc_html__( 'Open Qersh', 'qersh-for-woocommerce' ) . '</a>';
-			}
-			echo '<div class="notice ' . esc_attr( $class ) . ' is-dismissible qersh-wc-notice" data-qersh-notice="' . esc_attr( $alert['id'] ) . '"><p><strong>' . esc_html__( 'Qersh:', 'qersh-for-woocommerce' ) . '</strong> ' . wp_kses( $alert['message'] . $link, View::allowed_html() ) . '</p></div>';
-		}
-		if ( $ours ) {
-			// Forget dismissals whose cause is gone, so the list never grows and a new episode shows again.
-			$stored = self::dismissed();
-			if ( count( $keep ) !== count( $stored ) ) {
-				update_option( self::NOTICES_OPTION, array_values( array_unique( $keep ) ), false );
-			}
-		}
-	}
-
-	/**
-	 * Every alert now: site-wide, then each wallet's.
-	 *
-	 * @param bool $ours True on our page.
-	 * @return array[]
-	 */
-	public static function active_alerts( bool $ours ): array {
-		$diagnostics = self::plugin()->diagnostics();
-		$alerts      = $diagnostics->global_alerts( $ours );
-		if ( self::plugin()->tables_ready() ) {
-			foreach ( self::plugin()->config()['wallets'] as $wallet ) {
-				if ( is_array( $wallet ) && isset( $wallet['id'] ) ) {
-					$alerts = array_merge( $alerts, $diagnostics->wallet_alerts( (string) $wallet['id'] ) );
-				}
-			}
-		}
-		return $alerts;
-	}
-
-	/**
-	 * Ids of dismissed notices.
-	 *
-	 * @return string[]
-	 */
-	public static function dismissed(): array {
-		$ids = get_option( self::NOTICES_OPTION, array() );
-		return is_array( $ids ) ? array_values( array_filter( $ids, 'is_string' ) ) : array();
-	}
-
-	/**
-	 * AJAX: remembers a dismissed notice.
-	 */
-	public static function ajax_dismiss_notice(): void {
-		if ( ! isset( $_SERVER['REQUEST_METHOD'] ) || 'POST' !== strtoupper( sanitize_key( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) ) {
-			wp_send_json( array( 'code' => 'qersh_method' ), 405 );
-		}
-		if ( ! check_ajax_referer( 'qersh_wc_notice_dismiss', 'nonce', false ) || ! current_user_can( self::CAP ) ) {
-			wp_send_json( array( 'code' => 'qersh_forbidden' ), 403 );
-		}
-		$id = isset( $_POST['notice'] ) ? sanitize_text_field( wp_unslash( $_POST['notice'] ) ) : '';
-		if ( '' === $id || strlen( $id ) > 160 ) {
-			wp_send_json( array( 'code' => 'qersh_invalid' ), 400 );
-		}
-		$ids = self::dismissed();
-		if ( ! in_array( $id, $ids, true ) ) {
-			$ids[] = $id;
-			update_option( self::NOTICES_OPTION, array_slice( $ids, -200 ), false );
-		}
-		wp_send_json( array( 'ok' => true ) );
-	}
-
-	/**
-	 * WooCommerce is active but older than the minimum: one line on the plugins screen.
-	 */
-	public static function wc_missing_notice(): void {
-		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-		if ( ! $screen || 'plugins' !== $screen->id || ! current_user_can( 'activate_plugins' ) ) {
-			return;
-		}
-		echo '<div class="notice notice-warning"><p>' . esc_html(
-			sprintf(
-				/* translators: %s: WooCommerce version number. */
-				__( 'Qersh for WooCommerce needs WooCommerce %s or later, active.', 'qersh-for-woocommerce' ),
-				QERSH_WC_MIN_WC
-			)
-		) . '</p></div>';
 	}
 
 	/*

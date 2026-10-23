@@ -572,7 +572,7 @@ final class Diagnostics {
 		if ( ! $this->plugin instanceof Plugin ) {
 			return $out;
 		}
-		// On admin screens (Admin\Module::notices(), the status page) SHOW TABLES too, so the alert never waits for a
+		// On admin screens (Admin\Notices::print_alerts(), the status page) SHOW TABLES too, so the alert never waits for a
 		// query to notice a missing table; never on the storefront or the routes (five queries).
 		if ( ! $this->plugin->tables_ready() || ( is_admin() && ! Schema::tables_exist() ) ) {
 			$add( 'tables', 'error', 'tables', esc_html__( 'The Qersh tables are missing, so the store answers the phone 503 and no transfer is recorded. Deactivate and activate Qersh for WooCommerce, and check that the database user may create tables.', 'qersh-for-woocommerce' ) );

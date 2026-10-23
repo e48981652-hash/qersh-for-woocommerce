@@ -2,6 +2,13 @@
 
 All notable changes to Qersh for WooCommerce. Versions are bare tags (`0.1.0`, never `v0.1.0`), and each one matches `Version` in `qersh-for-woocommerce.php` and `Stable tag` in `readme.txt`. The wordpress.org changelog in `readme.txt` is the short form of this file, for the newest versions that fit in its 10 KB; this file keeps every version.
 
+## 0.1.1 (2026-10-23)
+
+Changes asked by the WordPress.org plugin review of 2026-10-23:
+
+- The plain-text emails (the administrator's alert and the customer's instructions) print their link through `esc_url()`, as WooCommerce's own plain templates do; they used `esc_url_raw()`, which sanitizes a URL for storage and is not an output escape. The rest of the plugin was searched for the same class of issue.
+- Admin notices appear only on the plugin's page, on WooCommerce → Settings → Payments and on the order screens (errors only there), hooked per screen and printed through `wp_admin_notice()`; every notice, the WooCommerce-missing line on the Plugins screen included, is dismissible and stays dismissed until its cause is gone. Nothing of the plugin prints on the Dashboard or any other unrelated screen.
+
 ## 0.1.0 (2026-10-19)
 
 First release, for submission to wordpress.org.

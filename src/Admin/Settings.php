@@ -239,7 +239,7 @@ final class Settings {
 		header( 'Content-Type: application/json; charset=utf-8' );
 		header( 'Content-Disposition: attachment; filename="qersh-for-woocommerce-settings-' . gmdate( 'Y-m-d' ) . '.json"' );
 		header( 'X-Content-Type-Options: nosniff' );
-		echo is_string( $json ) ? $json : '{}'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- a JSON file download, not HTML.
+		echo is_string( $json ) ? $json : '{}'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- the body of the application/json attachment declared above, built by wp_json_encode(); an HTML escape would corrupt the file.
 		exit;
 	}
 }

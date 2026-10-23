@@ -3,9 +3,9 @@
 # This file is distributed under the GPLv2 or later.
 msgid ""
 msgstr ""
-"Project-Id-Version: Qersh for WooCommerce 0.1.0\n"
+"Project-Id-Version: Qersh for WooCommerce 0.1.1\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/qersh-for-woocommerce\n"
-"POT-Creation-Date: 2026-10-18T16:14:03+00:00\n"
+"POT-Creation-Date: 2026-10-23T16:25:25+00:00\n"
 "PO-Revision-Date: 2026-10-18 11:56+0000\n"
 "Last-Translator: Qersh <support@qersh.cfd>\n"
 "Language-Team: Arabic\n"
@@ -30,8 +30,8 @@ msgid "Confirms WooCommerce orders paid by e-wallet transfer, using the Qersh ap
 msgstr "يؤكد طلبات WooCommerce المدفوعة بتحويل من محفظة إلكترونية، بتطبيق قرش على الهاتف الذي تصله رسائل محفظتك."
 
 #. Author of the plugin
-#: src/Admin/Module.php:154
-#: src/Admin/Module.php:158
+#: src/Admin/Module.php:148
+#: src/Admin/Module.php:152
 #: src/Admin/OrderBox.php:60
 #: templates/admin/page.php:17
 msgid "Qersh"
@@ -41,53 +41,53 @@ msgstr "قرش"
 msgid "https://qersh.cfd/en/"
 msgstr "https://qersh.cfd/"
 
-#: src/Admin/Module.php:264
-#: src/Admin/Module.php:490
+#: src/Admin/Module.php:242
+#: src/Admin/Module.php:358
 msgid "Sorry, you are not allowed to manage this store."
 msgstr "عذرًا، لا تملك صلاحية إدارة هذا المتجر."
 
-#: src/Admin/Module.php:276
-#: src/Admin/Module.php:358
+#: src/Admin/Module.php:254
+#: src/Admin/Module.php:336
 msgid "Wallets"
 msgstr "المحافظ"
 
-#: src/Admin/Module.php:277
+#: src/Admin/Module.php:255
 msgid "Transfers"
 msgstr "التحويلات"
 
-#: src/Admin/Module.php:278
+#: src/Admin/Module.php:256
 msgid "Settings"
 msgstr "الإعدادات"
 
-#: src/Admin/Module.php:279
+#: src/Admin/Module.php:257
 #: src/Admin/TransfersTable.php:72
 msgid "Status"
 msgstr "الحالة"
 
 #. translators: 1: link to the app download page, 2: support email address.
-#: src/Admin/Module.php:303
+#: src/Admin/Module.php:281
 #: src/Gateway.php:85
 #, php-format
 msgid "Works with the paid Qersh Android app (monthly subscription) on the phone that receives your wallet's messages. Get the app: %1$s. Support: the plugin's forum on wordpress.org or %2$s."
 msgstr "تعمل مع تطبيق قرش المدفوع (اشتراك شهري) على الهاتف الذي تصله رسائل محفظتك. احصل على التطبيق: %1$s. الدعم: منتدى الإضافة على wordpress.org أو %2$s."
 
-#: src/Admin/Module.php:391
+#: src/Admin/Module.php:355
+msgid "This action needs a form submission."
+msgstr "يحتاج هذا الإجراء إلى إرسال نموذج."
+
+#: src/Admin/Notices.php:288
 msgid "Open Qersh"
 msgstr "افتح قرش"
 
-#: src/Admin/Module.php:393
+#: src/Admin/Notices.php:291
 msgid "Qersh:"
 msgstr "قرش:"
 
 #. translators: %s: WooCommerce version number.
-#: src/Admin/Module.php:466
+#: src/Admin/Notices.php:321
 #, php-format
 msgid "Qersh for WooCommerce needs WooCommerce %s or later, active."
 msgstr "تحتاج Qersh for WooCommerce إلى WooCommerce %s أو أحدث، مفعّلًا."
-
-#: src/Admin/Module.php:487
-msgid "This action needs a form submission."
-msgstr "يحتاج هذا الإجراء إلى إرسال نموذج."
 
 #: src/Admin/OrderBox.php:139
 msgid "The wait for the transfer has not started yet. Send the customer the payment page (Order actions → “Send order details to customer”) so they enter the number they will transfer from, or attach their transfer from “Personal transfers” if they transferred before the order was created."
@@ -2439,7 +2439,7 @@ msgstr "من رقمك: %s"
 
 #. translators: %s: link to the order page.
 #: templates/emails/instructions.php:111
-#: templates/emails/plain/instructions.php:71
+#: templates/emails/plain/instructions.php:74
 #, php-format
 msgid "If the store cannot see the number you transferred from, you can enter the transaction id on your order page: %s"
 msgstr "إن كان المتجر لا يرى الرقم الذي حوّلت منه فتستطيع أن تكتب رقم العملية في صفحة طلبك: %s"

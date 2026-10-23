@@ -21,7 +21,11 @@ foreach ( $lines as $qersh_wc_line ) {
 	echo esc_html( wp_strip_all_tags( $qersh_wc_line ) ) . "\n\n";
 }
 
-echo esc_html( wp_strip_all_tags( $action_label ) ) . ': ' . esc_url_raw( $action_url ) . "\n\n";
+// The address as WooCommerce's own plain templates print theirs (emails/plain/customer-invoice.php): esc_url() in its
+// display context, which writes the `&` between the query arguments as `&#038;`. WC_Email::get_content() maps that
+// entity back to `&` with its plain-text rules before the email is sent, so the line stays a working link in a text
+// client. esc_url_raw() sanitizes a URL for storage and is not an output escape.
+echo esc_html( wp_strip_all_tags( $action_label ) ) . ': ' . esc_url( $action_url ) . "\n\n";
 
 echo "\n----------------------------------------\n\n";
 

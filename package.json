@@ -1,6 +1,6 @@
 {
 	"name": "qersh-for-woocommerce-dev",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"private": true,
 	"description": "Development and test tools of Qersh for WooCommerce. The plugin itself has no JavaScript build and no runtime dependency.",
 	"license": "GPL-2.0-or-later",

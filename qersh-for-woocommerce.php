@@ -3,7 +3,7 @@
  * Plugin Name:          Qersh for WooCommerce
  * Plugin URI:           https://qersh.cfd/en/integrations/woocommerce
  * Description:          Confirms WooCommerce orders paid by e-wallet transfer, using the Qersh app on the phone that receives your wallet's messages.
- * Version:              0.1.0
+ * Version:              0.1.1
  * Requires at least:    6.9
  * Requires PHP:         7.4
  * Requires Plugins:     woocommerce
@@ -21,7 +21,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'QERSH_WC_VERSION', '0.1.0' );
+define( 'QERSH_WC_VERSION', '0.1.1' );
 define( 'QERSH_WC_FILE', __FILE__ );
 define( 'QERSH_WC_DIR', plugin_dir_path( __FILE__ ) );
 define( 'QERSH_WC_URL', plugin_dir_url( __FILE__ ) );
